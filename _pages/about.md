@@ -22,7 +22,7 @@ My current research interest lies in **Deep Model Reuse** and its Applications:
 - **ML and Applications**: Call me a machine learning fanatic (my brain's practically an algorithm by now), I particularly interested in its applications within computer vision and multimodal areas – all, hopefully, with a side of solid theory. 
 
 <!-- My work centers on generative models (especially diffusion-based), representation learning, trustworthy learning (emphasizing interpretability and robustness), and graph learning. -->
-- <!-- - Efficiency, that empowers the AI learn with minimum computation and data requirement.  -->
+<!-- - Efficiency, that empowers the AI learn with minimum computation and data requirement.  -->
 <!-- - Data Efficency. Focus on self-supervised & semi-supervised & weak-supervised learning or learning with synthesized data. -->
 
 [CV](http://adamdad.github.io/files/Resume_Xingyi_Yang_202305715.pdf)
