@@ -18,7 +18,7 @@ redirect_from:
 
 My current research interest lies in **Deep Model Reuse** and its Applications:
 - **Deep Model Reuse**: Here, I teach AI systems to mimic students, learning new tricks from older models and human gurus, to become Jacks of all trades. Or, towards Artificial General Intelligence (AGI).
-- **Compositionality**: This is like playing a game of LEGO, where I piece together elements from various tasks, concepts, and logic, crafting cost-effective AI masterpieces.
+- **Compositionality & Modularity**: This is like playing a game of LEGO, where I piece together elements from various tasks, concepts, and logic, crafting cost-effective AI masterpieces.
 - **ML and Applications**: Call me a machine learning fanatic (my brain's practically an algorithm by now), I particularly interested in its applications within computer vision and multimodal areas – all, hopefully, with a side of solid theory. 
 
 <!-- My work centers on generative models (especially diffusion-based), representation learning, trustworthy learning (emphasizing interpretability and robustness), and graph learning. -->
