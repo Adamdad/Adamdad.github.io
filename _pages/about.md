@@ -14,13 +14,16 @@ redirect_from:
 }
 </style>
 
- 🚀👨‍💻🥁💡Hi, my name is Xingyi Yang (Adam)💡🥁👨‍💻🚀. I am a second-year Ph.D student at [National University of Singapore(NUS)](https://www.nus.edu.sg/), affiliated with the remarkable [Learning and Vision Lab](http://www.lv-nus.org). I am working under the supervision of [Prof.Xinchao Wang](https://www.eng.nus.edu.sg/ece/staff/wang-xinchao/). 
+ 🚀👨‍💻🥁💡Hi, my name is Xingyi Yang (Adam)💡🥁👨‍💻🚀. I am a third-year Ph.D student at [National University of Singapore(NUS)](https://www.nus.edu.sg/), affiliated with the [Learning and Vision Lab](http://www.lv-nus.org). I am working under the supervision of [Prof.Xinchao Wang](https://www.eng.nus.edu.sg/ece/staff/wang-xinchao/). 
 
-My current research interest lies in Efficent AI and Statitical ML:
-- Knowledge Efficiency, that empowers the AI systems to learn new tasks with the knowledge from trained models and human experts. 
-- Data Efficency. Focus on self-supervised & semi-supervised & weak-supervised learning or learning with synthesized data.
-- Statitical ML. Focus on statitical modelling, generative models (diffusion-based models), trust-worthy learning (interpretability and robustness) and graph learning, ideally, with theoretical basis or guarantee.
+My current research interest lies in **Deep Model Reuse** and its Applications:
+- **Deep Model Reuse**: Here, I teach AI systems to mimic students, learning new tricks from older models and human gurus, to become Jacks of all trades. Or, towards Artificial General Intelligence (AGI).
+- **Compositionality**: This is like playing a game of LEGO, where I piece together elements from various tasks, concepts, and logic, crafting cost-effective AI masterpieces.
+- **ML and Applications**: Call me a machine learning fanatic (my brain's practically an algorithm by now), I particularly interested in its applications within computer vision and multimodal areas – all, hopefully, with a side of solid theory. 
 
+<!-- My work centers on generative models (especially diffusion-based), representation learning, trustworthy learning (emphasizing interpretability and robustness), and graph learning. -->
+- <!-- - Efficiency, that empowers the AI learn with minimum computation and data requirement.  -->
+<!-- - Data Efficency. Focus on self-supervised & semi-supervised & weak-supervised learning or learning with synthesized data. -->
 
 [CV](http://adamdad.github.io/files/Resume_Xingyi_Yang_202305715.pdf)
 
