@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="description"
+        content="a novel knowledge-transfer task, termed as Deep  Model Reassembly (DeRy), for general-purpose model reuse.">
+  <meta name="keywords" content="Transfer Learning, Model Reassembly">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Neural Metamorphosis</title>
+
+  <!-- Global site tag (gtag.js) - Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-PYVRSFMDRL"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+
+    function gtag() {
+      dataLayer.push(arguments);
+    }
+
+    gtag('js', new Date());
+
+    gtag('config', 'G-PYVRSFMDRL');
+  </script>
+
+  <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro"
+        rel="stylesheet">
+
+  <link rel="stylesheet" href="./static/css/bulma.min.css">
+  <link rel="stylesheet" href="./static/css/bulma-carousel.min.css">
+  <link rel="stylesheet" href="./static/css/bulma-slider.min.css">
+  <link rel="stylesheet" href="./static/css/fontawesome.all.min.css">
+  <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+  <link rel="stylesheet" href="./static/css/index.css">
+  <link rel="icon" href="./static/images/lv-logo.jpg">
+
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script defer src="./static/js/fontawesome.all.min.js"></script>
+  <script src="./static/js/bulma-carousel.min.js"></script>
+  <script src="./static/js/bulma-slider.min.js"></script>
+  <script src="./static/js/index.js"></script>
+</head>
+<body>
+
+<nav class="navbar" role="navigation" aria-label="main navigation">
+  <div class="navbar-brand">
+    <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false">
+      <span aria-hidden="true"></span>
+      <span aria-hidden="true"></span>
+      <span aria-hidden="true"></span>
+    </a>
+  </div>
+  <div class="navbar-menu">
+    <div class="navbar-start" style="flex-grow: 1; justify-content: center;">
+      <a class="navbar-item" href="https://keunhong.com">
+      <span class="icon">
+          <i class="fas fa-home"></i>
+      </span>
+      </a>
+
+      <div class="navbar-item has-dropdown is-hoverable">
+        <a class="navbar-link">
+          More Research
+        </a>
+        <div class="navbar-dropdown">
+          <a class="navbar-item" href="https://github.com/Adamdad/KnowledgeFactor">
+            KnowledgeFactor
+          </a>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</nav>
+
+
+<section class="hero">
+  <div class="hero-body">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column has-text-centered">
+          <h1 class="title is-1 publication-title">Deep Model Reassembly<br>NeurIPS 2022</h1>
+          <div class="is-size-5 publication-authors">
+            <span class="author-block">
+              <a href="https://adamdad.github.io">Xingyi Yang</a><sup>1</sup>,</span>
+            <span class="author-block">
+              <a href="https://scholar.google.com/citations?user=DdCAbWwAAAAJ&hl=en">Daquan Zhou</a><sup>1</sup><sup>2</sup>,</span>
+            <span class="author-block">
+              <a href="http://121.37.94.87">Songhua Liu</a><sup>1</sup>,
+            </span>
+            <span class="author-block">
+              <a href="https://scholar.google.com/citations?user=8GQnNP0AAAAJ">Jingwen Ye</a><sup>1</sup>,
+            </span>
+            <span class="author-block">
+              <a href="https://sites.google.com/site/sitexinchaowang/">Xinchao Wang</a><sup>1</sup>,
+            </span>
+          </div>
+
+          <div class="is-size-5 publication-authors">
+            <span class="author-block"><sup>1</sup>National University of Singapore,</span>
+            <span class="author-block"><sup>2</sup>Bytedance</span>
+          </div>
+
+          <div class="column has-text-centered">
+            <div class="publication-links">
+              <!-- PDF Link. -->
+              <span class="link-block">
+                <a href="https://openreview.net/forum?id=gtCPWaY5bNh"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="fas fa-file-pdf"></i>
+                  </span>
+                  <span>Paper</span>
+                </a>
+              </span>
+              <span class="link-block">
+                <a href="https://arxiv.org/abs/2210.17409"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="ai ai-arxiv"></i>
+                  </span>
+                  <span>arXiv</span>
+                </a>
+              </span>
+              <!-- Video Link. -->
+              <span class="link-block">
+                <a href="https://www.youtube.com/watch?v=q3WHjFWJ8w4"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="fab fa-youtube"></i>
+                  </span>
+                  <span>Video</span>
+                </a>
+              </span>
+              <!-- Code Link. -->
+              <span class="link-block">
+                <a href="https://github.com/Adamdad/DeRy"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="fab fa-github"></i>
+                  </span>
+                  <span>Code</span>
+                  </a>
+              </span>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="hero teaser">
+  <div class="container is-max-desktop">
+    <div class="hero-body">
+      <!-- <video id="teaser" autoplay muted loop playsinline height="100%">
+        <source src="https://homes.cs.washington.edu/~kpar/nerfies/videos/teaser.mp4"
+                type="video/mp4">
+      </video> -->
+      <img src="./static/images/neumeta_annimation.gif" alt="DeRy pipeline">
+      <h2 class="subtitle has-text-centered">
+        <span class="dnerf">DeRy</span> partitions pre-trained models into equivalent sets of neural blocks and
+        then reassemble them for downstream transfer.
+      </h2>
+    </div>
+  </div>
+</section>
+
+
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <!-- Abstract. -->
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3">Abstract</h2>
+        <div class="content has-text-justified">
+          <p>
+            This paper introduces a novel paradigm termed <span class="dnerf">Neural Metamorphosis (NeuMeta)</span>, 
+            which aims to represent a continuous family of networks single versatile model. 
+          </p>
+          <p>
+            Unlike traditional methods that rely on separate models for different network tasks or sizes, 
+            NeuMeta enables an expansive continuum of neural networks that readily morph to fit various needs. 
+            The core mechanism is to train a neural implicit function that takes the desired network size 
+            and parameter coordinates as inputs, and generates exact corresponding weight values without 
+            requiring separate models for different configurations. Specifically, to achieve weight smoothness 
+            in a single model, we address the Shortest Hamiltonian Path problem within each neural clique graph. 
+            We maintain cross-model consistency by incorporating input noise during training. As such, 
+            NeuMeta may dynamically create arbitrary network parameters during the inference stage by 
+            sampling on the weight manifold. NeuMeta shows promising results in synthesizing parameters 
+            for unseen network configurations. Our extensive tests in image classification, semantic 
+            segmentation, and image generation reveal that NeuMeta sustains full-size performance even 
+            at a 75\% compression rate.
+          </p>
+        </div>
+      </div>
+    </div>
+    <!--/ Abstract. -->
+
+    <!-- Paper video. -->
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3">Video</h2>
+        <div class="publication-video">
+          <iframe width="560" height="315" src="https://www.youtube.com/embed/q3WHjFWJ8w4?controls=0" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+        </div>
+      </div>
+    </div>
+    <!--/ Paper video. -->
+  </div>
+</section>
+
+
+<section class="section">
+  <div class="container is-max-desktop">
+
+    <!-- Concurrent Work. -->
+    <div class="columns is-centered">
+      <div class="column is-full-width">
+        <h2 class="title is-3">Related Resource</h2>
+
+        <div class="content has-text-justified">
+          <p>
+            Our team is trying to unleash power of pre-trained models by modularizing the network design. Here are some related papers or projects.
+          </p>
+          <ul>
+            <li><p>
+              <a href="https://arxiv.org/abs/2207.03337"><b>Factorizing knowledge in neural networks</b></a> <br>
+              Xingyi Yang, Jingwen Ye, Xinchao Wang<br>
+              ECCV 2022
+            </p></li>
+            <li><p>
+              <a href="https://arxiv.org/abs/2207.08224"><b>Learning with Recoverable Forgetting</b></a> <br>
+              Jingwen Ye, Yifang Fu, Jie Song, Xingyi Yang, Songhua Liu, Xin Jin, Mingli Song, Xinchao Wang <br>
+              ECCV 2022
+            </p></li>
+            <li><p>
+              <a herf="https://blog.google/technology/ai/introducing-pathways-next-generation-ai-architecture/">Google PathWay</a> 
+              is a new AI architecture that will handle many tasks at once, with sparse activated neurons.
+            </p></li>
+          </ul>
+          
+        </div>
+      </div>
+    </div>
+    <!--/ Concurrent Work. -->
+
+  </div>
+</section>
+
+
+<section class="section" id="BibTeX">
+  <div class="container is-max-desktop content">
+    <h2 class="title">BibTeX</h2>
+    <pre><code>@article{yang2023neumeta,
+  author    = {Xingyi Yang, inchao Wang},
+  title     = {Neural Metamorphosis},
+  journal   = {arxiv},
+  year      = {2023},
+}</code></pre>
+  </div>
+</section>
+
+
+<footer class="footer">
+  <div class="container">
+    <div class="content has-text-centered">
+      <a class="icon-link"
+         href="">
+        <i class="fas fa-file-pdf"></i>
+      </a>
+      <a class="icon-link" href="https://github.com/Adamdad" class="external-link" disabled>
+        <i class="fab fa-github"></i>
+      </a>
+    </div>
+    <div class="columns is-centered">
+      <div class="column is-8">
+        <div class="content">
+          <p>
+            This webpage template is from <a href="https://github.com/nerfies/nerfies.github.io">Nerfies</a>. We sincerely thank <a herf="https://keunhong.com">Keunhong Park</a> for developing and open-sourcing this template.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
