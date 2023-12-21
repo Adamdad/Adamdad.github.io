@@ -26,10 +26,10 @@ I got my master's degree in Electrical and Computer Engineering from [University
 --------
 ## Work experience
 
-* <img src="..\images\tiktok.png" alt="drawing" style="width:50px;" align="middle" border="3"/> TikTok *Reseach Intern* | Summer 2022
+<!-- * <img src="..\images\tiktok.png" alt="drawing" style="width:50px;" align="middle" border="3"/> TikTok *Reseach Intern* | Summer 2022
   
   * Supervisor: [Dr.Daquan Zhou](https://scholar.google.com/citations?user=DdCAbWwAAAAJ&hl=en) and [Dr.Jiashi Feng](https://sites.google.com/site/jshfeng)
-  * Efficient Diffusion Model
+  * Efficient Diffusion Model -->
 
 * <img src="..\images\sensetime.png" alt="drawing" style="width:50px;" align="middle" border="3"/> Sensetime Research&<img src="..\images\shailab.jpg" alt="drawing" style="width:50px;" align="middle" border="3"/> Shanghai AI lab *Reseach Intern* | Spring 2021
   
