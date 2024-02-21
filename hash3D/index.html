@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="description"
+        content="a novel knowledge-transfer task, termed as Deep  Model Reassembly (DeRy), for general-purpose model reuse.">
+  <meta name="keywords" content="Transfer Learning, Model Reassembly">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hash3D</title>
+
+  <!-- Global site tag (gtag.js) - Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-PYVRSFMDRL"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+
+    function gtag() {
+      dataLayer.push(arguments);
+    }
+
+    gtag('js', new Date());
+
+    gtag('config', 'G-PYVRSFMDRL');
+  </script>
+
+  <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro"
+        rel="stylesheet">
+
+  <link rel="stylesheet" href="./static/css/bulma.min.css">
+  <link rel="stylesheet" href="./static/css/bulma-carousel.min.css">
+  <link rel="stylesheet" href="./static/css/bulma-slider.min.css">
+  <link rel="stylesheet" href="./static/css/fontawesome.all.min.css">
+  <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+  <link rel="stylesheet" href="./static/css/index.css">
+  <link rel="icon" href="./static/images/lv-logo.jpg">
+
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script defer src="./static/js/fontawesome.all.min.js"></script>
+  <script src="./static/js/bulma-carousel.min.js"></script>
+  <script src="./static/js/bulma-slider.min.js"></script>
+  <script src="./static/js/index.js"></script>
+</head>
+<body>
+
+<!-- <nav class="navbar" role="navigation" aria-label="main navigation">
+  <div class="navbar-brand">
+    <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false">
+      <span aria-hidden="true"></span>
+      <span aria-hidden="true"></span>
+      <span aria-hidden="true"></span>
+    </a>
+  </div>
+  <div class="navbar-menu">
+    <div class="navbar-start" style="flex-grow: 1; justify-content: center;">
+      <a class="navbar-item" href="https://keunhong.com">
+      <span class="icon">
+          <i class="fas fa-home"></i>
+      </span>
+      </a>
+
+      <div class="navbar-item has-dropdown is-hoverable">
+        <a class="navbar-link">
+          More Research
+        </a>
+        <div class="navbar-dropdown">
+          <a class="navbar-item" href="https://github.com/Adamdad/KnowledgeFactor">
+            KnowledgeFactor
+          </a>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</nav> -->
+
+
+<section class="hero">
+  <div class="hero-body">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column has-text-centered">
+          <h1 class="title is-1 publication-title">Hash3D<br> Accelerate 3D Generative Model for Free<br><small>Preprint</small></h1>
+          <div class="is-size-5 publication-authors">
+            <span class="author-block">
+              <a href="https://adamdad.github.io">Xingyi Yang</a>,</span> 
+            <span class="author-block">
+              <a href="https://sites.google.com/site/sitexinchaowang/">Xinchao Wang</a>
+            </span>
+          </div>
+
+          <div class="is-size-5 publication-authors">
+            <span class="author-block">National University of Singapore</span>
+          </div>
+
+          <div class="column has-text-centered">
+            <div class="publication-links">
+              <!-- PDF Link. -->
+              <span class="link-block">
+                <a href="https://openreview.net/forum?id=gtCPWaY5bNh"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="fas fa-file-pdf"></i>
+                  </span>
+                  <span>Paper</span>
+                </a>
+              </span>
+              <span class="link-block">
+                <a href="https://arxiv.org/abs/2210.17409"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="ai ai-arxiv"></i>
+                  </span>
+                  <span>arXiv</span>
+                </a>
+              </span>
+              <!-- Video Link. -->
+              <span class="link-block">
+                <a href="https://www.youtube.com/watch?v=q3WHjFWJ8w4"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="fab fa-youtube"></i>
+                  </span>
+                  <span>Video</span>
+                </a>
+              </span>
+              <!-- Code Link. -->
+              <span class="link-block">
+                <a href="https://github.com/Adamdad/DeRy"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="fab fa-github"></i>
+                  </span>
+                  <span>Code</span>
+                  </a>
+              </span>
+              <!-- Dataset Link.
+              <span class="link-block">
+                <a href="https://github.com/google/nerfies/releases/tag/0.1"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="far fa-images"></i>
+                  </span>
+                  <span>Data</span>
+                  </a> -->
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="hero teaser">
+  <div class="container is-max-desktop">
+    <div class="hero-body">
+      <!-- <video id="teaser" autoplay muted loop playsinline height="100%">
+        <source src="https://homes.cs.washington.edu/~kpar/nerfies/videos/teaser.mp4"
+                type="video/mp4">
+      </video> -->
+      <img src="./static/images/pipeline4.jpg" alt="DeRy pipeline">
+      <img src="./static/images/performance.jpeg" alt="DeRy pipeline">
+      <h2 class="subtitle has-text-centered">
+        <span class="dnerf">Hash3D</span> speeds up 3D generative model by caching and reusing these feature maps across
+        neighboring timesteps and camera angles. It saves the running time by 20%~75%.
+      </h2>
+    </div>
+  </div>
+</section>
+
+
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <!-- Abstract. -->
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3">Abstract</h2>
+        <div class="content has-text-justified">
+          <p>
+            The evolution of 3D generative modeling has been notably propelled by the adoption of 2D diffusion models. Despite this progress, 
+            the cumbersome optimization process per se presents a critical hurdle to efficiency. 
+            In this paper, we introduce <span class="dnerf">Hash3D</span>, an efficient technique that trades space for time for 3D generation without model training. 
+          </p>
+          <p>
+            Central to Hash3D is the insight that feature-map redundancy is prevalent in images rendered from camera positions and diffusion time-steps in close proximity. 
+            By effectively caching and reusing these feature maps across neighboring timesteps and camera angles, Hash3D substantially curtails redundant calculations,
+             thus hastening the diffusion model's inference in 3D generation tasks. Surprisingly, this feature-sharing across score functions not only hastens model 
+             generation but also enhances the smoothness and view consistency of the synthesized 3D objects. Hash3D stands out by boosting processing speeds by 20%~75% without extra training. 
+             Additionally, Hash3D's integration with 3D Gaussian splatting largely speeds up 3D model creation, reducing text-to-3D processing to about 10 minutes and image-to-3D conversion to roughly 30 seconds. 
+             The code is provided in https://github.com/Adamdad/Hash3D.
+          </p>
+        </div>
+      </div>
+    </div>
+    <!--/ Abstract. -->
+
+    <!-- Paper video. -->
+    <!-- <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3">Video</h2>
+        <div class="publication-video">
+          <iframe width="560" height="315" src="https://www.youtube.com/embed/q3WHjFWJ8w4?controls=0" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+        </div>
+      </div>
+    </div> -->
+    <!--/ Paper video. -->
+  </div>
+</section>
+
+<!-- make a table, the first column is a input image and the second column is a video-->
+<section class="section">
+  <div class="container is-max-desktop">
+    <div class="columns is-centered">
+      <div class="column is-full-width">
+        <h2 class="title is-3">Image-to-3D Results</h2>
+        <div class="content has-text-justified">
+          <table>
+            <tr>
+              <th>Input Image</th>
+              <th>Zero-1-to-3</th>
+              <th>Hash3D + Zero-1-to-3<p style="color:red;">(Speed X1.4)</div></th>
+            </tr>
+            <tr>
+              <td><img src="./static/images/baby_phoenix_on_ice.png"></td>
+              <td><video poster="" id="steve" autoplay controls muted loop playsinline height="10%">
+                <source src="./static/videos/phoenix_zero123.mp4"
+                        type="video/mp4">
+              </video></td>
+              <td><video poster="" id="steve" autoplay controls muted loop playsinline height="10%">
+                <source src="./static/videos/phoenix_hash_zero123.mp4"
+                        type="video/mp4">
+              </video></td>
+            </tr>
+            <tr>
+              <td><img src="./static/images/grootplant_rgba.png"></td>
+              <td><video poster="" id="steve" autoplay controls muted loop playsinline height="10%">
+                <source src="./static/videos/grootplant_zero123.mp4"
+                        type="video/mp4">
+              </video></td>
+              <td><video poster="" id="steve" autoplay controls muted loop playsinline height="10%">
+                <source src="./static/videos/grootplant_hash_zero123.mp4"
+                        type="video/mp4">
+              </video></td>
+            </tr>
+            <tr>
+              <td><img src="./static/images/stucking_cups.png"></td>
+              <td><video poster="" id="steve" autoplay controls muted loop playsinline height="10%">
+                <source src="./static/videos/stucking_cups_zero123.mp4"
+                        type="video/mp4">
+              </video></td>
+              <td><video poster="" id="steve" autoplay controls muted loop playsinline height="10%">
+                <source src="./static/videos/stucking_cups_hash_zero123.mp4"
+                        type="video/mp4">
+              </video></td>
+            </tr>
+            <tr>
+              <td><img src="./static/images/shoe1.png"></td>
+              <td><video poster="" id="steve" autoplay controls muted loop playsinline height="10%">
+                <source src="./static/videos/shoe1_zero123.mp4"
+                        type="video/mp4">
+              </video></td>
+              <td><video poster="" id="steve" autoplay controls muted loop playsinline height="10%">
+                <source src="./static/videos/show1_hash_zero123.mp4"
+                        type="video/mp4">
+              </video></td>
+            </tr>
+            <tr>
+              <td><img src="./static/images/dog1_rgba.png"></td>
+              <td><video poster="" id="steve" autoplay controls muted loop playsinline height="10%">
+                <source src="./static/videos/dog1_zero123.mp4"
+                        type="video/mp4">
+              </video></td>
+              <td><video poster="" id="steve" autoplay controls muted loop playsinline height="10%">
+                <source src="./static/videos/dog1_hash_zero123.mp4"
+                        type="video/mp4">
+              </video></td>
+            </tr>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+
+<section class="section">
+  <div class="container is-max-desktop">
+
+    <!-- Concurrent Work. -->
+    <div class="columns is-centered">
+      <div class="column is-full-width">
+        <h2 class="title is-3">Related Resource</h2>
+
+        <div class="content has-text-justified">
+          <p>
+            Our work is inspired by several work that focus on accelerating the inference of diffusion model and 3D reconstruction.
+          </p>
+          <ul>
+            <li><p>
+              <a href="https://arxiv.org/abs/2312.00858"><b>DeepCache: Accelerating Diffusion Models for Free</b></a> <br>
+              Xinyin Ma, Gongfan Fang, Xinchao Wang<br>
+              arxiv 2023
+            </p></li>
+            <li><p>
+              <a href="https://niessnerlab.org/papers/2013/4hashing/niessner2013hashing.pdf"><b>Real-time 3D Reconstruction at Scale using Voxel Hashing</b></a> <br>
+              Matthias Nießner, Michael Zollho ̈fer, Shahram Izadi, Marc Stamminger <br>
+              ToG 2013
+            </p></li>
+          </ul>
+          
+        </div>
+      </div>
+    </div>
+    <!--/ Concurrent Work. -->
+
+  </div>
+</section>
+
+
+<section class="section" id="BibTeX">
+  <div class="container is-max-desktop content">
+    <h2 class="title">BibTeX</h2>
+    <pre><code>@article{yang2024hash3d,
+  author    = {Xingyi Yang, Xinchao Wang},
+  title     = {Hash3D: Accelerate 3D Generative Model for Free}
+}</code></pre>
+  </div>
+</section>
+
+
+<footer class="footer">
+  <div class="container">
+    <div class="content has-text-centered">
+      <a class="icon-link"
+         href="">
+        <i class="fas fa-file-pdf"></i>
+      </a>
+      <a class="icon-link" href="https://github.com/Adamdad" class="external-link" disabled>
+        <i class="fab fa-github"></i>
+      </a>
+    </div>
+    <div class="columns is-centered">
+      <div class="column is-8">
+        <div class="content">
+          <p>
+            This webpage template is from <a href="https://github.com/nerfies/nerfies.github.io">Nerfies</a>. We sincerely thank <a herf="https://keunhong.com">Keunhong Park</a> for developing and open-sourcing this template.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
