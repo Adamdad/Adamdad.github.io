@@ -72,21 +72,27 @@ I got my master's degree in Electrical and Computer Engineering from [University
 * EE5934/6934: Deep Learning, 2022 Spring, Teaching Assistant.
 * EE2211: Introduction to Machine Learning, 2022 Spring, Teaching Assistant.
 
+## Invited Talk 
+* “Deep Model Reuse", Computer Vision Group @ UIUC.
+* "Anything-3d: Towards single-view anything reconstruction in the wild", The Future of 3D Vision in the Era of LLMs Seminar 2023 @ VALSE.
+
 -------
 ## Academic Service
 
 * Co-organizer for NeurIPS 2020 workshop “Self-Supervised Learning – Theory and Practice”, serving as Workflow Chair.
 * Invited Talk on "The Future of 3D Vision in the Era of LLMs", by VALSE.
 * Conference reviewer for 
-  - CVPR 2021, 2022, 2023
-  - NeurIPS 2022， 2023
-  - ICML 2022, 2023
+  - CVPR 2021, 2022, 2023, 2024
+  - NeurIPS 2022, 2023
+  - ICML 2022, 2023, 2024
   - ICLR 2024
-  - ICCV 2021， 2023
-  - ECCV 2022
+  - ICCV 2021, 2023
+  - ECCV 2022, 2024
+  - ACL 2024
   - IJCAI 2021, 2022
   - AAAI 2024
   - ICASSP 2020, 2022
+  - WWW 2024
 
   
 * Journal reviewer for 
