@@ -78,9 +78,8 @@ I got my master's degree in Electrical and Computer Engineering from [University
 
 -------
 ## Academic Service
-
-* Co-organizer for NeurIPS 2020 workshop “Self-Supervised Learning – Theory and Practice”, serving as Workflow Chair.
-* Invited Talk on "The Future of 3D Vision in the Era of LLMs", by VALSE.
+* organizer for CVPR 2024 tutorial "Disentanglement and Compositionality in Computer Vision".
+* organizer for NeurIPS 2020 workshop “Self-Supervised Learning – Theory and Practice”, serving as Workflow Chair.
 * Conference reviewer for 
   - CVPR 2021, 2022, 2023, 2024
   - NeurIPS 2022, 2023
