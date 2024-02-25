@@ -21,6 +21,28 @@
 
     gtag('config', 'G-PYVRSFMDRL');
   </script>
+  <style>
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      border: 1px solid #dddddd;
+      text-align: left;
+      padding: 8px;
+    }
+    th {
+      background-color: #f2f2f2;
+    }
+    video, img {
+      max-height: 150px; /* Adjust based on your preference */
+      max-width: 150px; /* Ensures responsiveness */
+    }
+    .speed-highlight {
+      color: red;
+      font-weight: bold;
+    }
+  </style>
 
   <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro"
         rel="stylesheet">
@@ -158,8 +180,8 @@
         <source src="https://homes.cs.washington.edu/~kpar/nerfies/videos/teaser.mp4"
                 type="video/mp4">
       </video> -->
-      <img src="./static/images/pipeline4.jpg" alt="DeRy pipeline">
-      <img src="./static/images/performance.jpeg" alt="DeRy pipeline">
+      <img src="./static/images/pipeline4.jpg">
+      <img src="./static/images/performance.jpeg">
       <h2 class="subtitle has-text-centered">
         <span class="dnerf">Hash3D</span> speeds up 3D generative model by caching and reusing these feature maps across
         neighboring timesteps and camera angles. It saves the running time by 20%~75%.
@@ -219,7 +241,7 @@
             <tr>
               <th>Input Image</th>
               <th>Zero-1-to-3</th>
-              <th>Hash3D + Zero-1-to-3<p style="color:red;">(Speed X1.4)</div></th>
+              <th>Hash3D + Zero-1-to-3<span class="speed-highlight">(Speed X1.4)</span></th>
             </tr>
             <tr>
               <td><img src="./static/images/baby_phoenix_on_ice.png"></td>
@@ -277,10 +299,76 @@
               </video></td>
             </tr>
           </table>
+          <table>
+            <tr>
+              <th>Input Image</th>
+              <th>DreamGaussian</th>
+              <th>Hash3D + DreamGaussian <span class="speed-highlight">(Speed X4.0)</span></th>
+            </tr>
+            <tr>
+              <td><img src="./static/images/sofa.png" alt="Sofa"></td>
+              <td>
+                <video poster="" autoplay muted loop playsinline>
+                  <source src="./static/videos/dreamgaussian/sofa_stage2.mp4" type="video/mp4">
+                </video>
+                <video poster="" autoplay muted loop playsinline>
+                  <source src="./static/videos/dreamgaussian/sofa_stage2_normal.mp4" type="video/mp4">
+                </video>
+              </td>
+              <td>
+                <video poster="" autoplay muted loop playsinline>
+                  <source src="./static/videos/dreamgaussian_hash/sofa_stage2.mp4" type="video/mp4">
+                </video>
+                <video poster="" autoplay muted loop playsinline>
+                  <source src="./static/videos/dreamgaussian_hash/sofa_stage2_normal.mp4" type="video/mp4">
+                </video>
+              </td>
+            </tr>
+            <tr>
+              <td><img src="./static/images/mario.png" alt="Sofa"></td>
+              <td>
+                <video poster="" autoplay muted loop playsinline>
+                  <source src="./static/videos/dreamgaussian/mario_stage2.mp4" type="video/mp4">
+                </video>
+                <video poster="" autoplay muted loop playsinline>
+                  <source src="./static/videos/dreamgaussian/mario_stage2_normal.mp4" type="video/mp4">
+                </video>
+              </td>
+              <td>
+                <video poster="" autoplay muted loop playsinline>
+                  <source src="./static/videos/dreamgaussian_hash/mario_stage2.mp4" type="video/mp4">
+                </video>
+                <video poster="" autoplay muted loop playsinline>
+                  <source src="./static/videos/dreamgaussian_hash/mario_stage2_normal.mp4" type="video/mp4">
+                </video>
+              </td>
+            </tr>
+            <tr>
+              <td><img src="./static/images/lion.png" alt="Sofa"></td>
+              <td>
+                <video poster="" autoplay muted loop playsinline>
+                  <source src="./static/videos/dreamgaussian/lion_stage2.mp4" type="video/mp4">
+                </video>
+                <video poster="" autoplay muted loop playsinline>
+                  <source src="./static/videos/dreamgaussian/lion_stage2_normal.mp4" type="video/mp4">
+                </video>
+              </td>
+              <td>
+                <video poster="" autoplay muted loop playsinline>
+                  <source src="./static/videos/dreamgaussian_hash/lion_stage2.mp4" type="video/mp4">
+                </video>
+                <video poster="" autoplay muted loop playsinline>
+                  <source src="./static/videos/dreamgaussian_hash/lion_stage2_normal.mp4" type="video/mp4">
+                </video>
+              </td>
+            </tr>
+          </table>
         </div>
       </div>
     </div>
   </div>
+
+
 
 
 
