@@ -101,7 +101,7 @@
     <div class="container is-max-desktop">
       <div class="columns is-centered">
         <div class="column has-text-centered">
-          <h1 class="title is-1 publication-title">Hash3D<br> Accelerate 3D Generative Model for Free<br><small>Preprint</small></h1>
+          <h1 class="title is-1 publication-title">Hash3D: Training-free Acceleration<br> for 3D Generation<br><small>Preprint</small></h1>
           <div class="is-size-5 publication-authors">
             <span class="author-block">
               <a href="https://adamdad.github.io">Xingyi Yang</a>,</span> 
@@ -118,12 +118,13 @@
             <div class="publication-links">
               <!-- PDF Link. -->
               <span class="link-block">
-                <a href="https://openreview.net/forum?id=gtCPWaY5bNh"
+                <a href="https://adamdad.github.io/hash3D/"
                    class="external-link button is-normal is-rounded is-dark">
                   <span class="icon">
-                      <i class="fas fa-file-pdf"></i>
+                    <!-- <i class="fa-regular fa-window"></i> -->
+                      <i class="fa fa-home"></i>
                   </span>
-                  <span>Paper</span>
+                  <span>Project Page</span>
                 </a>
               </span>
               <span class="link-block">
@@ -136,7 +137,7 @@
                 </a>
               </span>
               <!-- Video Link. -->
-              <span class="link-block">
+              <!-- <span class="link-block">
                 <a href="https://www.youtube.com/watch?v=q3WHjFWJ8w4"
                    class="external-link button is-normal is-rounded is-dark">
                   <span class="icon">
@@ -144,10 +145,10 @@
                   </span>
                   <span>Video</span>
                 </a>
-              </span>
+              </span> -->
               <!-- Code Link. -->
               <span class="link-block">
-                <a href="https://github.com/Adamdad/DeRy"
+                <a href="https://github.com/Adamdad/hash3D"
                    class="external-link button is-normal is-rounded is-dark">
                   <span class="icon">
                       <i class="fab fa-github"></i>
@@ -176,23 +177,20 @@
 <section class="hero teaser">
   <div class="container is-max-desktop">
     <div class="hero-body">
-      <!-- <video id="teaser" autoplay muted loop playsinline height="100%">
-        <source src="https://homes.cs.washington.edu/~kpar/nerfies/videos/teaser.mp4"
-                type="video/mp4">
-      </video> -->
-      <img src="./static/images/pipeline4.jpg">
-      <img src="./static/images/performance.jpeg">
-      <h2 class="subtitle has-text-centered">
-        <span class="dnerf">Hash3D</span> speeds up 3D generative model by caching and reusing these feature maps across
-        neighboring timesteps and camera angles. It saves the running time by 20%~75%.
-      </h2>
+      <!-- <img src="./static/images/pipeline4.jpg" style="max-height: 100%; max-width: 100%;">
+
+      <img src="./static/images/performance.jpg" style="max-height: 100%; max-width: 100%;"> -->
+      <img src="./static/images/head.jpg" style="max-height: 100%; max-width: 100%;">
+      <h3 class="subtitle has-text-centered">
+         Examples by applying our <span class="dnerf">Hash3D</span> on Gaussian-Dreamer and Dream-Gaussian. We accelerate Gaussian-Dreamer by 1.5X and Dream-Gaussian by 4X with comparable visual quality.
+      </h3>
     </div>
   </div>
 </section>
 
 
 
-<section class="section">
+<section class="section hero is-light">
   <div class="container is-max-desktop">
     <!-- Abstract. -->
     <div class="columns is-centered has-text-centered">
@@ -210,23 +208,28 @@
              thus hastening the diffusion model's inference in 3D generation tasks. Surprisingly, this feature-sharing across score functions not only hastens model 
              generation but also enhances the smoothness and view consistency of the synthesized 3D objects. Hash3D stands out by boosting processing speeds by 20%~75% without extra training. 
              Additionally, Hash3D's integration with 3D Gaussian splatting largely speeds up 3D model creation, reducing text-to-3D processing to about 10 minutes and image-to-3D conversion to roughly 30 seconds. 
-             The code is provided in https://github.com/Adamdad/Hash3D.
+             The code is provided in <a href="https://github.com/Adamdad/Hash3D" target="_blank">https://github.com/Adamdad/Hash3D</a>.
           </p>
         </div>
       </div>
     </div>
-    <!--/ Abstract. -->
+  </div>
+</section>
 
-    <!-- Paper video. -->
-    <!-- <div class="columns is-centered has-text-centered">
-      <div class="column is-four-fifths">
-        <h2 class="title is-3">Video</h2>
-        <div class="publication-video">
-          <iframe width="560" height="315" src="https://www.youtube.com/embed/q3WHjFWJ8w4?controls=0" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-        </div>
-      </div>
-    </div> -->
-    <!--/ Paper video. -->
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3">Main Method</h2>
+    <div class="hero-body">
+      <img src="./static/images/pipeline4.jpg" style="max-height: 100%; max-width: 100%;">
+
+      <img src="./static/images/performance.jpg" style="max-height: 100%; max-width: 100%;">
+      <!-- <img src="./static/images/head.jpg" style="max-height: 100%; max-width: 100%;"> -->
+      <h2 class="subtitle has-text-centered">
+        <span class="dnerf">Hash3D</span> speeds up 3D generative model by caching and reusing these feature maps across
+        neighboring timesteps and camera angles. It speeds up the running time by 1.3-4X.
+      </h2>
+    </div>
   </div>
 </section>
 
@@ -388,7 +391,7 @@
             <li><p>
               <a href="https://arxiv.org/abs/2312.00858"><b>DeepCache: Accelerating Diffusion Models for Free</b></a> <br>
               Xinyin Ma, Gongfan Fang, Xinchao Wang<br>
-              arxiv 2023
+              CVPR 2024
             </p></li>
             <li><p>
               <a href="https://niessnerlab.org/papers/2013/4hashing/niessner2013hashing.pdf"><b>Real-time 3D Reconstruction at Scale using Voxel Hashing</b></a> <br>
