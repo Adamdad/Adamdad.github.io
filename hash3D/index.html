@@ -198,16 +198,16 @@
         <h2 class="title is-3">Abstract</h2>
         <div class="content has-text-justified">
           <p>
-            The evolution of 3D generative modeling has been notably propelled by the adoption of 2D diffusion models. Despite this progress, 
-            the cumbersome optimization process per se presents a critical hurdle to efficiency. 
-            In this paper, we introduce <span class="dnerf">Hash3D</span>, an efficient technique that trades space for time for 3D generation without model training. 
+            The evolution of 3D generative modeling has been notably propelled by the adoption of 2D diffusion models. Despite this progress, the cumbersome optimization process per se presents a critical hurdle to efficiency. 
+            In this paper, we introduce <span class="dnerf">Hash3D</span>, a universal acceleration for 3D generation without model training.
           </p>
           <p>
             Central to Hash3D is the insight that feature-map redundancy is prevalent in images rendered from camera positions and diffusion time-steps in close proximity. 
-            By effectively caching and reusing these feature maps across neighboring timesteps and camera angles, Hash3D substantially curtails redundant calculations,
-             thus hastening the diffusion model's inference in 3D generation tasks. Surprisingly, this feature-sharing across score functions not only hastens model 
-             generation but also enhances the smoothness and view consistency of the synthesized 3D objects. Hash3D stands out by boosting processing speeds by 20%~75% without extra training. 
-             Additionally, Hash3D's integration with 3D Gaussian splatting largely speeds up 3D model creation, reducing text-to-3D processing to about 10 minutes and image-to-3D conversion to roughly 30 seconds. 
+            By effectively hashing and reusing these feature maps across neighboring timesteps and camera angles, Hash3D substantially prevents redundant calculations, 
+            thus accelerating the diffusion model's inference in 3D generation tasks. We achieve this through an adaptive grid-based hashing.
+          Surprisingly, this feature-sharing mechanism not only speed up the generation but also enhances the smoothness and view consistency of the synthesized 3D objects. 
+          Our experiments covering 6 text-to-3D and 3 image-to-3D models, demonstrate Hash3D's versatility to speed up optimization, enhancing efficiency by $1.3\sim 4\times$. 
+          Additionally, Hash3D's integration with 3D Gaussian splatting largely speeds up 3D model creation, reducing text-to-3D processing to about 10 minutes and image-to-3D conversion to roughly 30 seconds. 
              The code is provided in <a href="https://github.com/Adamdad/Hash3D" target="_blank">https://github.com/Adamdad/Hash3D</a>.
           </p>
         </div>
@@ -227,7 +227,8 @@
       <!-- <img src="./static/images/head.jpg" style="max-height: 100%; max-width: 100%;"> -->
       <h2 class="subtitle has-text-centered">
         <span class="dnerf">Hash3D</span> speeds up 3D generative model by caching and reusing these feature maps across
-        neighboring timesteps and camera angles. It speeds up the running time by 1.3-4X.
+        neighboring timesteps and camera angles. We make this retrieval highly efficient through an adaptive grid-based hashing.
+         It speeds up the running time by 1.3-4X.
       </h2>
     </div>
   </div>
@@ -244,7 +245,7 @@
             <tr>
               <th>Input Image</th>
               <th>Zero-1-to-3</th>
-              <th>Hash3D + Zero-1-to-3<span class="speed-highlight">(Speed X1.4)</span></th>
+              <th>Hash3D + Zero-1-to-3<span class="speed-highlight">(Speed X3.3)</span></th>
             </tr>
             <tr>
               <td><img src="./static/images/baby_phoenix_on_ice.png"></td>
