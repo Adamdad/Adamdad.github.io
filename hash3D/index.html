@@ -35,8 +35,8 @@
       background-color: #f2f2f2;
     }
     video, img {
-      max-height: 150px; /* Adjust based on your preference */
-      max-width: 150px; /* Ensures responsiveness */
+      max-height: 160px; /* Adjust based on your preference */
+      max-width: 160px; /* Ensures responsiveness */
     }
     .speed-highlight {
       color: red;
@@ -372,6 +372,90 @@
     </div>
   </div>
 
+
+  <!-- make a table, the first column is a input image and the second column is a video-->
+<section class="section">
+  <div class="container is-max-desktop">
+    <div class="columns is-centered">
+      <div class="column is-full-width">
+        <h2 class="title is-3">Text-to-3D Results</h2>
+        <div class="content has-text-justified">
+          <table>
+            <tr>
+              <th>Prompt</th>
+              <th>Gaussian-Dreamer</th>
+              <th>Hash3D + Gaussian-Dreamer <br> <span class="speed-highlight">(Speed X1.5)</span></th>
+            </tr>
+            <tr>
+              <td style="text-align: center; vertical-align: middle; font-size:18px; font-family:Comic sans MS">A bear dressed as a lumberjack</td>
+              <td>
+                <video style="max-height: 250px; max-width: 250px;" poster="" autoplay muted loop playsinline>
+                  <source src="./static/videos/gaussiandreamer/a bear dressed as a lumberjack.mp4" type="video/mp4">
+                </video>
+              </td>
+              <td>
+                <video style="max-height: 250px; max-width: 250px;" poster="" autoplay muted loop playsinline>
+                  <source src="./static/videos/gaussiandreamer_hash3d/a bear dressed as a lumberjack.mp4" type="video/mp4">
+                </video>
+              </td>
+            </tr>
+            <tr>
+              <td style="text-align: center; vertical-align: middle; font-size:18px; font-family:Comic sans MS">A chimpanzee dressed like Napoleon Bonaparte</td>
+              <td>
+                <video style="max-height: 250px; max-width: 250px;" poster="" autoplay muted loop playsinline>
+                  <source src="./static/videos/gaussiandreamer/a chimpanzee dressed like Napoleon Bonaparte.mp4" type="video/mp4">
+                </video>
+              </td>
+              <td>
+                <video style="max-height: 250px; max-width: 250px;" poster="" autoplay muted loop playsinline>
+                  <source src="./static/videos/gaussiandreamer_hash3d/a chimpanzee dressed like Napoleon Bonaparte.mp4" type="video/mp4">
+                </video>
+              </td>
+            </tr>
+            <tr>
+              <td style="text-align: center; vertical-align: middle; font-size:18px; font-family:Comic sans MS">A dachsund wearing a boater hat</td>
+              <td>
+                <video style="max-height: 250px; max-width: 250px;" poster="" autoplay muted loop playsinline>
+                  <source src="./static/videos/gaussiandreamer/a dachsund wearing a boater hat.mp4" type="video/mp4">
+                </video>
+              </td>
+              <td>
+                <video style="max-height: 250px; max-width: 250px;" poster="" autoplay muted loop playsinline>
+                  <source src="./static/videos/gaussiandreamer_hash3d/a dachsund wearing a boater hat.mp4" type="video/mp4">
+                </video>
+              </td>
+            </tr>
+            <tr>
+              <td style="text-align: center; vertical-align: middle; font-size:18px; font-family:Comic sans MS">A plate of delicious tacos</td>
+              <td>
+                <video style="max-height: 250px; max-width: 250px;" poster="" autoplay muted loop playsinline>
+                  <source src="./static/videos/gaussiandreamer/A plate of delicious tacos.mp4" type="video/mp4">
+                </video>
+              </td>
+              <td>
+                <video  style="max-height: 250px; max-width: 250px;" poster="" autoplay muted loop playsinline>
+                  <source src="./static/videos/gaussiandreamer_hash3d/A plate of delicious tacos.mp4" type="video/mp4">
+                </video>
+              </td>
+            </tr>
+            <tr>
+              <td style="text-align: center; vertical-align: middle; font-size:18px; font-family:Comic sans MS">A train engine made out of clay</td>
+              <td>
+                <video style="max-height: 250px; max-width: 250px;" poster="" autoplay muted loop playsinline>
+                  <source src="./static/videos/gaussiandreamer/a train engine made out of clay.mp4" type="video/mp4">
+                </video>
+              </td>
+              <td>
+                <video  style="max-height: 250px; max-width: 250px;" poster="" autoplay muted loop playsinline>
+                  <source src="./static/videos/gaussiandreamer_hash3d/a train engine made out of clay.mp4" type="video/mp4">
+                </video>
+              </td>
+            </tr>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
 
 
 
