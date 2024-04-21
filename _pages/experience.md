@@ -73,7 +73,7 @@ I got my master's degree in Electrical and Computer Engineering from [University
 * EE2211: Introduction to Machine Learning, 2022 Spring, Teaching Assistant.
 
 ## Invited Talk 
-* “Deep Model Reuse", Computer Vision Group @ UIUC.
+* [“Deep Model Reuse: Paving the Way for Efficient and Generalizable AI Systems"](https://calendars.illinois.edu/detail/2654?eventId=33482580), Computer Vision Group @ UIUC.
 * "Anything-3d: Towards single-view anything reconstruction in the wild", The Future of 3D Vision in the Era of LLMs Seminar 2023 @ VALSE.
 
 -------
