@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="description"
+        content="We introduce Vico, a generic framework for compositional video generation that explicitly ensures all concepts are represented properly.">
+  <meta name="keywords" content="Video Diffusion, Compositional">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Deep Model Reassembly</title>
+
+  <!-- Global site tag (gtag.js) - Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-PYVRSFMDRL"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+
+    function gtag() {
+      dataLayer.push(arguments);
+    }
+
+    gtag('js', new Date());
+
+    gtag('config', 'G-PYVRSFMDRL');
+  </script>
+  <style>
+    table {
+      border-collapse: separate; 
+      border-spacing: 5em;
+    }
+    th, td {
+      padding: 15px;
+    }
+    video, img {
+      max-height: 160px; /* Adjust based on your preference */
+      max-width: 160px; /* Ensures responsiveness */
+    }
+    .speed-highlight {
+      color: rgba(0, 128, 255, 0.817);
+      font-weight: bold;
+    }
+    .text-highlight {
+      color: rgba(0, 128, 255, 0.817);
+    }
+    </style>
+
+  <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro"
+        rel="stylesheet">
+
+  <link rel="stylesheet" href="./static/css/bulma.min.css">
+  <link rel="stylesheet" href="./static/css/bulma-carousel.min.css">
+  <link rel="stylesheet" href="./static/css/bulma-slider.min.css">
+  <link rel="stylesheet" href="./static/css/fontawesome.all.min.css">
+  <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+  <link rel="stylesheet" href="./static/css/index.css">
+  <link rel="icon" href="./static/images/lv-logo.jpg">
+
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script defer src="./static/js/fontawesome.all.min.js"></script>
+  <script src="./static/js/bulma-carousel.min.js"></script>
+  <script src="./static/js/bulma-slider.min.js"></script>
+  <script src="./static/js/index.js"></script>
+</head>
+<body>
+
+<nav class="navbar" role="navigation" aria-label="main navigation">
+  <div class="navbar-brand">
+    <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false">
+      <span aria-hidden="true"></span>
+      <span aria-hidden="true"></span>
+      <span aria-hidden="true"></span>
+    </a>
+  </div>
+  <div class="navbar-menu">
+    <div class="navbar-start" style="flex-grow: 1; justify-content: center;">
+      <a class="navbar-item" href="https://keunhong.com">
+      <span class="icon">
+          <i class="fas fa-home"></i>
+      </span>
+      </a>
+
+      <div class="navbar-item has-dropdown is-hoverable">
+        <a class="navbar-link">
+          More Research
+        </a>
+        <div class="navbar-dropdown">
+          <a class="navbar-item" href="https://github.com/Adamdad/KnowledgeFactor">
+            KnowledgeFactor
+          </a>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</nav>
+
+
+<section class="hero">
+  <div class="hero-body">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column has-text-centered">
+          <h1 class="title is-2 publication-title">Compositional Video Generation as Flow Equalization</h1>
+          <div class="is-size-6 publication-authors">
+            <span class="author-block">
+              <a href="https://adamdad.github.io">Xingyi Yang</a>,</span>
+            <span class="author-block">
+              <a href="https://sites.google.com/site/sitexinchaowang/">Xinchao Wang</a>
+            </span>
+          </div>
+
+          <div class="is-size-6 publication-authors">
+            <span class="author-block">National University of Singapore</span>
+          </div>
+
+          <div class="column has-text-centered">
+            <div class="publication-links">
+              <!-- PDF Link. -->
+              <span class="link-block">
+                <a href="https://openreview.net/forum?id=gtCPWaY5bNh"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="fas fa-file-pdf"></i>
+                  </span>
+                  <span>Paper</span>
+                </a>
+              </span>
+              <span class="link-block">
+                <a href="https://arxiv.org/abs/2210.17409"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="ai ai-arxiv"></i>
+                  </span>
+                  <span>arXiv</span>
+                </a>
+              </span>
+              <!-- Video Link. -->
+              <span class="link-block">
+                <a href="https://www.youtube.com/watch?v=q3WHjFWJ8w4"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="fab fa-youtube"></i>
+                  </span>
+                  <span>Video</span>
+                </a>
+              </span>
+              <!-- Code Link. -->
+              <span class="link-block">
+                <a href="https://github.com/Adamdad/vico"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="fab fa-github"></i>
+                  </span>
+                  <span>Code</span>
+                  </a>
+              </span>
+              <!-- Dataset Link.
+              <span class="link-block">
+                <a href="https://github.com/google/nerfies/releases/tag/0.1"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="far fa-images"></i>
+                  </span>
+                  <span>Data</span>
+                  </a> -->
+            </div>
+
+          </div>
+          <div class="column has-text-centered">
+            <div class="publication-abstract">
+              <p>
+                We introduce <span class="dnerf">Vico</span>, <b style="color:rgb(60, 0, 255);">model-agnoistic</b> and <b style="color:rgb(60, 0, 255);">training-free</b> framework for compositional video generation.
+              </p>
+            </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="hero teaser">
+  <div class="container is-max-desktop">
+    <div style="text-align: center;" class="hero-body">
+      <!-- <video id="teaser" autoplay muted loop playsinline height="100%">
+        <source src="https://homes.cs.washington.edu/~kpar/nerfies/videos/teaser.mp4"
+                type="video/mp4">
+      </video> -->
+      <img style="margin-left: auto;margin-right: auto;max-height: 100%;max-width: 100%" src="./static/images/teaser.jpg" width="85%" height="85%" alt="Vico Results">
+      <h2 class="subtitle has-text-centered">
+        <span class="dnerf">Vico</span> provides a unified solution
+        for compositional video generation by equalizing the information flow of all text tokens. 
+      </h2>
+    </div>
+  </div>
+</section>
+
+
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <!-- Abstract. -->
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3">Abstract</h2>
+        <div class="content has-text-justified">
+
+          <p>
+            Large-scale Text-to-Video (T2V) diffusion models struggle to fully grasp complex compositional 
+    interactions between multiple concepts and actions. This issue arises when some words dominantly influence the final video, overshadowing other concepts.
+          </p>
+          <p>
+            To tackle this problem,     
+            we introduce <span class="dnerf">Vico</span>, a generic framework for compositional video generation 
+            that explicitly ensures all concepts are represented properly.
+            At its core, Vico analyzes how input tokens influence the generated video, 
+          and adjusts the model to prevent any single concept from dominating. 
+            We apply our method to multiple diffusion-based video models for compositional T2V and video editing. 
+            Empirical results demonstrate that our framework significantly enhances the compositional richness and accuracy of the generated videos.
+          </p>
+        </div>
+      </div>
+    </div>
+    <!--/ Abstract. -->
+
+    <!-- Paper video. -->
+
+  
+</section>
+
+<section class="section">
+  <div class="container is-max-desktop" style="margin-left: auto;margin-right: auto;">
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-4">What we have done?</h2>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="hero is-light is-small">
+  <div class="hero-body" style="margin-left: auto;margin-right: auto;">
+    <h2 class="title is-4">Object Composition</h2>
+    <div class="container is-centered">
+      <table>
+        <tr> 
+          <th style="text-align: center; vertical-align: middle;">Baseline</th>
+          <th style="text-align: center; vertical-align: middle;"><span class="speed-highlight">+Vico</span>
+            &thinsp;</th>
+          <th>   </th>
+          <th style="text-align: center; vertical-align: middle;">Baseline</th>
+          <th style="text-align: center; vertical-align: middle;"><span class="speed-highlight">+Vico</span></th>
+        </tr>
+        <tr>
+          <th>
+            <video  poster="" controls autoplay muted loop playsinline>
+              <source src="./static/videos/videocrafterv2/Clown fish swimming through the coral reef/baseline.mp4" type="video/mp4">
+            </video>
+            &thinsp;
+          </th>
+          <th>
+            <video  poster="" controls autoplay muted loop playsinline>
+              <source src="./static/videos/videocrafterv2/Clown fish swimming through the coral reef/flow_soft.mp4" type="video/mp4">
+            </video>
+          </th>
+          <th> &emsp14; &emsp14;  </th>
+          <th>
+            <video  poster="" controls autoplay muted loop playsinline>
+              <source src="./static/videos/videocrafterv2/a boat and an airplane/videocrafterv2_baseline_a_boat_and_an_airplane.mp4" type="video/mp4">
+            </video>
+            &thinsp;
+          </th>
+          <th>
+            <video  poster="" controls autoplay muted loop playsinline>
+              <source src="./static/videos/videocrafterv2/a boat and an airplane/a boat and an airplane-1_flow-soft.mp4" type="video/mp4">
+            </video>
+          </th>
+        </tr>
+        <tr>
+          <td colspan="2" style="text-align: center; vertical-align: middle; font-size:18px; font-family:Comic sans MS"><u class="text-highlight">Clown fish</u> swimming through the <u class="text-highlight">coral reef</u>.</td>
+          <td> &emsp14; &emsp14;  </td>
+          <td colspan="2" style="text-align: center; vertical-align: middle; font-size:18px; font-family:Comic sans MS"> a <u class="text-highlight">boat</u> boat and an <u class="text-highlight">airplane</u>.</td>
+        </tr>
+        <tr>
+          <th>
+            <video  poster="" controls autoplay muted loop playsinline>
+              <source src="./static/videos/videocrafterv2/a toaster and a teddy bear/videocrafterv2_baseline_a_toaster_and_a_teddy.mp4" type="video/mp4">
+            </video>
+          </th>
+          <th>
+            <video  poster="" controls autoplay muted loop playsinline>
+              <source src="./static/videos/videocrafterv2/a toaster and a teddy bear/a toaster and a teddy bear-1-flow-soft.mp4" type="video/mp4">
+            </video>
+          </th>
+          <th> &emsp14; &emsp14;  </th>
+          <th>
+            <video  poster="" controls autoplay muted loop playsinline>
+              <source src="./static/videos/videocrafterv2/a pizza and a tie/a pizza and a tie-baseline.mp4" type="video/mp4">
+            </video>
+          </th>
+          <th>
+            <video  poster="" controls autoplay muted loop playsinline>
+              <source src="./static/videos/videocrafterv2/a pizza and a tie/a pizza and a tie-soft-flow.mp4" type="video/mp4">
+            </video>
+          </th>
+        </tr>
+        <tr>
+          <td colspan="2" style="text-align: center; vertical-align: middle; font-size:18px; font-family:Comic sans MS">a <u class="text-highlight">toaster</u> and a <u class="text-highlight">teddy bear</u>.</td>
+          <td> &emsp14; &emsp14;  </td>
+          <td colspan="2" style="text-align: center; vertical-align: middle; font-size:18px; font-family:Comic sans MS">a <u class="text-highlight">pizza</u> and a <u class="text-highlight">pie</u>.</td>
+        </tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="hero is-light is-small">
+  <div class="hero-body" style="margin-left: auto;margin-right: auto;">
+    <h2 class="title is-4">Motion Composition</h2>
+    <div class="container is-centered">
+      <table>
+        <tr> 
+          <th style="text-align: center; vertical-align: middle;">Baseline</th>
+          <th style="text-align: center; vertical-align: middle;"><span class="speed-highlight">+Vico</span>
+            &thinsp;</th>
+          <th>   </th>
+          <th style="text-align: center; vertical-align: middle;">Baseline</th>
+          <th style="text-align: center; vertical-align: middle;"><span class="speed-highlight">+Vico</span></th>
+        </tr>
+        <tr>
+          <th>
+            <video  poster="" controls autoplay muted loop playsinline>
+              <source src="./static/videos/videocrafterv2/a boat is sailing and a flag is waving/a boat is sailing and a flag is waving-baseline.mp4" type="video/mp4">
+            </video>
+            &thinsp;
+          </th>
+          <th>
+            <video  poster="" controls autoplay muted loop playsinline>
+              <source src="./static/videos/videocrafterv2/a boat is sailing and a flag is waving/a boat is sailing and a flag is waving-flowsoft.mp4" type="video/mp4">
+            </video>
+          </th>
+          <th> &emsp14; &emsp14;  </th>
+          <th>
+            <video  poster="" controls autoplay muted loop playsinline>
+              <source src="./static/videos/videocrafterv2/a goat is climbing and a kid is jumping/a goat is climbing and a kid is jumping-base.mp4" type="video/mp4">
+            </video>
+            &thinsp;
+          </th>
+          <th>
+            <video  poster="" controls autoplay muted loop playsinline>
+              <source src="./static/videos/videocrafterv2/a goat is climbing and a kid is jumping/a goat is climbing and a kid is jumping-flowsoft.mp4" type="video/mp4">
+            </video>
+          </th>
+        </tr>
+        <tr>
+          <td colspan="2" style="text-align: center; vertical-align: middle; font-size:18px; font-family:Comic sans MS">a <u class="text-highlight">boat</u> is <u class="text-highlight">sailing</u> and a <u class="text-highlight">flag</u> is <u class="text-highlight">waving</u>.</td>
+          <td> &emsp14; &emsp14;  </td>
+          <td colspan="2" style="text-align: center; vertical-align: middle; font-size:18px; font-family:Comic sans MS">a <u class="text-highlight">goat</u> is <u class="text-highlight">climbing</u> and a <u class="text-highlight">kid</u> is <u class="text-highlight">jumping</u>.</td>
+        </tr>
+        <tr>
+          <th>
+            <video  poster="" controls autoplay muted loop playsinline>
+              <source src="./static/videos/videocrafterv2/a crocodile is swimming and a bird is flying/a crocodile is swimming and a bird is flying-baseline.mp4" type="video/mp4">
+            </video>
+          </th>
+          <th>
+            <video  poster="" controls autoplay muted loop playsinline>
+              <source src="./static/videos/videocrafterv2/a crocodile is swimming and a bird is flying/a crocodile is swimming and a bird is flying-flowsoft.mp4" type="video/mp4">
+            </video>
+          </th>
+          <th> &emsp14; &emsp14;  </th>
+          <th>
+            <video  poster="" controls autoplay muted loop playsinline>
+              <source src="./static/videos/videocrafterv2/a child is laughing and a dog is wagging/a child is laughing and a dog is wagging-baseline.mp4" type="video/mp4">
+            </video>
+          </th>
+          <th>
+            <video  poster="" controls autoplay muted loop playsinline>
+              <source src="./static/videos/videocrafterv2/a child is laughing and a dog is wagging/a child is laughing and a dog is wagging-flow-soft.mp4" type="video/mp4">
+            </video>
+          </th>
+        </tr>
+        <tr>
+          <td colspan="2" style="text-align: center; vertical-align: middle; font-size:18px; font-family:Comic sans MS">a <u class="text-highlight">crocodile</u> is <u class="text-highlight">swimming</u> and a <u class="text-highlight">bird</u> is <u class="text-highlight">flying</u>.</td>
+          <td> &emsp14; &emsp14;  </td>
+          <td colspan="2" style="text-align: center; vertical-align: middle; font-size:18px; font-family:Comic sans MS">a <u class="text-highlight">child</u> is <u class="text-highlight">laughing</u> and a <u class="text-highlight">dog</u> is <u class="text-highlight">wagging</u>.</td>
+        </tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+
+<section class="section">
+  <div class="container is-max-desktop">
+
+    <!-- Concurrent Work. -->
+    <div class="columns is-centered">
+      <div class="column is-full-width">
+        <h2 class="title is-3">Related Resource</h2>
+
+        <div class="content has-text-justified">
+          <p>
+            Our team is trying to unleash power of pre-trained models by modularizing the network design. Here are some related papers or projects.
+          </p>
+          <ul>
+            <li><p>
+              <a href="https://arxiv.org/abs/2207.03337"><b>Factorizing knowledge in neural networks</b></a> <br>
+              Xingyi Yang, Jingwen Ye, Xinchao Wang<br>
+              ECCV 2022
+            </p></li>
+            <li><p>
+              <a href="https://arxiv.org/abs/2207.08224"><b>Learning with Recoverable Forgetting</b></a> <br>
+              Jingwen Ye, Yifang Fu, Jie Song, Xingyi Yang, Songhua Liu, Xin Jin, Mingli Song, Xinchao Wang <br>
+              ECCV 2022
+            </p></li>
+            <li><p>
+              <a herf="https://blog.google/technology/ai/introducing-pathways-next-generation-ai-architecture/">Google PathWay</a> 
+              is a new AI architecture that will handle many tasks at once, with sparse activated neurons.
+            </p></li>
+          </ul>
+          
+        </div>
+      </div>
+    </div>
+    <!--/ Concurrent Work. -->
+
+  </div>
+</section>
+
+
+<section class="section" id="BibTeX">
+  <div class="container is-max-desktop content">
+    <h2 class="title">BibTeX</h2>
+    <pre><code>@article{yang2022dery,
+  author    = {Xingyi Yang, Daquan Zhou, Songhua Liu, Jingwen Ye, Xinchao Wang},
+  title     = {Deep Model Reassembly},
+  journal   = {NeurIPS},
+  year      = {2022},
+}</code></pre>
+  </div>
+</section>
+
+
+<footer class="footer">
+  <div class="container">
+    <div class="content has-text-centered">
+      <a class="icon-link"
+         href="">
+        <i class="fas fa-file-pdf"></i>
+      </a>
+      <a class="icon-link" href="https://github.com/Adamdad" class="external-link" disabled>
+        <i class="fab fa-github"></i>
+      </a>
+    </div>
+    <div class="columns is-centered">
+      <div class="column is-8">
+        <div class="content">
+          <p>
+            This webpage template is from <a href="https://github.com/nerfies/nerfies.github.io">Nerfies</a>. We sincerely thank <a herf="https://keunhong.com">Keunhong Park</a> for developing and open-sourcing this template.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
