@@ -234,6 +234,50 @@
       </div>
     </div>
   </div>
+  <div class="columns is-centered has-text-centered">
+      <div class="container is-centered">
+        <h2 class="title is-4">Why ST-Flow? not use Cross-Attention alone?</h2>
+        <p><u>Cross-Attention</u> only focuses on the relationship between the text and <u>each independent frames</u>, leading to <b>flickering patterns</b>. <br><u>ST-Flow</u> focuses on the relationship across the full video.</p>
+
+        <table>
+          <tr>
+            <th>
+              <video  poster="" controls autoplay muted loop playsinline>
+                <source src="./static/videos/videocrafterv2/A playful kitten chasing a butterfly in a wildflower meadow/kitti_butterfly_meadow.mp4" type="video/mp4">
+              </video>
+              &thinsp;
+            </th>
+            <th>
+              <video  poster="" controls autoplay muted loop playsinline>
+                <source src="./static/videos/videocrafterv2/A playful kitten chasing a butterfly in a wildflower meadow/kitti_attention.mp4" type="video/mp4">
+              </video>
+            </th>
+            <th>
+              <video  poster="" controls autoplay muted loop playsinline>
+                <source src="./static/videos/videocrafterv2/A playful kitten chasing a butterfly in a wildflower meadow/kitti_flow.mp4" type="video/mp4">
+              </video>
+            </th>
+            <th>
+              <video  poster="" controls autoplay muted loop playsinline>
+                <source src="./static/videos/videocrafterv2/A playful kitten chasing a butterfly in a wildflower meadow/meadow_attention.mp4" type="video/mp4">
+              </video>
+            </th>
+            <th>
+              <video  poster="" controls autoplay muted loop playsinline>
+                <source src="./static/videos/videocrafterv2/A playful kitten chasing a butterfly in a wildflower meadow/meadow_flow.mp4" type="video/mp4">
+              </video>
+            </th>
+          </tr>
+          <tr>
+            <td style="text-align: center; vertical-align: middle; font-size:16px; font-family:Comic sans MS">A playful <u class="text-highlight">kitten</u> chasing a <u class="text-highlight">butterfly</u> in a <u class="text-highlight">wildflower meadow</u>.</td>
+            <td style="text-align: center; vertical-align: middle; font-size:16px; font-family:Comic sans MS"> Cross-Attn on <u>kitten</u> </td>
+            <td style="text-align: center; vertical-align: middle; font-size:16px; font-family:Comic sans MS"> Our ST-Flow on <u>kitten</u></td>
+            <td style="text-align: center; vertical-align: middle; font-size:16px; font-family:Comic sans MS"> Cross-Attn on <u>meadow</u> </td>
+            <td style="text-align: center; vertical-align: middle; font-size:16px; font-family:Comic sans MS"> Our ST-Flow on <u>meadow</u></td>
+          </tr>
+        </table>
+      </div>
+    </div>
 </section>
 
 <section class="hero is-light is-small">
@@ -399,23 +443,16 @@
 
         <div class="content has-text-justified">
           <p>
-            Our team is trying to unleash power of pre-trained models by modularizing the network design. Here are some related papers or projects.
+            We particularly thanks some great paper on compositional generation and text-to-video generation
           </p>
           <ul>
             <li><p>
-              <a href="https://arxiv.org/abs/2207.03337"><b>Factorizing knowledge in neural networks</b></a> <br>
-              Xingyi Yang, Jingwen Ye, Xinchao Wang<br>
-              ECCV 2022
+              <a href="https://arxiv.org/abs/2301.13826"><b>Attend-and-Excite: Attention-Based Semantic Guidance for Text-to-Image Diffusion Models</b></a> <br>
+              SIGGRAPH 2023
             </p></li>
             <li><p>
-              <a href="https://arxiv.org/abs/2207.08224"><b>Learning with Recoverable Forgetting</b></a> <br>
-              Jingwen Ye, Yifang Fu, Jie Song, Xingyi Yang, Songhua Liu, Xin Jin, Mingli Song, Xinchao Wang <br>
-              ECCV 2022
-            </p></li>
-            <li><p>
-              <a herf="https://blog.google/technology/ai/introducing-pathways-next-generation-ai-architecture/">Google PathWay</a> 
-              is a new AI architecture that will handle many tasks at once, with sparse activated neurons.
-            </p></li>
+              <a href="https://arxiv.org/abs/2401.09047"><b>VideoCrafter2 : Overcoming Data Limitations for High-Quality Video Diffusion Models</b></a> <br>
+              Arxiv 2024
           </ul>
           
         </div>
@@ -431,10 +468,10 @@
   <div class="container is-max-desktop content">
     <h2 class="title">BibTeX</h2>
     <pre><code>@article{yang2022dery,
-  author    = {Xingyi Yang, Daquan Zhou, Songhua Liu, Jingwen Ye, Xinchao Wang},
-  title     = {Deep Model Reassembly},
-  journal   = {NeurIPS},
-  year      = {2022},
+  author    = {Xingyi Yang, Xinchao Wang},
+  title     = {Compositional Video Generation as Flow Equalization},
+  journal   = {Arxiv},
+  year      = {2024},
 }</code></pre>
   </div>
 </section>
