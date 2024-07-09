@@ -15,7 +15,7 @@ author_profile: false
 </style>
 
 {% include base_path %}
-You can also find my papers on <a href="https://scholar.google.com/citations?user=oCqKAnsAAAAJ&hl=en">Google Scholar</a>.
+You can also find my papers on <a href="https://scholar.google.com/citations?user=1n2OPtwAAAAJ">Google Scholar</a>.
 
 -----------
 
