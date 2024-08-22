@@ -8,4 +8,4 @@ venue: '2021 IEEE International Conference on Acoustics, Speech and Signal Proce
 showexcerpt: False
 ---
 
-<!-- [[paper](https://ieeexplore.ieee.org/document/9414588)]  [[code](https://github.com/Adamdad/Filter-Gradient-Decent)] [[presentation](https://2021.ieeeicassp.org/Papers/ViewPaper.asp?PaperNum=3375)] [[video](https://www.youtube.com/watch?v=SQ4lTeBc6QQ)] -->
+[[paper](https://ieeexplore.ieee.org/document/9414588)]  [[code](https://github.com/Adamdad/Filter-Gradient-Decent)] [[presentation](https://2021.ieeeicassp.org/Papers/ViewPaper.asp?PaperNum=3375)] [[video](https://www.youtube.com/watch?v=SQ4lTeBc6QQ)]
