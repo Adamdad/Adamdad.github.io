@@ -2,7 +2,7 @@
 title: "Kalman Optimizer for Consistent Gradient Descent"
 collection: publications
 permalink: /publications/2021-01-29-paper-sample-number-12
-date: 2021-01-29
+date: 2021-1-29
 citation:  <u>Xingyi Yang</u>
 venue: '2021 IEEE International Conference on Acoustics, Speech and Signal Processing <b>(ICASSP2021)</b>'
 ---
