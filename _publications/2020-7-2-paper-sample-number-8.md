@@ -3,7 +3,7 @@ title: "Single View Metrology in the Wild"
 collection: publications
 permalink: /publications/2020-7-2-paper-sample-number-8
 date: 2020-7-2
-citation:  Rui Zhu, <u>Xingyi Yang</u>, Yannick Hold-Geoffroy, Federico Perazzi, Jonathan Eisenmann, Kalyan Sunkavalli, Manmohan Chandraker
+citation: Rui Zhu, <u>Xingyi Yang</u>, Yannick Hold-Geoffroy, Federico Perazzi, Jonathan Eisenmann, Kalyan Sunkavalli, Manmohan Chandraker
 venue: '16th European Conference on Computer Vision <b>(ECCV2020)</b>'
 showexcerpt: False
 ---
