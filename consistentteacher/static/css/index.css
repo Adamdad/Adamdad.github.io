@@ -29,6 +29,10 @@ body {
 
 
 .publication-title {
+  font-family: 'Zhi Mang Xing', cursive;
+  font-size: 48px;
+  color: #333;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .publication-banner {

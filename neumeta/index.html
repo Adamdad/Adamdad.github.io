@@ -63,6 +63,9 @@
           More Research
         </a>
         <div class="navbar-dropdown">
+          <a class="navbar-item" href="https://inn.thestage.ai">
+            Integral Neural Networks
+          </a>
           <a class="navbar-item" href="https://github.com/Adamdad/KnowledgeFactor">
             KnowledgeFactor
           </a>
@@ -74,22 +77,39 @@
 </nav>
 
 
+<section class="hero teaser"></section>
+  <div class="container is-max-desktop">
+    <div class="hero-body">
+      <!-- <video id="teaser" autoplay muted loop playsinline height="100%">
+        <source src="https://homes.cs.washington.edu/~kpar/nerfies/videos/teaser.mp4"
+                type="video/mp4">
+      </video> -->
+      <img src="./static/images/c7ddb8_f52f441cb965487e8415b6b045ba6b05~mv2.gif" alt="DeRy pipeline">
+      <h2 class="subtitle has-text-centered">
+        <span class="dnerf">Metamorphosis</span> is a biological process that allows organisms to change their forms. We use it to describe the process of transforming a neural network into another.
+      </h2>
+    </div>
+  </div>
+</section>
+
 <section class="hero">
   <div class="hero-body">
     <div class="container is-max-desktop">
       <div class="columns is-centered">
         <div class="column has-text-centered">
-          <h1 class="title is-1 publication-title">Neural Metamorphosis<br>Arxiv 2023</h1>
+          <h2 class="title is-1 publication-title" style="font-family: 'Zhi Mang Xing', cursive;">Neural Metamorphosis</h2>
+
+          <h2><b>ECCV 2024</b></h2>
           <div class="is-size-5 publication-authors">
             <span class="author-block">
-              <a href="https://adamdad.github.io">Xingyi Yang</a><sup>1</sup>,</span>
+              <a href="https://adamdad.github.io">Xingyi Yang</a>,</span>
             <span class="author-block">
-              <a href="https://sites.google.com/site/sitexinchaowang/">Xinchao Wang</a><sup>1</sup>,
+              <a href="https://sites.google.com/site/sitexinchaowang/">Xinchao Wang</a>
             </span>
           </div>
 
           <div class="is-size-5 publication-authors">
-            <span class="author-block"><sup>1</sup>National University of Singapore,</span>
+            <span class="author-block">National University of Singapore</span>
           </div>
 
           <div class="column has-text-centered">
@@ -142,6 +162,8 @@
   </div>
 </section>
 
+
+
 <section class="hero teaser">
   <div class="container is-max-desktop">
     <div class="hero-body">
@@ -149,7 +171,7 @@
         <source src="https://homes.cs.washington.edu/~kpar/nerfies/videos/teaser.mp4"
                 type="video/mp4">
       </video> -->
-      <img src="./static/images/neumeta_annimation.gif" alt="DeRy pipeline">
+      <img src="./static/images/neumeta_annimation.gif" alt="NeuMeta pipeline">
       <h2 class="subtitle has-text-centered">
         <span class="dnerf">NeuMeta</span> encapsulates a range of neural networks into a singular Implicit Neural Representation (INR). 
         Once trained, it can produce weights for diverse networks, enabling them to adapt flexibly to various requirements.
@@ -169,21 +191,24 @@
         <div class="content has-text-justified">
           <p>
             This paper introduces a novel paradigm termed <span class="dnerf">Neural Metamorphosis (NeuMeta)</span>, 
-            which aims to represent a continuous family of networks single versatile model. 
+            which aims to build self-morphable neural networks.
           </p>
           <p>
             Unlike traditional methods that rely on separate models for different network tasks or sizes, 
-            NeuMeta enables an expansive continuum of neural networks that readily morph to fit various needs. 
-            The core mechanism is to train a neural implicit function that takes the desired network size 
-            and parameter coordinates as inputs, and generates exact corresponding weight values without 
-            requiring separate models for different configurations. Specifically, to achieve weight smoothness 
-            in a single model, we address the Shortest Hamiltonian Path problem within each neural clique graph. 
-            We maintain cross-model consistency by incorporating input noise during training. As such, 
-            NeuMeta may dynamically create arbitrary network parameters during the inference stage by 
-            sampling on the weight manifold. NeuMeta shows promising results in synthesizing parameters 
-            for unseen network configurations. Our extensive tests in image classification, semantic 
-            segmentation, and image generation reveal that NeuMeta sustains full-size performance even 
-            at a 75\% compression rate.
+            NeuMeta directly learns the continuous weight manifold of neural networks. Once trained, we can sample weights for any-sized network directly from the manifold, even for previously unseen config- urations, without retraining. 
+            To achieve this ambitious goal,NeuMeta trains neural implicit functions as hypernetworks. 
+            They accept coordinates within the model space as input, and generate corresponding weight 
+            values on the manifold. In other words, the implicit function is learned in a way, that 
+            the predicted weights is well-performed across various models sizes. 
+            In training those models, we notice that, the final perfor- mance closely 
+            relates on smoothness of the learned manifold. In pursuit of enhancing this 
+            smoothness, we employ two strategies. First, we permute weight matrices to achieve intra-model 
+            smoothness, by solving the Shortest Hamiltonian Path problem. Besides, we add a noise on the 
+            input coordinates when training the implicit function, ensuring models with various sizes shows consistent outputs. 
+            
+            As such, NeuMeta shows promising results in synthesizing parameters for various network configurations. 
+            Our extensive tests in image classification, semantic segmentation, and image generation reveal that NeuMeta sustains 
+            full-size performance even at a 75% compression rate.
           </p>
         </div>
       </div>
