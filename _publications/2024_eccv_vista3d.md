@@ -3,7 +3,7 @@ title: "Vista3D: Unravel the 3D Darkside of a Single Image"
 collection: publications
 permalink: /publications/2024_eccv_vista3d
 date: 2024-7-15
-citation: Qiuhong Shen, <u>Xingyi Yang</u>, Xinchao Wang
+citation: Qiuhong Shen, <u>Xingyi Yang</u>, Michael Bi Mi, Xinchao Wang
 venue: 'European Conference on Computer Vision <b>(ECCV)</b>'
 ---
 

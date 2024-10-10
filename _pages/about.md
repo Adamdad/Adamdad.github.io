@@ -15,7 +15,7 @@ redirect_from:
 </style>
 
  🚀👨‍💻🥁💡Hi, my name is Xingyi Yang (Adam)💡🥁👨‍💻🚀. I am a fourth-year Ph.D student at [National University of Singapore(NUS)](https://www.nus.edu.sg/), affiliated with the [Learning and Vision Lab](http://www.lv-nus.org). I am working under the supervision of [Prof.Xinchao Wang](https://www.eng.nus.edu.sg/ece/staff/wang-xinchao/). 
-
+ 
 My current research interest lies in **Deep Model Reuse** and its Applications:
 - **Deep Model Reuse**: Rather than trying to cook up a universal model in one grand kitchen experiment, my vision is to reuse pre-trained neural networks to do new things. By composing their expertise, editing their behaviour and enhancing their reliability, the goal is to craft models that become Jacks of all trades, or at least, one step closer to the dream of Artificial General Intelligence (AGI).
 - **Compositionality & Modularity**: Building ML system is like playing a game of LEGO, where I piece together elements from various tasks, concepts, and logic, crafting cost-effective AI masterpieces.
