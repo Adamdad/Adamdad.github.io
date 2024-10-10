@@ -79,20 +79,10 @@ I got my master's degree in Electrical and Computer Engineering from [University
 -------
 ## Academic Service
 * organizer for CVPR 2024 tutorial "Disentanglement and Compositionality in Computer Vision".
+* organizer for ECCV 2024 tutorial "Emerging Trends in Disentanglement and Compositionality".
 * organizer for NeurIPS 2020 workshop “Self-Supervised Learning – Theory and Practice”, serving as Workflow Chair.
 * Conference reviewer for 
-  - CVPR 2021, 2022, 2023, 2024
-  - NeurIPS 2022, 2023
-  - ICML 2022, 2023, 2024
-  - ICLR 2024
-  - ICCV 2021, 2023
-  - ECCV 2022, 2024
-  - ACL 2024
-  - IJCAI 2021, 2022
-  - AAAI 2024
-  - ICASSP 2020, 2022
-  - WWW 2024
-
+  - CVPR, NeurIPS, ICML, ICLR, ICCV, ECCV, ACL, IJCAI, AAAI, ICASSP, WWW 
   
 * Journal reviewer for 
   - IEEE Transactions on Image Processing (TIP)
