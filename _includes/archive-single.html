@@ -13,9 +13,9 @@
 {% endif %}
 
 <div class="{{ include.type | default: "list" }}__item">
-  <article class="archive__item" itemscope itemtype="http://schema.org/CreativeWork" style="display: flex; align-items: flex-start;">
+  <article class="archive__item" itemscope itemtype="http://schema.org/CreativeWork" style="display: flex; align-items: center;">
     {% if teaser %}
-    <div class="archive__item-teaser" style="flex: 0 0 30%; max-width: 30%; margin-right: 20px;">
+    <div class="archive__item-teaser" style="flex: 0 0 30%; max-width: 40%; margin-right: 20px;">
       <img src=
         {% if teaser contains "://" %}
           "{{ teaser }}"
