@@ -5,6 +5,8 @@ permalink: /publications/2024_eccv_vista3d
 date: 2024-7-15
 citation: Qiuhong Shen, <u>Xingyi Yang</u>, Michael Bi Mi, Xinchao Wang
 venue: 'European Conference on Computer Vision <b>(ECCV)</b>'
+header:
+  teaser: 'vista3d.jpg'
 ---
 
 [arxiv](https://arxiv.org/abs/2409.12193)
