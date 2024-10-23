@@ -5,6 +5,8 @@ permalink: /publications/2024_eccv_flashsplat
 date: 2024-7-16
 citation: Qiuhong Shen, <u>Xingyi Yang</u>, Xinchao Wang
 venue: 'European Conference on Computer Vision <b>(ECCV)</b>'
+header:
+  teaser: 'flashsplat.jpg'
 ---
 
 [arxiv](https://arxiv.org/abs/2409.08270)
