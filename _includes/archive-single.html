@@ -15,16 +15,16 @@
 <div class="{{ include.type | default: "list" }}__item">
   <article class="archive__item" itemscope itemtype="http://schema.org/CreativeWork" style="display: flex; align-items: flex-start;">
     {% if teaser %}
-      <div class="archive__item-teaser" style="flex: 0 0 auto; margin-right: 20px;">
-        <img src=
-          {% if teaser contains "://" %}
-            "{{ teaser }}"
-          {% else %}
-            "{{ teaser | prepend: "/images/" | prepend: base_path }}"
-          {% endif %}
-          alt="">
-      </div>
-    {% endif %}
+    <div class="archive__item-teaser" style="flex: 0 0 30%; max-width: 30%; margin-right: 20px;">
+      <img src=
+        {% if teaser contains "://" %}
+          "{{ teaser }}"
+        {% else %}
+          "{{ teaser | prepend: "/images/" | prepend: base_path }}"
+        {% endif %}
+        alt="" style="width: 100%; height: auto;">
+    </div>
+  {% endif %}
   
     <div class="archive__item-content" style="flex: 1;">
       <h3 class="archive__item-title" itemprop="headline">
