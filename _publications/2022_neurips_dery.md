@@ -6,7 +6,7 @@ date: 2022-11-3
 citation:  <u>Xingyi Yang</u>, Daquan Zhou, Songhua Liu, Jingwen Ye, Xinchao Wang
 venue: 'Neural Information Processing Systems <b>(NeurIPS)</b>, <b>(Paper Award Nomination)</b>'
 header:
-    teaser: https://github.com/Adamdad/DeRy/blob/main/assets/pipeline.png
+    teaser: 'dery_pipeline.jpg'
 ---
 
 
