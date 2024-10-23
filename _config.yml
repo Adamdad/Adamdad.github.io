@@ -16,7 +16,7 @@ url                      : https://Adamdad.github.io # the base hostname & proto
 baseurl                  : "" # the subpath of your site, e.g. "/blog"
 logo                     : "site-logo.png"
 repository               : "Adamdad/Adamdad.github.io"
-teaser                   :  # filename of teaser fallback teaser image placed in /images/, .e.g. "500x300.png"
+teaser                   : "site-logo.png" # filename of teaser fallback teaser image placed in /images/, .e.g. "500x300.png"
 breadcrumbs              : false # true, false (default)
 words_per_minute         : 160
 future                   : true
