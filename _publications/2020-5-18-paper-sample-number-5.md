@@ -6,6 +6,8 @@ date: 2020-5-18
 citation:  <u>Xingyi Yang</u>, Xuehai He, Jinyu Zhao, Yichen Zhang, Shanghang Zhang, Pengtao Xie
 venue: 'Preprint'
 showexcerpt: False
+header:
+  teaser: 'covid19.jpg'
 ---
 [paper](https://arxiv.org/abs/2003.13865) [code](https://github.com/UCSD-AI4H/COVID-CT)
 
