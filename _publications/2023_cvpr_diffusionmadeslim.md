@@ -5,6 +5,8 @@ permalink: /publications/2023_cvpr_diffusionmadeslim
 date: 2023-4-8
 citation:  <u>Xingyi Yang</u>, Daquan Zhou, Jiashi Feng, Xinchao Wang
 venue: 'Conference on Computer Vision and Pattern Recognition <b>(CVPR)</b>'
+header:
+  teaser: 'slim.jpg'
 ---
 
 Despite the visually-pleasing results achieved, the massive computational cost has been a long-standing flaw for diffusion probabilistic models~(DPMs), which, in turn, greatly limits their applications on resource-limited platforms.  Prior methods towards efficient DPM, however, have largely focused on accelerating the testing yet overlooked their huge complexity and size.
