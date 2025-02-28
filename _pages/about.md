@@ -14,7 +14,7 @@ redirect_from:
 }
 </style>
 
- 🚀👨‍💻🥁💡Hi, my name is Xingyi Yang (Adam)💡🥁👨‍💻🚀. I am a fourth-year Ph.D student at [National University of Singapore(NUS)](https://www.nus.edu.sg/), affiliated with the [Learning and Vision Lab](http://www.lv-nus.org). I am working under the supervision of [Prof.Xinchao Wang](https://www.eng.nus.edu.sg/ece/staff/wang-xinchao/). 
+ 🚀👨‍💻🥁💡Hi, my name is Xingyi Yang (Adam)💡🥁👨‍💻🚀. I am a fourth-year Ph.D student at [National University of Singapore(NUS)](https://www.nus.edu.sg/), affiliated with the [xML Lab](https://sites.google.com/view/xml-nus/alumni). I am working under the supervision of [Prof.Xinchao Wang](https://www.eng.nus.edu.sg/ece/staff/wang-xinchao/). 
 
  I am now a visiting PhD at University of Oxford, advised by [Prof.Philip Torr](https://www.robots.ox.ac.uk/~phst/).
  
