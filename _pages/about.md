@@ -27,7 +27,7 @@ My current research interest lies in **Deep Model Reuse** and its Applications:
 <!-- - Efficiency, that empowers the AI learn with minimum computation and data requirement.  -->
 <!-- - Data Efficency. Focus on self-supervised & semi-supervised & weak-supervised learning or learning with synthesized data. -->
 
-[CV](http://adamdad.github.io/files/Resume_Xingyi_Yang_20241026.pdf)
+[CV](http://adamdad.github.io/files/Resume_Xingyi_Yang_202502.pdf)
 
 I believe in [Slow Science](http://slow-science.org/)
 
