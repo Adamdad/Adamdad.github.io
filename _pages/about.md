@@ -18,19 +18,19 @@ redirect_from:
 
 I will be joining The Hong Kong Polytechnic University (PolyU) in Fall 2025 as a tenure-track Assistant Professor in the [Department of Data Science and Artificial Intelligence (DSAI)](https://www.polyu.edu.hk/dsai/?sc_lang=en). I am also honored to have been selected as the prestigious **Presidential Young Scholars** at PolyU.
 
-Currently, I am a final-year Ph.D. candidate at NUS, advised by Prof.Xinchao Wang. I also had the valuable opportunity to be a visiting PhD at University of Oxford, advised by Prof.Philip Torr. 
+Currently, I am a final-year Ph.D. candidate at NUS, advised by Prof.Xinchao Wang. I also spent wonderful times as a visiting PhD at University of Oxford, advised by Prof.Philip Torr. 
 
 <!-- I am grateful for the recognition my work has received, including a NeurIPS 2022 Best Paper Nomination, the 2023 National Award for Outstanding Self-financed Chinese Students Abroad, and a WAIC 2024 Youth Excellent Paper Nomination. -->
 
 ------
 
-My research lies at the intersection of **generative AI** and **multi-modal learning**, with a strong emphasis on their computational **efficiency**. Our mission is to build intelligent systems that robustly understand, generate, and interact with physical worlds. We achieve this cost-effectively by tapping and repurposing the rich capabilities of large foundation models through modular, compositional, and post-training techniques.
+My research lies at the intersection of **generative AI** and **multi-modal learning**, with a strong emphasis on their computational **efficiency**. Our mission is to build intelligent systems that robustly understand, generate, and interact with physical worlds. We hope to achieve this with minimum cost, by tapping and repurposing the rich capabilities of large foundation models through modular, compositional, and post-training techniques.
 
 ------
 
 ### 💥 Hiring! 💥
 
-We are actively recruiting Ph.D. students, postdocs, and research assistants for Spring/Fall 2026. If you're interested, feel free to reach out via email with a brief introduction, your background, and links to representative work.
+I am looking for self-motivated Ph.D. students, postdocs, and research assistants for Spring/Fall 2026. If you are interested in working with me, feel free to reach out via email with your resume.
 
 
 <!-- My current research interest lies in **Deep Model Reuse** and its Applications:
