@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recruitment | Xingyi Yang's Group @ PolyU</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', 'Noto Sans SC', sans-serif;
+            background-color: #f8fafc; /* slate-50 */
+            color: #334155; /* slate-700 */
+            line-height: 1.75;
+        }
+        .content-wrapper {
+            max-width: 800px;
+            margin: 1.5rem auto;
+            background-color: white;
+            padding: 2rem 1.5rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            position: relative;
+        }
+        @media (min-width: 640px) {
+            .content-wrapper {
+                margin: 3rem auto;
+                padding: 3rem 4rem;
+            }
+        }
+        h1, h2, h3 {
+            color: #1e293b; /* slate-800 */
+        }
+        h2 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            border-bottom: 2px solid #14b8a6; /* teal-500 */
+            padding-bottom: 0.75rem;
+            margin-top: 3rem;
+            margin-bottom: 1.5rem;
+        }
+        @media (min-width: 640px) {
+            h2 {
+                font-size: 2rem;
+            }
+        }
+        h3 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #0f766e; /* teal-700 */
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+        }
+        strong, b {
+            color: #115e59; /* teal-800 */
+            font-weight: 600;
+        }
+        ul {
+            list-style: none;
+            padding-left: 0;
+        }
+        li {
+            position: relative;
+            padding-left: 1.75rem;
+            margin-bottom: 0.75rem;
+        }
+        li::before {
+            content: '✓';
+            position: absolute;
+            left: 0.25rem;
+            color: #14b8a6; /* teal-500 */
+            font-weight: bold;
+        }
+        .contact-box {
+            background-color: #f0fdfa; /* teal-50 */
+            border-left: 4px solid #14b8a6; /* teal-500 */
+            padding: 1.5rem;
+            margin-top: 2rem;
+            border-radius: 0 0.5rem 0.5rem 0;
+        }
+        .contact-box a {
+            color: #0d9488; /* teal-600 */
+            font-weight: 600;
+            text-decoration: none;
+        }
+        .contact-box a:hover {
+            text-decoration: underline;
+        }
+        #lang-toggle {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background-color: #f1f5f9;
+            color: #475569;
+            border: 1px solid #e2e8f0;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+        }
+        @media (min-width: 640px) {
+            #lang-toggle {
+                top: 1.5rem;
+                right: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="content-wrapper">
+        <button id="lang-toggle" title="Switch Language">EN / 中文</button>
+
+        <header class="text-center border-b pb-8 mb-8">
+            <img src="https://www.polyu.edu.hk/assets/img/main-logo-3x.png" alt="The Hong Kong Polytechnic University Logo" class="h-12 sm:h-16 mx-auto mb-6" onerror="this.style.display='none'">
+            <h1 class="text-2xl sm:text-4xl font-bold mb-2">
+                <span data-lang="zh" class="hidden">香港理工大学数据科学与人工智能系阳行意课题组博士/博后/MPhil/RA机会</span>
+                <span data-lang="en">Openings for PhD, Postdoc, MPhil, and RA @ PolyU DSAI</span>
+            </h1>
+            <p class="text-base sm:text-lg text-slate-500 mt-2">
+                <span data-lang="zh" class="hidden">“校长青年学者”计划支持</span>
+                <span data-lang="en">Supported by the Presidential Young Scholar Scheme</span>
+            </p>
+        </header>
+
+        <article>
+            <!-- Introduction Section -->
+            <div id="intro-section">
+                <h3 data-lang="zh" class="hidden">个人简介</h3>
+                <h3 data-lang="en">About Me</h3>
+                <p class="mb-4">
+                    <span data-lang="zh" class="hidden">大家好，我是阳行意，刚刚从新加坡国立大学（NUS）电子工程学院博士毕业，即将于2025年秋季加入香港理工大学（PolyU）数据科学与人工智能系（Department of Data Science and Artificial Intelligence, DSAI）担任助理教授，并获得 <b>“校长青年学者”（Presidential Young Scholar）</b> 计划支持。</span>
+                    <span data-lang="en">I am Xingyi Yang. I will be joining The Hong Kong Polytechnic University (PolyU) as an Assistant Professor in the Department of Data Science and Artificial Intelligence (DSAI) in Fall 2025, supported by the <b>Presidential Young Scholar Scheme</b>. I recently obtained my Ph.D. from the National University of Singapore (NUS).</span>
+                </p>
+                <p class="mb-4">
+                    <span data-lang="zh" class="hidden">我计划组建并领导一个专注于前沿人工智能的研究团队，核心方向包括生成式人工智能（GenAI）、多模态学习（Multimodal Learning）、高效人工智能（Efficient AI）以及智能体系统（Agentic AI）。现拟招收若干 <b>2026年春/秋季</b> 入学的博士生，同时欢迎更早加入的访问学生、研究助理（RA）和博士后。诚邀对上述方向充满热情的同学和研究人员加入！</span>
+                    <span data-lang="en">I am establishing a new research group dedicated to cutting-edge AI, with a focus on Generative AI, Multimodal Learning, Efficient AI, and Agentic AI. I am looking for passionate Ph.D. students for <b>Spring/Fall 2026 admission</b>, as well as visiting students, RAs, and Postdocs.</span>
+                </p>
+
+                <h3 data-lang="zh" class="hidden">教育背景</h3>
+                <h3 data-lang="en">Educational Background</h3>
+                <p class="mb-4">
+                    <span data-lang="zh" class="hidden">在此之前，我在新加坡国立大学攻读博士学位，师从Prof. Xinchao Wang。在博士期间，我曾赴牛津大学（University of Oxford）访问交流，与英国皇家工程院院士 Prof. Philip Torr 合作研究。我本科毕业于东南大学计算机学院，随后在加州大学圣地亚哥分校（UC San Diego）获得电子与计算机工程硕士学位。</span>
+                    <span data-lang="en">I completed my Ph.D. at NUS, advised by Prof. Xinchao Wang. During my PhD, I was a visiting researcher at the University of Oxford, collaborating with Prof. Philip Torr (Fellow of the Royal Academy of Engineering). I received my B.Eng. from Southeast University and my M.S. from UC San Diego.</span>
+                </p>
+                
+                <h3 data-lang="zh" class="hidden">研究与荣誉</h3>
+                <h3 data-lang="en">Research & Honors</h3>
+                <p>
+                    <span data-lang="zh" class="hidden">我的研究聚焦于生成式 AI、多模态学习与高效学习，及其在 3D/4D 视觉与物理世界建模中的交叉应用。相关成果已发表在 <b>NeurIPS、ICML、ICLR、CVPR、ICCV、ECCV</b> 等人工智能与计算机视觉领域的顶级会议与期刊，并获得 <b>NeurIPS 2022 最佳论文提名奖</b>、<b>2023 国家优秀自费留学生奖学金</b>、<b>2024 世界人工智能大会青年优秀论文提名奖</b>、<b>百度奖学金 Finalist</b> 等多项荣誉。</span>
+                    <span data-lang="en">My research focuses on Generative AI, Multimodal Learning, and Efficient AI, particularly their application to 3D/4D vision and physical world modeling. My work has been published in top-tier venues, including <b>NeurIPS, ICML, ICLR, CVPR, ICCV, and ECCV</b>, and has received several honors, such as the <b>NeurIPS 2022 Best Paper Honorable Mention</b> and the <b>2023 Chinese Government Award for Outstanding Self-Financed Students Abroad</b>.</span>
+                </p>
+            </div>
+
+            <!-- Research Interests Section -->
+            <section>
+                <h2>
+                    <span data-lang="zh" class="hidden"><b>💡 研究方向</b></span>
+                    <span data-lang="en"><b>💡 Research Interests</b></span>
+                </h2>
+                <p class="mb-4">
+                    <span data-lang="zh" class="hidden">选择一个长期且有意义的研究方向并不容易。我希望我们的研究能聚焦于人工智能的核心问题，努力构建更聪明、更高效、更能理解和交互物理世界的AI系统。主要方向包括：</span>
+                    <span data-lang="en">Our research aims to tackle fundamental challenges in AI by building smarter and more efficient systems that can understand and interact with the physical world. Key directions include:</span>
+                </p>
+                <ul>
+                    <li>
+                        <span data-lang="zh" class="hidden"><b>生成式人工智能（Generative AI）：</b>研究结构化生成模型（如扩散模型、LLM），及其在内容生成、场景建模与理解中的应用。</span>
+                        <span data-lang="en"><b>Generative AI:</b> Investigating structured generative models (e.g., Diffusion Models, LLMs) for content creation, scene modeling, and understanding.</span>
+                    </li>
+                    <li>
+                        <span data-lang="zh" class="hidden"><b>多模态学习（Multimodal Learning）：</b>融合文本、图像、视频与3D数据，构建能理解、生成并与物理世界交互的智能系统。</span>
+                        <span data-lang="en"><b>Multimodal Learning:</b> Fusing text, image, video, and 3D data to build intelligent systems that can perceive and interact with the physical world.</span>
+                    </li>
+                    <li>
+                        <span data-lang="zh" class="hidden"><b>高效人工智能（Efficient AI）：</b>关注模型计算效率、参数/能耗优化，以及预训练大模型的压缩、适配与重用。</span>
+                        <span data-lang="en"><b>Efficient AI:</b> Focusing on the computational efficiency, optimization, and adaptation of large pre-trained models.</span>
+                    </li>
+                    <li>
+                        <span data-lang="zh" class="hidden"><b>智能体系统（Agentic AI）：</b>探索可感知、规划、协作的AI Agent，通过模块化与组合性设计实现复杂任务的自主完成。</span>
+                        <span data-lang="en"><b>Agentic AI:</b> Exploring agents that can perceive, plan, and collaborate to autonomously solve complex tasks.</span>
+                    </li>
+                </ul>
+                <p class="mt-4">
+                    <span data-lang="zh" class="hidden">如果你有其他感兴趣的、有潜力的新方向，也欢迎和我交流探讨，我始终对此保持开放态度。</span>
+                    <span data-lang="en">I am always open to discussing new and exciting research ideas.</span>
+                </p>
+            </section>
+
+            <!-- What I Offer Section -->
+            <section>
+                <h2>
+                    <span data-lang="zh" class="hidden"><b>✨ 我能为你提供什么？</b></span>
+                    <span data-lang="en"><b>✨ What We Offer</b></span>
+                </h2>
+                <ul>
+                    <li>
+                        <span data-lang="zh" class="hidden"><b>长期、稳健的科研指导与陪伴：</b> 我会与你一起深入思考研究问题，帮助你稳步成长为有独立思考和创新能力的研究者。无论你处在科研的哪个阶段，我都会认真负责地给予支持与反馈。</span>
+                        <span data-lang="en"><b>Close and Consistent Mentorship:</b> I am committed to working closely with each student, providing guidance and support to help them become independent and innovative researchers.</span>
+                    </li>
+                    <li>
+                        <span data-lang="zh" class="hidden"><b>充足的资源保障：</b> 我将为你提供稳定的科研经费、计算资源（如<b>GPU集群</b>）、国际会议支持等，确保你能专注于研究而不被琐事分心。</span>
+                        <span data-lang="en"><b>Full Financial and Resource Support:</b> We provide stable research funding, access to computational resources (including a <b>GPU cluster</b>), and support for attending international conferences.</span>
+                    </li>
+                    <li>
+                        <span data-lang="zh" class="hidden"><b>丰富的合作与发展机会：</b> 我会积极推荐你参与与<b>NUS、Oxford、UCSD</b>等学术机构，以及<b>华为、Meta、字节</b>等公司的合作项目与实习交流，拓宽你的视野与影响力。</span>
+                        <span data-lang="en"><b>Collaboration and Networking Opportunities:</b> I actively connect students with collaboration and internship opportunities at top institutions (e.g., <b>NUS, Oxford, UCSD</b>) and leading companies (e.g., <b>Huawei, Meta, ByteDance</b>).</span>
+                    </li>
+                </ul>
+            </section>
+
+            <!-- Requirements Section -->
+            <section>
+                <h2>
+                    <span data-lang="zh" class="hidden"><b>📝 招生要求</b></span>
+                    <span data-lang="en"><b>📝 Who We Are Looking For</b></span>
+                </h2>
+                <p class="mb-4">
+                    <span data-lang="zh" class="hidden">我们欢迎对科研有真正热情、主动性强、有思考力和执行力的同学或研究人员加入团队。希望你具备以下部分或全部特点：</span>
+                    <span data-lang="en">We are looking for highly motivated candidates who are passionate about research and have strong analytical and problem-solving skills. Ideal candidates will have:</span>
+                </p>
+                <ul>
+                    <li>
+                        <span data-lang="zh" class="hidden">对上述一个或多个研究方向有浓厚兴趣，并乐于探索未知问题；</span>
+                        <span data-lang="en">A strong interest in one or more of our research areas and a desire to tackle challenging problems.</span>
+                    </li>
+                    <li>
+                        <span data-lang="zh" class="hidden">拥有计算机科学、人工智能、电子工程、数学、统计或相关学科的扎实背景；</span>
+                        <span data-lang="en">A solid background in CS, AI, EE, Mathematics, Statistics, or related fields.</span>
+                    </li>
+                    <li>
+                        <span data-lang="zh" class="hidden">具备良好的编程和工程能力，拥有良好的英文读写和沟通能力；</span>
+                        <span data-lang="en">Strong programming skills and proficiency in English.</span>
+                    </li>
+                    <li>
+                        <span data-lang="zh" class="hidden"><b>博士后申请者：</b> 已获得或即将获得博士学位，并在相关领域有高水平成果发表；</span>
+                        <span data-lang="en"><b>For Postdoc Applicants:</b> A Ph.D. degree (or will be receiving one soon) with a strong publication record.</span>
+                    </li>
+                    <li>
+                        <span data-lang="zh" class="hidden"><b>博士申请者：</b> 有科研经历或已发表高质量论文者优先考虑。</span>
+                        <span data-lang="en"><b>For PhD Applicants:</b> Prior research experience and publications are a plus.</span>
+                    </li>
+                </ul>
+                <p class="mt-4 text-slate-600 italic">
+                    <span data-lang="zh" class="hidden">如果你有其他值得我了解的情况或优势，也欢迎一并说明。我相信：君子不器。</span>
+                    <span data-lang="en">I value diverse skill sets and intellectual curiosity beyond a narrow specialty. Feel free to highlight any other strengths in your application.</span>
+                </p>
+            </section>
+
+            <!-- Application Section -->
+            <section>
+                <h2>
+                    <span data-lang="zh" class="hidden"><b>🗓️ 招生时间与申请方式</b></span>
+                    <span data-lang="en"><b>🗓️ Timelines & How to Apply</b></span>
+                </h2>
+                <p class="mb-4">
+                    <span data-lang="zh" class="hidden">我目前计划招收 <b>2–3 名 2026 年春季或秋季入学</b>的博士生 (Ph.D.)。春季入学申请的截止日期是 <b>9 月 30 日</b>。学校也支持联合培养或双学位博士项目。如果你条件优秀，也非常欢迎申请 <b>香港博士奖学金（HKPFS）</b>，我会提供所需帮助。</span>
+                    <span data-lang="en">I plan to recruit <b>2–3 Ph.D. students for Spring/Fall 2026 admission</b>. The deadline for Spring admission is <b>September 30th</b>. Outstanding candidates are strongly encouraged to apply for the <b>Hong Kong PhD Fellowship Scheme (HKPFS)</b>, for which I will provide full support.</span>
+                </p>
+                <p class="mb-4">
+                    <span data-lang="zh" class="hidden">我预计招收 <b>1–2 位博士后（Postdoc）和研究助理（RA）</b>，岗位常年开放，薪资优厚，入职时间可灵活协商。</span>
+                    <span data-lang="en">I am also looking for <b>1–2 Postdocs and RAs</b>. These positions are open year-round with competitive salaries and flexible start dates.</span>
+                </p>
+                <p>
+                    <span data-lang="zh" class="hidden">此外，我希望为本科生或在读硕士提供科研培养机会。欢迎有兴趣的同学申请科研实习（主要针对2026年春季或夏季，也欢迎其他时间段的实习咨询）。</span>
+                    <span data-lang="en">Research internship opportunities are available for undergraduate and master's students, primarily for Spring/Summer 2026.</span>
+                </p>
+                <div class="contact-box">
+                    <p class="!mt-0">
+                        <span data-lang="zh" class="hidden">请将您的个人简历 (CV)、以及其他您认为相关的材料（如代表性论文、项目作品集等）发送至我的邮箱：<a href="mailto:xyang@u.nus.edu"><b>xyang@u.nus.edu</b></a>。邮件标题请注明：“<b>[申请职位类型] Application - [您的姓名]</b>”（例如：“PhD Application - 张三”）。邮件中可以简单介绍一下自己的 Motivation，说明你为什么对我们的课题感兴趣。</span>
+                        <span data-lang="en">To apply, please send your CV and any relevant materials (e.g., publications, portfolio) to <a href="mailto:xyang@u.nus.edu"><b>xyang@u.nus.edu</b></a>. Use the subject line: "<b>[Position] Application - [Your Name]</b>" (e.g., "PhD Application - Jane Doe"). Please include a brief statement of interest in your email.</span>
+                    </p>
+                </div>
+            </section>
+            
+            <!-- Final Word Section -->
+            <section>
+                <h2>
+                    <span data-lang="zh" class="hidden"><b>✍️ 写在最后</b></span>
+                    <span data-lang="en"><b>✍️ A Final Word</b></span>
+                </h2>
+                <p class="mb-4">
+                    <span data-lang="zh" class="hidden">感谢你耐心读到这里。我知道，选择导师和课题组是学术生涯中重要的决定，背后凝聚着你的热情与期待。对我而言，组建团队也是一次全新的启航。我希望我们能建立的是开放、真诚、彼此支持的科研关系，一起探索、一起成长。</span>
+                    <span data-lang="en">Thank you for your interest. Choosing a supervisor is a significant decision, and for me, building this team is a new and exciting journey. My goal is to foster an open, collaborative, and supportive environment where we can explore new ideas and grow together.</span>
+                </p>
+                <p class="mb-4">
+                    <span data-lang="zh" class="hidden">由于我正处于建组初期，事务繁忙，可能无法第一时间回复每一封邮件。但我向你保证，每一份申请材料我都会认真阅读、慎重考虑，因为这关乎你的未来，也关乎我们团队的未来。</span>
+                    <span data-lang="en">As I am in the early stages of forming the group, I may not be able to reply to every email immediately. However, I assure you that I will review every application carefully.</span>
+                </p>
+                <p>
+                    <span data-lang="zh" class="hidden">期待你的加入，也期待我们能一起把那些有趣的想法变成现实。</span>
+                    <span data-lang="en">I look forward to hearing from you and hope we can turn exciting ideas into reality together.</span>
+                </p>
+            </section>
+        </article>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const langToggle = document.getElementById('lang-toggle');
+            let currentLang = 'en'; // Default language is now English
+
+            const elements = document.querySelectorAll('[data-lang]');
+
+            function setLanguage(lang) {
+                elements.forEach(el => {
+                    if (el.dataset.lang === lang) {
+                        el.classList.remove('hidden');
+                    } else {
+                        el.classList.add('hidden');
+                    }
+                });
+                document.documentElement.lang = lang;
+                currentLang = lang;
+                document.title = lang === 'zh' ? '香港理工大学 | 阳行意课题组招聘' : "Recruitment | Xingyi Yang's Group @ PolyU";
+            }
+
+            langToggle.addEventListener('click', () => {
+                const newLang = currentLang === 'zh' ? 'en' : 'zh';
+                setLanguage(newLang);
+            });
+
+            // Set initial language on load
+            setLanguage(currentLang);
+        });
+    </script>
+
+</body>
+</html>
