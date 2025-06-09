@@ -42,7 +42,7 @@ I am looking for self-motivated Ph.D. students, postdocs, and research assistant
 <!-- - Efficiency, that empowers the AI learn with minimum computation and data requirement.  -->
 <!-- - Data Efficency. Focus on self-supervised & semi-supervised & weak-supervised learning or learning with synthesized data. -->
 
-[CV](http://adamdad.github.io/files/Resume_Xingyi_Yang_202502.pdf)
+[CV](http://adamdad.github.io/files/CV_XingyiYang_202506.pdf)
 
 I believe in [Slow Science](http://slow-science.org/)
 
