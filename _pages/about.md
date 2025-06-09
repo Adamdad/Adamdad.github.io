@@ -30,7 +30,7 @@ My research lies at the intersection of **generative AI** and **multi-modal lear
 
 ### 💥 Hiring! 💥
 
-I am looking for self-motivated Ph.D. students, postdocs, and research assistants for Spring/Fall 2026. If you are interested in working with me, feel free to reach out via email with your resume.
+I am looking for self-motivated Ph.D. students, postdocs, and research assistants for Spring/Fall 2026. For more details, please see [Openning](https://adamdad.github.io/openning). If you are interested in working with me, feel free to reach out via email with your resume.
 
 
 <!-- My current research interest lies in **Deep Model Reuse** and its Applications:
