@@ -9,6 +9,8 @@ main:
   - title: "Experience"
     url: /experience/
     
+  - title: "Openings"
+    url: /opening
   # - title: "Others"
   #   url: /other/
     
