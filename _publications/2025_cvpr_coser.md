@@ -4,7 +4,7 @@ collection: publications
 permalink: /publications/2025_cvpr_coser
 date: 2025-6-9
 citation: Bonan Li, Zicheng Zhang, <u>Xingyi Yang</u>, Xinchao Wang
-venue: 'Computer Vision and Pattern Recognition <b>(CVPR)</b>'
+venue: 'Computer Vision and Pattern Recognition <b>(CVPR)</b>, <b>(Highlight)</b>'
 header:
   teaser: 'coser.jpg'
 ---
