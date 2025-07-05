@@ -14,7 +14,7 @@ redirect_from:
 --------
 
 ## Education
-I got my master's degree in Electrical and Computer Engineering from [University of California, San Diego](https://ucsd.edu/) in 2021 and my bachelor degree in Computer Science and Engineering from [Southeast University](https://www.seu.edu.cn/english/), China in 2019. I was also fortunate to work with [Prof.Pengtao Xie](https://pengtaoxie.github.io/), [Prof.Rose Yu](http://roseyu.com/), [Prof.Fenglong ma](http://personal.psu.edu/ffm5105/) and [Prof.Yining Hu](https://www.researchgate.net/profile/Yining-Hu-4). I used to be a visiting student at University of Ottawa, supervised by [Prof.Robert Laganière](http://www.site.uottawa.ca/~laganier/). 
+I got my master's degree in Electrical and Computer Engineering from [University of California, San Diego](https://ucsd.edu/) in 2021 and my bachelor degree in Computer Science and Engineering from [Southeast University](https://www.seu.edu.cn/english/), China in 2019. I was also fortunate to work with [Prof.Pengtao Xie](https://pengtaoxie.github.io/), [Prof.Rose Yu](http://roseyu.com/), [Prof.Fenglong ma](http://personal.psu.edu/ffm5105/) and [Prof.Yining Hu](https://www.researchgate.net/profile/Yining-Hu-4) and [Dr.Xinjiang Wang](https://scholar.google.com/citations?user=q4lnWaoAAAAJ&hl=en). I used to be a visiting student at University of Ottawa, supervised by [Prof.Robert Laganière](http://www.site.uottawa.ca/~laganier/). 
 - <img src="..\images\singapore.png" alt="drawing" style="width:50px;" align="middle" border="3"/> Ph.D in Singapore, National Uniersity of Singapore, 2021-2025
 
 - <img src="..\images\University_of_California,_San_Diego_seal.svg.png" alt="drawing" style="width:50px;" align="middle" border="3"/> M.S. in San Diego, University of California San Diego, 2019-2021
@@ -33,15 +33,15 @@ I got my master's degree in Electrical and Computer Engineering from [University
 
 * <img src="..\images\sensetime.png" alt="drawing" style="width:50px;" align="middle" border="3"/> Sensetime Research&<img src="..\images\shailab.jpg" alt="drawing" style="width:50px;" align="middle" border="3"/> Shanghai AI lab *Reseach Intern* | Spring 2021
   
-  * Supervisor: [Dr.Xinjiang Wang](https://scholar.google.com/citations?user=q4lnWaoAAAAJ&hl=en)
+  <!-- * Supervisor: [Dr.Xinjiang Wang](https://scholar.google.com/citations?user=q4lnWaoAAAAJ&hl=en) -->
 
 * <img src="..\images\University_of_California,_San_Diego_seal.svg.png" alt="drawing" style="width:50px;" align="middle" border="3"/> University of California *Student Researcher* | Autumn 2019
 
-  * Supervisor: [Prof.Pengtao Xie](http://www.cs.cmu.edu/~pengtaox/)
+  <!-- * Supervisor: [Prof.Pengtao Xie](http://www.cs.cmu.edu/~pengtaox/) -->
 
 * <img src="..\images\kneron.jpg" alt="drawing" style="width:50px;" align="middle" border="3"/> Kneron Inc. *Deep Learning Intern* | Autumn 2019
 
-  * Supervisor: [Bike Xie](https://www.linkedin.com/in/bike-xie-82069b18/)
+  <!-- * Supervisor: [Bike Xie](https://www.linkedin.com/in/bike-xie-82069b18/) -->
 
 * <img src="..\images\viva.png" alt="drawing" style="width:50px;" align="middle" border="3"/> University of Ottawa, VIVA Lab *Research Assistant* | Summer 2018
   * Supervisor: [Prof.Robert Laganière](http://www.site.uottawa.ca/~laganier/)
