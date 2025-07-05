@@ -9,8 +9,7 @@
 locale                   : "en-US"
 title                    : "Adam"
 title_separator          : "|"
-name                     : &name "
-Department of Electrical and Computer Engineering, NUS"
+name                     : &name "DSAI @ PolyU"
 description              : &description "A personal site of Xingyi Yang"
 url                      : https://Adamdad.github.io # the base hostname & protocol for your site e.g. "https://mmistakes.github.io"
 baseurl                  : "" # the subpath of your site, e.g. "/blog"
@@ -84,12 +83,12 @@ analytics:
 author:
   name             : "Xingyi Yang"
   avatar           : "726691746359914_.pic_hd.jpg" # placed in /images/
-  bio              : "Ph.D. NUS/Incoming AP. PolyU"
+  bio              : "AP. PolyU"
   location         : "Singapore"
   employer         : 
   pubmed           : 
   googlescholar    : "https://scholar.google.com/citations?user=1n2OPtwAAAAJ"
-  email            : "xyang@u.nus.edu"
+  email            : "xingyi.yang@polyu.edu.hk"
   researchgate     : "https://www.researchgate.net/profile/Xingyi_Yang4"
   uri              :
   bitbucket        :
