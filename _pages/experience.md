@@ -48,7 +48,7 @@ I got my master's degree in Electrical and Computer Engineering from [University
   
 
 
--------
+<!-- -------
 ## Award Selected
 
 * National University of Singapore, Graduate Research Scholarship
@@ -56,7 +56,7 @@ I got my master's degree in Electrical and Computer Engineering from [University
 * NeurIPS 2024 🔥[Top Reviewer](https://neurips.cc/Conferences/2024/ProgramCommittee) and NeurIPS 2022 🔥[Top Reviewer](https://nips.cc/Conferences/2022/ProgramCommittee)🔥.
 * 12th place (Defence) on IJCAI-19 Alibaba Adversrial Vision Challenge
 * 3nd place on Alibaba AI Security Program
-* 2018 MCM/ICM Meritorious Winner Prize
+* 2018 MCM/ICM Meritorious Winner Prize -->
 
 -------
 ## Teaching
