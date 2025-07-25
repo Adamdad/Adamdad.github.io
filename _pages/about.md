@@ -16,9 +16,9 @@ redirect_from:
 
  🚀👨‍💻🥁💡Hi, my name is Xingyi Yang (Adam)💡🥁👨‍💻🚀.
 
-I will be joining The Hong Kong Polytechnic University (PolyU) in 2025 Fall as a tenure-track Assistant Professor in the [Department of Data Science and Artificial Intelligence (DSAI)](https://www.polyu.edu.hk/dsai/?sc_lang=en). I am also honored to have been selected as the prestigious **Presidential Young Scholars** at PolyU.
+I am a Tenure-Track Assistant Professor in the [Department of Data Science and Artificial Intelligence (DSAI)](https://www.polyu.edu.hk/dsai/?sc_lang=en). I am also honored to have been selected as the prestigious **Presidential Young Scholars** at PolyU.
 
-Currently, I am a final-year Ph.D. candidate at NUS, advised by Prof.Xinchao Wang. I also spent wonderful times as a visiting PhD at University of Oxford, advised by Prof.Philip Torr. 
+I received my Ph.D. from the National University of Singapore (NUS), advised by Prof. Xinchao Wang. I also had a wonderful experience as a visiting Ph.D. student at the University of Oxford, working with Prof. Philip Torr. Prior to that, I completed my Master’s at UC San Diego (UCSD) and my Bachelor’s at Southeast University (SEU).
 
 <!-- I am grateful for the recognition my work has received, including a NeurIPS 2022 Best Paper Nomination, the 2023 National Award for Outstanding Self-financed Chinese Students Abroad, and a WAIC 2024 Youth Excellent Paper Nomination. -->
 
