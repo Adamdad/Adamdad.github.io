@@ -10,4 +10,4 @@ header:
 ---
 
 
-[[paper](https://arxiv.org/abs/2209.01589)] [[arxiv](https://arxiv.org/abs/2209.01589)]  [[code](https://github.com/Adamdad/ConsistentTeacher)] [[project page](https://adamdad.github.io/consistentteacher/)]
+[[paper](https://arxiv.org/abs/2209.01589)] [[code](https://github.com/Adamdad/ConsistentTeacher)] [[project page](https://adamdad.github.io/consistentteacher/)]
