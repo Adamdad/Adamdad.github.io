@@ -4,7 +4,7 @@ collection: publications
 permalink: /publications/2025_iccv_ominicontrol
 date: 2025-10-20
 citation: Zhenxiong Tan, Songhua Liu, <u>Xingyi Yang</u>, Qiaochu Xue, and Xinchao Wang
-venue: 'IEEE/CVF International Conference on Computer Vision <b>(ICCV)</b>'
+venue: 'IEEE/CVF International Conference on Computer Vision <b>(ICCV)</b>, <b style="color:red;">(Highlight)</b>'
 header:
   teaser: 'omini.jpg'
 ---

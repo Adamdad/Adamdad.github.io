@@ -4,7 +4,7 @@ collection: publications
 permalink: /publications/2023_cvpr_consistentteacher
 date: 2023-4-8
 citation:  Xinjiang Wang*, <u>Xingyi Yang</u>*, Shilong Zhang, Yijiang Li, Litong Feng, Shijie Fang, Chengqi Lyu, Kai Chen, Wayne Zhang (* Equally Contributed)
-venue: 'Conference on Computer Vision and Pattern Recognition <b>(CVPR)</b>, <b>(Highlight)</b>'
+venue: 'Conference on Computer Vision and Pattern Recognition <b>(CVPR)</b>, <b style="color:red;">(Highlight)</b>'
 header:
   teaser: 'c_teacher.png'
 ---
