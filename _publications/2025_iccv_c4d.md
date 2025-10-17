@@ -9,5 +9,5 @@ header:
   teaser: 'c4d_teaser_v3_page-0001.jpg'
 ---
 
-
-
+[[arxiv](https://arxiv.org/abs/2510.14960)]
+[[project page](https://littlepure2333.github.io/C4D/)]
