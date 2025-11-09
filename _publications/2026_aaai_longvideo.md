@@ -2,7 +2,7 @@
 title: "Minute-Long Videos with Dual Parallelisms"
 collection: publications
 permalink: /publications/2026_aaai_longvideo
-date: 2025-12-2
+date: 2026-1-2
 citation: Zeqing Wang, Bowen Zheng, <u>Xingyi Yang</u>, Zhenxiong Tan, Yuecong Xu, Xinchao Wang
 venue: 'AAAI Conference on Artificial Intelligence <b>(AAAI)</b>'
 header:
