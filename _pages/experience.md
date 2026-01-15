@@ -50,8 +50,9 @@ I got my master's degree in Electrical and Computer Engineering from [University
 
 -------
 ## Teaching
-* EE5934/6934: Deep Learning, 2022 Spring, Teaching Assistant.
-* EE2211: Introduction to Machine Learning, 2022 Spring, Teaching Assistant.
+* PolyU DSAI5207: Modern Deep Learning, 2026 Spring, Instructor.
+* NUS EE5934/6934: Deep Learning, 2022 Spring, Teaching Assistant.
+* NUS EE2211: Introduction to Machine Learning, 2022 Spring, Teaching Assistant.
 
 ## Invited Talk 
 * [“Deep Model Reuse: Paving the Way for Efficient and Generalizable AI Systems"](https://calendars.illinois.edu/detail/2654?eventId=33482580), Computer Vision Group @ UIUC.
