@@ -63,6 +63,7 @@ I got my master's degree in Electrical and Computer Engineering from [University
 * organizer for CVPR 2024 tutorial "Disentanglement and Compositionality in Computer Vision".
 * organizer for ECCV 2024 tutorial "Emerging Trends in Disentanglement and Compositionality".
 * organizer for NeurIPS 2020 workshop “Self-Supervised Learning – Theory and Practice”, serving as Workflow Chair.
+* Area chair for NeurIPS 2026.
 * Conference reviewer for 
   - CVPR, NeurIPS, ICML, ICLR, ICCV, ECCV, ACL, IJCAI, AAAI, ICASSP, WWW 
   
