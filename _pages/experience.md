@@ -14,7 +14,10 @@ redirect_from:
 --------
 
 ## Education
-I got my master's degree in Electrical and Computer Engineering from [University of California, San Diego](https://ucsd.edu/) in 2021 and my bachelor degree in Computer Science and Engineering from [Southeast University](https://www.seu.edu.cn/english/), China in 2019. I was also fortunate to work with [Prof.Pengtao Xie](https://pengtaoxie.github.io/), [Prof.Rose Yu](http://roseyu.com/), [Prof.Fenglong ma](http://personal.psu.edu/ffm5105/) and [Prof.Yining Hu](https://www.researchgate.net/profile/Yining-Hu-4) and [Dr.Xinjiang Wang](https://scholar.google.com/citations?user=q4lnWaoAAAAJ&hl=en). I used to be a visiting student at University of Ottawa, supervised by [Prof.Robert Laganière](http://www.site.uottawa.ca/~laganier/). 
+I get my PhD at National University of Singapore. I got my master's degree at [University of California, San Diego](https://ucsd.edu/) and my bachelor degree at [Southeast University](https://www.seu.edu.cn/english/), China. 
+<!-- I was also fortunate to work with [Prof.Pengtao Xie](https://pengtaoxie.github.io/), [Prof.Rose Yu](http://roseyu.com/), [Prof.Fenglong ma](http://personal.psu.edu/ffm5105/) and [Prof.Yining Hu](https://www.researchgate.net/profile/Yining-Hu-4) and [Dr.Xinjiang Wang](https://scholar.google.com/citations?user=q4lnWaoAAAAJ&hl=en).  -->
+I used to be a visiting student at University of Ottawa. 
+<!-- , supervised by [Prof.Robert Laganière](http://www.site.uottawa.ca/~laganier/).  -->
 - <img src="..\images\singapore.png" alt="drawing" style="width:50px;" align="middle" border="3"/> Ph.D in Singapore, National Uniersity of Singapore, 2021-2025
 
 - <img src="..\images\University_of_California,_San_Diego_seal.svg.png" alt="drawing" style="width:50px;" align="middle" border="3"/> M.S. in San Diego, University of California San Diego, 2019-2021
@@ -60,9 +63,9 @@ I got my master's degree in Electrical and Computer Engineering from [University
 
 -------
 ## Academic Service
-* organizer for CVPR 2024 tutorial "Disentanglement and Compositionality in Computer Vision".
-* organizer for ECCV 2024 tutorial "Emerging Trends in Disentanglement and Compositionality".
-* organizer for NeurIPS 2020 workshop “Self-Supervised Learning – Theory and Practice”, serving as Workflow Chair.
+* Organizer for CVPR 2024 tutorial "Disentanglement and Compositionality in Computer Vision".
+* Organizer for ECCV 2024 tutorial "Emerging Trends in Disentanglement and Compositionality".
+* Organizer for NeurIPS 2020 workshop “Self-Supervised Learning – Theory and Practice”, serving as Workflow Chair.
 * Area chair for NeurIPS 2026.
 * Conference reviewer for 
   - CVPR, NeurIPS, ICML, ICLR, ICCV, ECCV, ACL, IJCAI, AAAI, ICASSP, WWW 
