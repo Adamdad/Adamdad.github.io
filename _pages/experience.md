@@ -47,7 +47,7 @@ I used to be a visiting student at University of Ottawa.
   <!-- * Supervisor: [Bike Xie](https://www.linkedin.com/in/bike-xie-82069b18/) -->
 
 * <img src="..\images\viva.png" alt="drawing" style="width:50px;" align="middle" border="3"/> University of Ottawa, VIVA Lab *Research Assistant* | Summer 2018
-  * Supervisor: [Prof.Robert Laganière](http://www.site.uottawa.ca/~laganier/)
+  <!-- * Supervisor: [Prof.Robert Laganière](http://www.site.uottawa.ca/~laganier/) -->
   
 
 -------
