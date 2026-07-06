@@ -205,6 +205,7 @@ defaults:
       comments: true
       share: true
       related: true
+      classes: wide-page
   # _pages
   - scope:
       path: ""
@@ -231,6 +232,7 @@ defaults:
       author_profile: false
       share: true
       comments: true
+      classes: wide-page
   # _portfolio
   - scope:
       path: ""
@@ -319,6 +321,6 @@ compress_html:
   ignore:
     envs: development
 
-# theme: minimal-mistakes-jekyll
+theme: minimal-mistakes-jekyll
 
-theme: jekyll-theme-cayman
+# theme: jekyll-theme-cayman
