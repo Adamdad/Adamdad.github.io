@@ -254,7 +254,6 @@ redirect_from:
     <p class="about-statement">I build generative and multimodal systems that learn to understand, simulate, and interact with the spatial world.</p>
     <div class="about-actions">
       <a class="about-action about-action-primary" href="https://adamdad.github.io/opening">Openings</a>
-      <a class="about-action" href="https://adamdad.github.io/publications/">Publications</a>
       <a class="about-action" href="https://scholar.google.com/citations?user=1n2OPtwAAAAJ">Google Scholar</a>
       <a class="about-action" href="http://adamdad.github.io/files/CV_XingyiYang_202506.pdf">CV</a>
     </div>
@@ -271,32 +270,6 @@ redirect_from:
     </div>
   </section>
 
-  <section class="about-section">
-    <p class="about-kicker">Research Compass</p>
-    <h2 class="about-section-title">Problems I Keep Coming Back To</h2>
-    <div class="research-compass">
-      <article class="research-card">
-        <span class="research-card-index">01</span>
-        <h3 class="research-card-title">Generative AI</h3>
-        <p class="research-card-text">Learning models that create, edit, reconstruct, and control visual content with structure and intent.</p>
-      </article>
-      <article class="research-card">
-        <span class="research-card-index">02</span>
-        <h3 class="research-card-title">Spatial Intelligence</h3>
-        <p class="research-card-text">Giving AI systems a stronger sense of geometry, motion, scenes, and the physical constraints of the world.</p>
-      </article>
-      <article class="research-card">
-        <span class="research-card-index">03</span>
-        <h3 class="research-card-title">World Models</h3>
-        <p class="research-card-text">Building systems that learn to simulate, predict, and reason over dynamic worlds rather than isolated pixels.</p>
-      </article>
-      <article class="research-card">
-        <span class="research-card-index">04</span>
-        <h3 class="research-card-title">Multimodal Learning + Computer Vision</h3>
-        <p class="research-card-text">Connecting images, video, language, 3D, and 4D signals into models that understand and act.</p>
-      </article>
-    </div>
-  </section>
 
   <section class="about-section">
     <p class="about-kicker">Research Glimpses</p>
