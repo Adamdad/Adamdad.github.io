@@ -50,14 +50,15 @@ I used to be a visiting student at University of Ottawa.
   * Supervisor: [Prof.Robert Laganière](http://www.site.uottawa.ca/~laganier/)
   
 
-
 -------
 ## Teaching
+* PolyU DSAI4207: Introduction to Large Language Model, 2026 Fall, Instructor.
 * PolyU DSAI5207: Modern Deep Learning, 2026 Spring, Instructor.
 * NUS EE5934/6934: Deep Learning, 2022 Spring, Teaching Assistant.
 * NUS EE2211: Introduction to Machine Learning, 2022 Spring, Teaching Assistant.
 
 ## Invited Talk 
+* [“Deep Model Reuse: Paving the Way for Efficient and Generalizable AI Systems"](https://ojs.aaai.org/index.php/AAAI/article/view/41361), AAAI New Faculty Highlight.
 * [“Deep Model Reuse: Paving the Way for Efficient and Generalizable AI Systems"](https://calendars.illinois.edu/detail/2654?eventId=33482580), Computer Vision Group @ UIUC.
 * "Anything-3d: Towards single-view anything reconstruction in the wild", The Future of 3D Vision in the Era of LLMs Seminar 2023 @ VALSE.
 
