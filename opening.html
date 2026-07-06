@@ -1,440 +1,341 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Openings | Xingyi Yang @ PolyU DSAI</title>
-  <style>
-    :root {
-      --xy-bg: #fbfaf7;
-      --xy-surface: #ffffff;
-      --xy-ink: #161616;
-      --xy-muted: #6b6760;
-      --xy-soft: #9c958b;
-      --xy-line: #e3ded4;
-      --xy-accent: #a0232a;
-      --xy-accent-dark: #74161b;
-      --xy-accent-soft: rgba(160, 35, 42, 0.08);
-      --xy-max: 1120px;
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    body {
-      background: var(--xy-bg);
-      color: var(--xy-ink);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, "Noto Sans SC", sans-serif;
-      line-height: 1.7;
-      margin: 0;
-    }
-
-    a {
-      color: var(--xy-accent);
-      text-decoration-thickness: 1px;
-      text-underline-offset: 0.18em;
-    }
-
-    a:hover {
-      color: var(--xy-accent-dark);
-    }
-
-    .site-header {
-      backdrop-filter: blur(18px);
-      background: rgba(251, 250, 247, 0.92);
-      border-bottom: 1px solid var(--xy-line);
-      position: sticky;
-      top: 0;
-      z-index: 10;
-    }
-
-    .nav {
-      align-items: center;
-      display: flex;
-      justify-content: space-between;
-      margin: 0 auto;
-      max-width: var(--xy-max);
-      padding: 1rem 1.25rem;
-    }
-
-    .brand,
-    .nav-links a,
-    #lang-toggle {
-      color: var(--xy-muted);
-      font-size: 0.72rem;
-      font-weight: 700;
-      letter-spacing: 0.14em;
-      text-decoration: none;
-      text-transform: uppercase;
-    }
-
-    .brand {
-      color: var(--xy-ink);
-    }
-
-    .nav-links {
-      align-items: center;
-      display: flex;
-      gap: 1rem;
-    }
-
-    #lang-toggle {
-      background: transparent;
-      border: 1px solid var(--xy-line);
-      color: var(--xy-ink);
-      cursor: pointer;
-      padding: 0.48rem 0.65rem;
-    }
-
-    .shell {
-      margin: 0 auto;
-      max-width: var(--xy-max);
-      padding: clamp(3rem, 8vw, 6rem) 1.25rem 4rem;
-    }
-
-    .hero {
-      display: grid;
-      gap: clamp(2rem, 6vw, 5rem);
-      grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
-      margin-bottom: clamp(3rem, 7vw, 5rem);
-    }
-
-    .eyebrow,
-    .section-kicker,
-    .step span {
-      color: var(--xy-accent);
-      font-size: 0.72rem;
-      font-weight: 800;
-      letter-spacing: 0.22em;
-      margin: 0 0 1rem;
-      text-transform: uppercase;
-    }
-
-    h1 {
-      font-size: clamp(3rem, 8vw, 6.4rem);
-      letter-spacing: -0.065em;
-      line-height: 0.92;
-      margin: 0;
-    }
-
-    .lead {
-      color: var(--xy-ink);
-      font-size: clamp(1.25rem, 2.4vw, 2rem);
-      letter-spacing: -0.035em;
-      line-height: 1.25;
-      margin: 1.5rem 0 0;
-      max-width: 760px;
-    }
-
-    .muted {
-      color: var(--xy-muted);
-      margin-top: 1.1rem;
-      max-width: 760px;
-    }
-
-    .hero-panel,
-    .section-panel,
-    .step,
-    .contact-panel {
-      background: var(--xy-surface);
-      border: 1px solid var(--xy-line);
-    }
-
-    .hero-panel {
-      align-self: end;
-      padding: clamp(1.25rem, 4vw, 2rem);
-    }
-
-    .hero-panel dl {
-      display: grid;
-      gap: 1rem;
-      margin: 0;
-    }
-
-    .hero-panel dt {
-      color: var(--xy-accent);
-      font-size: 0.68rem;
-      font-weight: 800;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-    }
-
-    .hero-panel dd {
-      color: var(--xy-ink);
-      margin: 0.2rem 0 0;
-    }
-
-    .actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.6rem;
-      margin-top: 1.75rem;
-    }
-
-    .action {
-      align-items: center;
-      border: 1px solid var(--xy-line);
-      color: var(--xy-ink);
-      display: inline-flex;
-      font-size: 0.72rem;
-      font-weight: 800;
-      letter-spacing: 0.12em;
-      min-height: 2.25rem;
-      padding: 0.58rem 0.78rem;
-      text-decoration: none;
-      text-transform: uppercase;
-    }
-
-    .action.primary {
-      background: var(--xy-accent);
-      border-color: var(--xy-accent);
-      color: #fff;
-    }
-
-    .action:hover {
-      border-color: var(--xy-accent);
-      color: var(--xy-accent);
-    }
-
-    .action.primary:hover {
-      background: var(--xy-accent-dark);
-      border-color: var(--xy-accent-dark);
-      color: #fff;
-    }
-
-    .section {
-      border-top: 1px solid var(--xy-line);
-      margin-top: clamp(2.5rem, 6vw, 4.5rem);
-      padding-top: clamp(2rem, 4vw, 3.25rem);
-    }
-
-    .section-title {
-      font-size: clamp(1.9rem, 4vw, 3.15rem);
-      letter-spacing: -0.045em;
-      line-height: 1;
-      margin: 0 0 1.4rem;
-    }
-
-    .section-panel {
-      padding: clamp(1.25rem, 4vw, 2rem);
-    }
-
-    .grid {
-      display: grid;
-      gap: 1px;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-    }
-
-    .grid.three {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-
-    .step {
-      min-height: 13rem;
-      padding: 1.3rem;
-    }
-
-    .step h3 {
-      font-size: 1.08rem;
-      letter-spacing: -0.02em;
-      margin: 0 0 0.65rem;
-    }
-
-    .step p {
-      color: var(--xy-muted);
-      font-size: 0.92rem;
-      margin: 0;
-    }
-
-    .contact-panel {
-      background: var(--xy-accent-soft);
-      margin-top: 1.3rem;
-      padding: clamp(1.25rem, 4vw, 2rem);
-    }
-
-    .hidden {
-      display: none !important;
-    }
-
-    @media (max-width: 900px) {
-      .hero,
-      .grid,
-      .grid.three {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    @media (max-width: 640px) {
-      .nav {
-        align-items: flex-start;
-        flex-direction: column;
-        gap: 0.75rem;
-      }
-
-      h1 {
-        font-size: 3rem;
-      }
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recruitment | Xingyi Yang's Group @ PolyU</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', 'Noto Sans SC', sans-serif;
+            background-color: #f8fafc; /* slate-50 */
+            color: #334155; /* slate-700 */
+            line-height: 1.75;
+        }
+        .content-wrapper {
+            max-width: 800px;
+            margin: 1.5rem auto;
+            background-color: white;
+            padding: 2rem 1.5rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            position: relative;
+        }
+        @media (min-width: 640px) {
+            .content-wrapper {
+                margin: 3rem auto;
+                padding: 3rem 4rem;
+            }
+        }
+        h1, h2, h3 {
+            color: #1e293b; /* slate-800 */
+        }
+        h2 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            border-bottom: 2px solid #14b8a6; /* teal-500 */
+            padding-bottom: 0.75rem;
+            margin-top: 3rem;
+            margin-bottom: 1.5rem;
+        }
+        @media (min-width: 640px) {
+            h2 {
+                font-size: 2rem;
+            }
+        }
+        h3 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #0f766e; /* teal-700 */
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+        }
+        strong, b {
+            color: #115e59; /* teal-800 */
+            font-weight: 600;
+        }
+        ul {
+            list-style: none;
+            padding-left: 0;
+        }
+        li {
+            position: relative;
+            padding-left: 1.75rem;
+            margin-bottom: 0.75rem;
+        }
+        li::before {
+            content: '✓';
+            position: absolute;
+            left: 0.25rem;
+            color: #14b8a6; /* teal-500 */
+            font-weight: bold;
+        }
+        .contact-box {
+            background-color: #f0fdfa; /* teal-50 */
+            border-left: 4px solid #14b8a6; /* teal-500 */
+            padding: 1.5rem;
+            margin-top: 2rem;
+            border-radius: 0 0.5rem 0.5rem 0;
+        }
+        .contact-box a {
+            color: #0d9488; /* teal-600 */
+            font-weight: 600;
+            text-decoration: none;
+        }
+        .contact-box a:hover {
+            text-decoration: underline;
+        }
+        #lang-toggle {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background-color: #f1f5f9;
+            color: #475569;
+            border: 1px solid #e2e8f0;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+        }
+        @media (min-width: 640px) {
+            #lang-toggle {
+                top: 1.5rem;
+                right: 1.5rem;
+            }
+        }
+    </style>
 </head>
 <body>
-  <header class="site-header">
-    <nav class="nav" aria-label="Primary">
-      <a class="brand" href="/">Xingyi Yang</a>
-      <div class="nav-links">
-        <a href="/publications/">Publications</a>
-        <a href="/experience/">Experience</a>
-        <button id="lang-toggle" type="button">EN / 中文</button>
-      </div>
-    </nav>
-  </header>
 
-  <main class="shell">
-    <section class="hero">
-      <div>
-        <p class="eyebrow">PolyU DSAI / Open Positions</p>
-        <h1>
-          <span data-lang="en">Join the Group</span>
-          <span data-lang="zh" class="hidden">加入课题组</span>
-        </h1>
-        <p class="lead">
-          <span data-lang="en">Openings for Ph.D., Postdoc, MPhil, RA, and visiting students in efficient generative and multimodal AI.</span>
-          <span data-lang="zh" class="hidden">欢迎申请生成式 AI、多模态学习、高效 AI 与物理世界智能方向的博士、博后、MPhil、RA 与访问学生机会。</span>
-        </p>
-        <p class="muted">
-          <span data-lang="en">I am Xingyi Yang, tenure-track Assistant Professor at The Hong Kong Polytechnic University in the Department of Data Science and Artificial Intelligence, supported by the Presidential Young Scholar Scheme.</span>
-          <span data-lang="zh" class="hidden">我是阳行意，现任香港理工大学数据科学与人工智能系终身教职轨道助理教授，并获得“校长青年学者”计划支持。</span>
-        </p>
-        <div class="actions">
-          <a class="action primary" href="mailto:x3yang@outlook.com">Apply by Email</a>
-          <a class="action" href="/">Home</a>
-          <a class="action" href="/publications/">Papers</a>
-        </div>
-      </div>
+    <div class="content-wrapper">
+        <button id="lang-toggle" title="Switch Language">EN / 中文</button>
 
-      <aside class="hero-panel" aria-label="Opening summary">
-        <dl>
-          <div>
-            <dt><span data-lang="en">Ph.D.</span><span data-lang="zh" class="hidden">博士</span></dt>
-            <dd><span data-lang="en">2-3 students for Fall 2026 / Spring 2027 admission.</span><span data-lang="zh" class="hidden">计划招收 2-3 名 2026 秋季 / 2027 春季入学博士生。</span></dd>
-          </div>
-          <div>
-            <dt><span data-lang="en">Postdoc / RA</span><span data-lang="zh" class="hidden">博后 / 研究助理</span></dt>
-            <dd><span data-lang="en">1-2 positions, open year-round with flexible start dates.</span><span data-lang="zh" class="hidden">计划招收 1-2 位，岗位常年开放，入职时间灵活。</span></dd>
-          </div>
-          <div>
-            <dt><span data-lang="en">Interns</span><span data-lang="zh" class="hidden">科研实习</span></dt>
-            <dd><span data-lang="en">Opportunities for undergraduate and master's students, primarily Summer 2026.</span><span data-lang="zh" class="hidden">欢迎本科生和硕士生申请科研实习，主要面向 2026 年夏季。</span></dd>
-          </div>
-        </dl>
-      </aside>
-    </section>
+        <header class="text-center border-b pb-8 mb-8">
+            <img src="https://www.polyu.edu.hk/assets/img/main-logo-3x.png" alt="The Hong Kong Polytechnic University Logo" class="h-12 sm:h-16 mx-auto mb-6" onerror="this.style.display='none'">
+            <h1 class="text-2xl sm:text-4xl font-bold mb-2">
+                <span data-lang="zh" class="hidden">香港理工大学数据科学与人工智能系阳行意课题组博士/博后/MPhil/RA机会</span>
+                <span data-lang="en">Openings for PhD, Postdoc, MPhil, and RA @ PolyU DSAI</span>
+            </h1>
+            <p class="text-base sm:text-lg text-slate-500 mt-2">
+                <span data-lang="zh" class="hidden">“校长青年学者”计划支持</span>
+                <span data-lang="en">Supported by the Presidential Young Scholar Scheme</span>
+            </p>
+        </header>
 
-    <section class="section">
-      <p class="section-kicker"><span data-lang="en">Research</span><span data-lang="zh" class="hidden">研究方向</span></p>
-      <h2 class="section-title"><span data-lang="en">Research Interests</span><span data-lang="zh" class="hidden">我们关注的问题</span></h2>
-      <div class="grid">
-        <article class="step">
-          <span>01</span>
-          <h3><span data-lang="en">Generative AI</span><span data-lang="zh" class="hidden">生成式人工智能</span></h3>
-          <p><span data-lang="en">Structured generative models such as diffusion models and LLMs for content creation, scene modeling, and understanding.</span><span data-lang="zh" class="hidden">研究扩散模型、LLM 等结构化生成模型，及其在内容生成、场景建模与理解中的应用。</span></p>
-        </article>
-        <article class="step">
-          <span>02</span>
-          <h3><span data-lang="en">Multimodal Learning</span><span data-lang="zh" class="hidden">多模态学习</span></h3>
-          <p><span data-lang="en">Fusing text, image, video, and 3D data to build systems that perceive and interact with the physical world.</span><span data-lang="zh" class="hidden">融合文本、图像、视频与 3D 数据，构建能理解并交互物理世界的智能系统。</span></p>
-        </article>
-        <article class="step">
-          <span>03</span>
-          <h3><span data-lang="en">Efficient AI</span><span data-lang="zh" class="hidden">高效人工智能</span></h3>
-          <p><span data-lang="en">Model efficiency, optimization, adaptation, compression, and reuse of large pretrained models.</span><span data-lang="zh" class="hidden">关注模型计算效率、优化、适配、压缩，以及预训练大模型的复用。</span></p>
-        </article>
-        <article class="step">
-          <span>04</span>
-          <h3><span data-lang="en">Agentic AI</span><span data-lang="zh" class="hidden">智能体系统</span></h3>
-          <p><span data-lang="en">Agents that perceive, plan, collaborate, and autonomously solve complex tasks through modular design.</span><span data-lang="zh" class="hidden">探索可感知、规划、协作的 AI Agent，通过模块化设计完成复杂任务。</span></p>
-        </article>
-      </div>
-    </section>
+        <article>
+            <!-- Introduction Section -->
+            <div id="intro-section">
+                <h3 data-lang="zh" class="hidden">个人简介</h3>
+                <h3 data-lang="en">About Me</h3>
+                <p class="mb-4">
+                    <span data-lang="zh" class="hidden">大家好，我是阳行意，现任香港理工大学（PolyU）数据科学与人工智能系（Department of Data Science and Artificial Intelligence, DSAI）终身教职轨道助理教授，并获得 <b>“校长青年学者”（Presidential Young Scholar）</b> 计划支持。</span>
+                    <span data-lang="en">I am Xingyi Yang. I am now tenure-track Assistant Professor at The Hong Kong Polytechnic University (PolyU) in the Department of Data Science and Artificial Intelligence (DSAI), supported by the <b>Presidential Young Scholar Scheme</b>.</span>
+                </p>
+                <p class="mb-4">
+                    <span data-lang="zh" class="hidden">我正在组建并领导一个专注于前沿人工智能的研究团队，核心方向包括生成式人工智能（GenAI）、多模态学习（Multimodal Learning）、高效人工智能（Efficient AI）以及智能体系统（Agentic AI）。现拟招收若干 <b>2026年秋季/2027年春季</b> 入学的博士生，同时欢迎更早加入的访问学生、研究助理（RA）和博士后。诚邀对上述方向充满热情的同学和研究人员加入！</span>
+                    <span data-lang="en">I am establishing a new research group dedicated to cutting-edge AI, with a focus on Generative AI, Multimodal Learning, Efficient AI, and Agentic AI. I am looking for passionate Ph.D. students for <b>Fall 2026/Spring 2027 admission</b>, as well as visiting students, RAs, and Postdocs.</span>
+                </p>
 
-    <section class="section">
-      <p class="section-kicker"><span data-lang="en">Support</span><span data-lang="zh" class="hidden">培养与支持</span></p>
-      <h2 class="section-title"><span data-lang="en">What We Offer</span><span data-lang="zh" class="hidden">我能提供什么</span></h2>
-      <div class="grid three">
-        <article class="step">
-          <span>01</span>
-          <h3><span data-lang="en">Mentorship</span><span data-lang="zh" class="hidden">科研指导</span></h3>
-          <p><span data-lang="en">Close, consistent mentorship to help students become independent and innovative researchers.</span><span data-lang="zh" class="hidden">长期、稳健的科研指导与反馈，帮助你成长为有独立思考和创新能力的研究者。</span></p>
-        </article>
-        <article class="step">
-          <span>02</span>
-          <h3><span data-lang="en">Resources</span><span data-lang="zh" class="hidden">资源保障</span></h3>
-          <p><span data-lang="en">Stable research funding, GPU resources, and support for attending international conferences.</span><span data-lang="zh" class="hidden">稳定科研经费、GPU 计算资源，以及国际会议支持。</span></p>
-        </article>
-        <article class="step">
-          <span>03</span>
-          <h3><span data-lang="en">Collaboration</span><span data-lang="zh" class="hidden">合作机会</span></h3>
-          <p><span data-lang="en">Connections with universities and industry partners including NUS, Oxford, UCSD, Huawei, Meta, and ByteDance.</span><span data-lang="zh" class="hidden">推荐参与与 NUS、Oxford、UCSD 及华为、Meta、字节等机构的合作与实习交流。</span></p>
-        </article>
-      </div>
-    </section>
+                <h3 data-lang="zh" class="hidden">教育背景</h3>
+                <h3 data-lang="en">Educational Background</h3>
+                <p class="mb-4">
+                    <span data-lang="zh" class="hidden">在此之前，我在新加坡国立大学（NUS）电子工程学院攻读博士学位，师从Prof. Xinchao Wang。在博士期间，我曾赴牛津大学（University of Oxford）访问交流，与英国皇家工程院院士 Prof. Philip Torr 合作研究。我本科毕业于东南大学计算机学院，随后在加州大学圣地亚哥分校（UC San Diego）获得电子与计算机工程硕士学位。</span>
+                    <span data-lang="en">I completed my Ph.D. at NUS, advised by Prof. Xinchao Wang. During my PhD, I was a visiting researcher at the University of Oxford, collaborating with Prof. Philip Torr (Fellow of the Royal Academy of Engineering). I received my B.Eng. from Southeast University and my M.S. from UC San Diego.</span>
+                </p>
+                
+                <h3 data-lang="zh" class="hidden">研究与荣誉</h3>
+                <h3 data-lang="en">Research & Honors</h3>
+                <p>
+                    <span data-lang="zh" class="hidden">
+                        我的研究聚焦于生成式 AI、多模态学习与高效学习，及其在 3D/4D 视觉与物理世界建模中的交叉应用。相关成果已发表在 <b>NeurIPS、ICML、ICLR、CVPR、ICCV、ECCV</b> 等人工智能与计算机视觉领域的顶级会议与期刊，并入选 <b>AAAI 2026 New Faculty Highlight</b>，获得 <b>NeurIPS 2022 最佳论文提名奖</b>、<b>2023 国家优秀自费留学生奖学金</b>、<b>2024 世界人工智能大会青年优秀论文提名奖</b>、<b>百度奖学金 Finalist</b> 等多项荣誉。
+                    </span>
+                    <span data-lang="en">
+                        My research focuses on Generative AI, Multimodal Learning, and Efficient AI, particularly their application to 3D/4D vision and physical world modeling. My work has been published in top-tier venues, including <b>NeurIPS, ICML, ICLR, CVPR, ICCV, and ECCV</b>, and has received several honors, such as the <b>AAAI 2026 New Faculty Highlight</b>, <b>NeurIPS 2022 Best Paper Honorable Mention</b>, and the <b>2023 Chinese Government Award for Outstanding Self-Financed Students Abroad</b>.
+                    </span>
+                </p>
+            </div>
 
-    <section class="section">
-      <p class="section-kicker"><span data-lang="en">Apply</span><span data-lang="zh" class="hidden">申请方式</span></p>
-      <h2 class="section-title"><span data-lang="en">How to Apply</span><span data-lang="zh" class="hidden">申请流程</span></h2>
-      <div class="grid three">
-        <article class="step">
-          <span>01</span>
-          <h3><span data-lang="en">Choose Position</span><span data-lang="zh" class="hidden">选择岗位</span></h3>
-          <p><span data-lang="en">Ph.D., Postdoc, RA, MPhil, visiting student, or research intern.</span><span data-lang="zh" class="hidden">博士、博后、RA、MPhil、访问学生或科研实习。</span></p>
-        </article>
-        <article class="step">
-          <span>02</span>
-          <h3><span data-lang="en">Prepare Materials</span><span data-lang="zh" class="hidden">准备材料</span></h3>
-          <p><span data-lang="en">CV, representative papers or portfolio, and a brief statement of research interest.</span><span data-lang="zh" class="hidden">个人简历、代表性论文或项目作品，以及简短的研究兴趣说明。</span></p>
-        </article>
-        <article class="step">
-          <span>03</span>
-          <h3><span data-lang="en">Email</span><span data-lang="zh" class="hidden">发送邮件</span></h3>
-          <p><span data-lang="en">Use the subject line "[Position] Application - [Your Name]".</span><span data-lang="zh" class="hidden">邮件标题请注明 “[申请职位类型] Application - [您的姓名]”。</span></p>
-        </article>
-      </div>
+            <!-- Research Interests Section -->
+            <section>
+                <h2>
+                    <span data-lang="zh" class="hidden"><b>💡 研究方向</b></span>
+                    <span data-lang="en"><b>💡 Research Interests</b></span>
+                </h2>
+                <p class="mb-4">
+                    <span data-lang="zh" class="hidden">选择一个长期且有意义的研究方向并不容易。我希望我们的研究能聚焦于人工智能的核心问题，努力构建更聪明、更高效、更能理解和交互物理世界的AI系统。主要方向包括：</span>
+                    <span data-lang="en">Our research aims to tackle fundamental challenges in AI by building smarter and more efficient systems that can understand and interact with the physical world. Key directions include:</span>
+                </p>
+                <ul>
+                    <li>
+                        <span data-lang="zh" class="hidden"><b>生成式人工智能（Generative AI）：</b>研究结构化生成模型（如扩散模型、LLM），及其在内容生成、场景建模与理解中的应用。</span>
+                        <span data-lang="en"><b>Generative AI:</b> Investigating structured generative models (e.g., Diffusion Models, LLMs) for content creation, scene modeling, and understanding.</span>
+                    </li>
+                    <li>
+                        <span data-lang="zh" class="hidden"><b>多模态学习（Multimodal Learning）：</b>融合文本、图像、视频与3D数据，构建能理解、生成并与物理世界交互的智能系统。</span>
+                        <span data-lang="en"><b>Multimodal Learning:</b> Fusing text, image, video, and 3D data to build intelligent systems that can perceive and interact with the physical world.</span>
+                    </li>
+                    <li>
+                        <span data-lang="zh" class="hidden"><b>高效人工智能（Efficient AI）：</b>关注模型计算效率、参数/能耗优化，以及预训练大模型的压缩、适配与重用。</span>
+                        <span data-lang="en"><b>Efficient AI:</b> Focusing on the computational efficiency, optimization, and adaptation of large pre-trained models.</span>
+                    </li>
+                    <li>
+                        <span data-lang="zh" class="hidden"><b>智能体系统（Agentic AI）：</b>探索可感知、规划、协作的AI Agent，通过模块化与组合性设计实现复杂任务的自主完成。</span>
+                        <span data-lang="en"><b>Agentic AI:</b> Exploring agents that can perceive, plan, and collaborate to autonomously solve complex tasks.</span>
+                    </li>
+                </ul>
+                <p class="mt-4">
+                    <span data-lang="zh" class="hidden">这些方向互为支撑：🤖 生成模型提供通用模型能力，🌐 多模态扩展其对现实世界的理解，⚡ 高效学习确保模型实用落地，🧠 最终构建出具备自主行为与反馈能力的智能体系统。</span>
+                    <span data-lang="en">These areas are interrelated: 🤖 generative models provide general capabilities, 🌐 multimodal learning enhances understanding of the real world, ⚡ efficient AI ensures practical deployment, and 🧠 agentic systems enable autonomous behavior and feedback.</span>
+                </p>
+                
+                <p class="mt-4">
+                    <span data-lang="zh" class="hidden">如果你有其他感兴趣的、有潜力的新方向，也欢迎和我交流探讨，我始终对此保持开放态度。</span>
+                    <span data-lang="en">I am always open to discussing new and exciting research ideas.</span>
+                </p>
+            </section>
 
-      <div class="contact-panel">
-        <p class="muted">
-          <span data-lang="en">Please send materials to <a href="mailto:x3yang@outlook.com"><strong>x3yang@outlook.com</strong></a>. I may not be able to reply immediately, but I will review applications carefully.</span>
-          <span data-lang="zh" class="hidden">请将申请材料发送至 <a href="mailto:x3yang@outlook.com"><strong>x3yang@outlook.com</strong></a>。由于建组初期事务较多，我可能无法第一时间回复每一封邮件，但每一份材料都会认真阅读。</span>
-        </p>
-      </div>
-    </section>
-  </main>
+            <!-- What I Offer Section -->
+            <section>
+                <h2>
+                    <span data-lang="zh" class="hidden"><b>✨ 我能为你提供什么？</b></span>
+                    <span data-lang="en"><b>✨ What We Offer</b></span>
+                </h2>
+                <ul>
+                    <li>
+                        <span data-lang="zh" class="hidden"><b>长期、稳健的科研指导与陪伴：</b> 我会与你一起深入思考研究问题，帮助你稳步成长为有独立思考和创新能力的研究者。无论你处在科研的哪个阶段，我都会认真负责地给予支持与反馈。</span>
+                        <span data-lang="en"><b>Close and Consistent Mentorship:</b> I am committed to working closely with each student, providing guidance and support to help them become independent and innovative researchers.</span>
+                    </li>
+                    <li>
+                        <span data-lang="zh" class="hidden"><b>充足的资源保障：</b> 我将为你提供稳定的科研经费、计算资源（如<b>GPU集群</b>）、国际会议支持等，确保你能专注于研究而不被琐事分心。</span>
+                        <span data-lang="en"><b>Full Financial and Resource Support:</b> We provide stable research funding, access to computational resources (including a <b>GPU cluster</b>), and support for attending international conferences.</span>
+                    </li>
+                    <li>
+                        <span data-lang="zh" class="hidden"><b>丰富的合作与发展机会：</b> 我会积极推荐你参与与<b>NUS、Oxford、UCSD</b>等学术机构，以及<b>华为、Meta、字节</b>等公司的合作项目与实习交流，拓宽你的视野与影响力。</span>
+                        <span data-lang="en"><b>Collaboration and Networking Opportunities:</b> I actively connect students with collaboration and internship opportunities at top institutions (e.g., <b>NUS, Oxford, UCSD</b>) and leading companies (e.g., <b>Huawei, Meta, ByteDance</b>).</span>
+                    </li>
+                </ul>
+            </section>
 
-  <script>
-    document.addEventListener('DOMContentLoaded', function() {
-      var toggle = document.getElementById('lang-toggle');
-      var currentLang = 'en';
-      var elements = document.querySelectorAll('[data-lang]');
+            <!-- Requirements Section -->
+            <section>
+                <h2>
+                    <span data-lang="zh" class="hidden"><b>📝 招生要求</b></span>
+                    <span data-lang="en"><b>📝 Who We Are Looking For</b></span>
+                </h2>
+                <p class="mb-4">
+                    <span data-lang="zh" class="hidden">我们欢迎对科研有真正热情、主动性强、有思考力和执行力的同学或研究人员加入团队。希望你具备以下部分或全部特点：</span>
+                    <span data-lang="en">We are looking for highly motivated candidates who are passionate about research and have strong analytical and problem-solving skills. Ideal candidates will have:</span>
+                </p>
+                <ul>
+                    <li>
+                        <span data-lang="zh" class="hidden">对上述一个或多个研究方向有浓厚兴趣，并乐于探索未知问题；</span>
+                        <span data-lang="en">A strong interest in one or more of our research areas and a desire to tackle challenging problems.</span>
+                    </li>
+                    <li>
+                        <span data-lang="zh" class="hidden">拥有计算机科学、人工智能、电子工程、数学、统计或相关学科的扎实背景；</span>
+                        <span data-lang="en">A solid background in CS, AI, EE, Mathematics, Statistics, or related fields.</span>
+                    </li>
+                    <li>
+                        <span data-lang="zh" class="hidden">具备良好的编程和工程能力，拥有良好的英文读写和沟通能力；</span>
+                        <span data-lang="en">Strong programming skills and proficiency in English.</span>
+                    </li>
+                    <li>
+                        <span data-lang="zh" class="hidden"><b>博士后申请者：</b> 已获得或即将获得博士学位，并在相关领域有高水平成果发表；</span>
+                        <span data-lang="en"><b>For Postdoc Applicants:</b> A Ph.D. degree (or will be receiving one soon) with a strong publication record.</span>
+                    </li>
+                    <li>
+                        <span data-lang="zh" class="hidden"><b>博士申请者：</b> 有科研经历或已发表高质量论文者优先考虑。</span>
+                        <span data-lang="en"><b>For PhD Applicants:</b> Prior research experience and publications are a plus.</span>
+                    </li>
+                </ul>
+                <p class="mt-4 text-slate-600 italic">
+                    <span data-lang="zh" class="hidden">如果你有其他值得我了解的情况或优势，也欢迎一并说明。我相信：君子不器。</span>
+                    <span data-lang="en">I value diverse skill sets and intellectual curiosity beyond a narrow specialty. Feel free to highlight any other strengths in your application.</span>
+                </p>
+            </section>
 
-      function setLanguage(lang) {
-        elements.forEach(function(el) {
-          if (el.dataset.lang === lang) {
-            el.classList.remove('hidden');
-          } else {
-            el.classList.add('hidden');
-          }
+            <!-- Application Section -->
+            <section>
+                <h2>
+                    <span data-lang="zh" class="hidden"><b>🗓️ 招生时间与申请方式</b></span>
+                    <span data-lang="en"><b>🗓️ Timelines & How to Apply</b></span>
+                </h2>
+                <p class="mb-4">
+                    <span data-lang="zh" class="hidden">我目前计划招收 <b>2–3 名 2026 年秋季/2027 年春季入学</b>的博士生 (Ph.D.)。春季入学申请的截止日期是 <b>9 月 30 日</b>。学校也支持联合培养或双学位博士项目。如果你条件优秀，也非常欢迎申请 <b>香港博士奖学金（HKPFS）</b>，我会提供所需帮助。</span>
+                    <span data-lang="en">I plan to recruit <b>2–3 Ph.D. students for Fall 2026/ Spring 2027 admission</b>. The deadline for Spring admission is <b>September 30th</b>. Outstanding candidates are strongly encouraged to apply for the <b>Hong Kong PhD Fellowship Scheme (HKPFS)</b>, for which I will provide full support.</span>
+                </p>
+                <p class="mb-4">
+                    <span data-lang="zh" class="hidden">我预计招收 <b>1–2 位博士后（Postdoc）和研究助理（RA）</b>，岗位常年开放，薪资优厚，入职时间可灵活协商。</span>
+                    <span data-lang="en">I am also looking for <b>1–2 Postdocs and RAs</b>. These positions are open year-round with competitive salaries and flexible start dates.</span>
+                </p>
+                <p>
+                    <span data-lang="zh" class="hidden">此外，我希望为本科生或在读硕士提供科研培养机会。欢迎有兴趣的同学申请科研实习（主要针对2026年夏季，也欢迎其他时间段的实习咨询）。</span>
+                    <span data-lang="en">Research internship opportunities are available for undergraduate and master's students, primarily for Summer 2026.</span>
+                </p>
+                <div class="contact-box">
+                    <p class="!mt-0">
+                        <span data-lang="zh" class="hidden">请将您的个人简历 (CV)、以及其他您认为相关的材料（如代表性论文、项目作品集等）发送至我的邮箱：<a href="mailto:x3yang@outlook.com"><b>x3yang@outlook.com</b></a>。邮件标题请注明：“<b>[申请职位类型] Application - [您的姓名]</b>”（例如：“PhD Application - 张三”）。邮件中可以简单介绍一下自己的 Motivation，说明你为什么对我们的课题感兴趣。</span>
+                        <span data-lang="en">To apply, please send your CV and any relevant materials (e.g., publications, portfolio) to <a href="mailto:x3yang@outlook.com"><b>x3yang@outlook.com</b></a>. Use the subject line: "<b>[Position] Application - [Your Name]</b>" (e.g., "PhD Application - Jane Doe"). Please include a brief statement of interest in your email.</span>
+                    </p>
+                </div>
+            </section>
+            
+            <!-- Final Word Section -->
+            <section>
+                <h2>
+                    <span data-lang="zh" class="hidden"><b>✍️ 写在最后</b></span>
+                    <span data-lang="en"><b>✍️ A Final Word</b></span>
+                </h2>
+                <p class="mb-4">
+                    <span data-lang="zh" class="hidden">感谢你耐心读到这里。我知道，选择导师和课题组是学术生涯中重要的决定，背后凝聚着你的热情与期待。对我而言，组建团队也是一次全新的启航。我希望我们能建立的是开放、真诚、彼此支持的科研关系，一起探索、一起成长。</span>
+                    <span data-lang="en">Thank you for your interest. Choosing a supervisor is a significant decision, and for me, building this team is a new and exciting journey. My goal is to foster an open, collaborative, and supportive environment where we can explore new ideas and grow together.</span>
+                </p>
+                <p class="mb-4">
+                    <span data-lang="zh" class="hidden">由于我正处于建组初期，事务繁忙，可能无法第一时间回复每一封邮件。但我向你保证，每一份申请材料我都会认真阅读、慎重考虑，因为这关乎你的未来，也关乎我们团队的未来。</span>
+                    <span data-lang="en">As I am in the early stages of forming the group, I may not be able to reply to every email immediately. However, I assure you that I will review every application carefully.</span>
+                </p>
+                <p>
+                    <span data-lang="zh" class="hidden">期待你的加入，也期待我们能一起把那些有趣的想法变成现实。</span>
+                    <span data-lang="en">I look forward to hearing from you and hope we can turn exciting ideas into reality together.</span>
+                </p>
+            </section>
+        </article>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const langToggle = document.getElementById('lang-toggle');
+            let currentLang = 'en'; // Default language is now English
+
+            const elements = document.querySelectorAll('[data-lang]');
+
+            function setLanguage(lang) {
+                elements.forEach(el => {
+                    if (el.dataset.lang === lang) {
+                        el.classList.remove('hidden');
+                    } else {
+                        el.classList.add('hidden');
+                    }
+                });
+                document.documentElement.lang = lang;
+                currentLang = lang;
+                document.title = lang === 'zh' ? '香港理工大学 | 阳行意课题组招聘' : "Recruitment | Xingyi Yang's Group @ PolyU";
+            }
+
+            langToggle.addEventListener('click', () => {
+                const newLang = currentLang === 'zh' ? 'en' : 'zh';
+                setLanguage(newLang);
+            });
+
+            // Set initial language on load
+            setLanguage(currentLang);
         });
-        document.documentElement.lang = lang;
-        currentLang = lang;
-        document.title = lang === 'zh' ? '课题组招聘 | 阳行意 @ PolyU DSAI' : 'Openings | Xingyi Yang @ PolyU DSAI';
-      }
+    </script>
 
-      toggle.addEventListener('click', function() {
-        setLanguage(currentLang === 'zh' ? 'en' : 'zh');
-      });
-
-      setLanguage(currentLang);
-    });
-  </script>
 </body>
 </html>
