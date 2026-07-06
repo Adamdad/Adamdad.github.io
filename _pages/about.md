@@ -53,29 +53,6 @@ I received my Ph.D. from the National University of Singapore (NUS), advised by 
 
 My research spans **Machine Learning**, **Generative AI**, and **Computer Vision**, with a particular focus on building intelligent systems that can generate, reconstruct, reason about, and interact with dynamic physical worlds. Recent recognitions include the AAAI 2026 New Faculty Highlight, a NeurIPS 2022 Best Paper Honorable Mention, and Forbes 30 Under 30 Asia.
 
-<div class="focus-grid">
-  <div class="focus-card">
-    <span>01</span>
-    <strong>Generative AI</strong>
-    <p>Structured generation for images, videos, 3D assets, and dynamic scenes.</p>
-  </div>
-  <div class="focus-card">
-    <span>02</span>
-    <strong>Spatial Intelligence</strong>
-    <p>Models that recover, reason about, and interact with physical worlds.</p>
-  </div>
-  <div class="focus-card">
-    <span>03</span>
-    <strong>Multimodal Learning</strong>
-    <p>Learning systems that connect language, vision, geometry, and action.</p>
-  </div>
-  <div class="focus-card">
-    <span>04</span>
-    <strong>World Models</strong>
-    <p>Representations for simulating scenes, motion, and embodied interaction.</p>
-  </div>
-</div>
-
 ## Research Glimpses
 
 <div class="research-gallery">
