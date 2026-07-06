@@ -12,11 +12,15 @@ layout: compress
 
     <header class="site-header">
       <div class="site-shell site-header__inner">
-        <a class="site-title" href="{{ '/' | relative_url }}">{{ site.author.name | default: site.title }}</a>
+        <a class="site-brand" href="{{ '/' | relative_url }}">
+          <span class="site-brand__name">{{ site.author.name | default: site.title }}</span>
+          <span class="site-brand__meta">DSAI @ PolyU</span>
+        </a>
         <nav class="site-nav" aria-label="Primary navigation">
-          <a href="{{ '/' | relative_url }}">Home</a>
+          <a href="{{ '/' | relative_url }}"{% if page.url == "/" %} aria-current="page"{% endif %}>Home</a>
           {% for item in site.data.navigation.main %}
-            <a href="{{ item.url | relative_url }}">{{ item.title }}</a>
+            {% assign item_url_with_slash = item.url | append: "/" %}
+            <a href="{{ item.url | relative_url }}"{% if page.url == item.url or page.url == item_url_with_slash %} aria-current="page"{% endif %}>{{ item.title }}</a>
           {% endfor %}
         </nav>
       </div>

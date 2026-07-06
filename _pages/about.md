@@ -14,6 +14,20 @@ redirect_from:
     <h1>Xingyi Yang</h1>
     <p class="home-hero__tagline">Generative AI, Spatial Intelligence, and World Models.</p>
     <p class="home-hero__summary">I build generative and multimodal systems that learn to understand, simulate, and interact with the spatial world.</p>
+    <div class="hero-metrics" aria-label="Research snapshot">
+      <div class="hero-metric">
+        <strong>GenAI</strong>
+        <span>Research Focus</span>
+      </div>
+      <div class="hero-metric">
+        <strong>3D/4D</strong>
+        <span>Spatial Worlds</span>
+      </div>
+      <div class="hero-metric">
+        <strong>PolyU</strong>
+        <span>DSAI Group</span>
+      </div>
+    </div>
     <p class="link-row">
       <a href="{{ '/opening' | relative_url }}">Openings</a>
       <a href="https://scholar.google.com/citations?user=1n2OPtwAAAAJ">Google Scholar</a>
@@ -31,6 +45,29 @@ Hi, my name is Xingyi Yang (Adam). I am a Tenure-Track Assistant Professor in th
 I received my Ph.D. from the National University of Singapore (NUS), advised by Prof. Xinchao Wang. I also had a wonderful experience as a visiting Ph.D. student at the University of Oxford, working with Prof. Philip Torr. Prior to that, I completed my Master's at UC San Diego (UCSD) and my Bachelor's at Southeast University (SEU).
 
 My research centers on **Generative AI**, **Spatial Intelligence**, **Multimodal Learning**, **Computer Vision**, and **World Models**. I am especially interested in building intelligent systems that can generate, reconstruct, reason about, and interact with dynamic physical worlds.
+
+<div class="focus-grid">
+  <div class="focus-card">
+    <span>01</span>
+    <strong>Generative AI</strong>
+    <p>Structured generation for images, videos, 3D assets, and dynamic scenes.</p>
+  </div>
+  <div class="focus-card">
+    <span>02</span>
+    <strong>Spatial Intelligence</strong>
+    <p>Models that recover, reason about, and interact with physical worlds.</p>
+  </div>
+  <div class="focus-card">
+    <span>03</span>
+    <strong>Multimodal Learning</strong>
+    <p>Learning systems that connect language, vision, geometry, and action.</p>
+  </div>
+  <div class="focus-card">
+    <span>04</span>
+    <strong>World Models</strong>
+    <p>Representations for simulating scenes, motion, and embodied interaction.</p>
+  </div>
+</div>
 
 ## Research Glimpses
 
