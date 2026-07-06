@@ -241,7 +241,9 @@ b {
 }
 
 .page {
+  width: 100%;
   max-width: var(--content-width);
+  margin-inline: auto;
 }
 
 .archive {
@@ -659,6 +661,7 @@ b {
 
 .opening-page {
   max-width: var(--content-width);
+  margin-inline: auto;
 }
 
 .opening-page header {
@@ -735,6 +738,10 @@ b {
 }
 
 .hidden {
+  display: none !important;
+}
+
+[data-lang][hidden] {
   display: none !important;
 }
 

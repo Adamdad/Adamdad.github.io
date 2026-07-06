@@ -8,7 +8,7 @@ hide_title: true
 
 <div class="opening-page">
         <div class="opening-actions">
-            <button id="lang-toggle" title="Switch Language">EN / 中文</button>
+            <button id="lang-toggle" type="button" title="Switch Language" aria-label="Switch language">中文</button>
         </div>
 
         <header class="text-center border-b pb-8 mb-8">
@@ -205,30 +205,35 @@ hide_title: true
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const langToggle = document.getElementById('lang-toggle');
-            let currentLang = 'en'; // Default language is now English
+            var openingPage = document.querySelector('.opening-page');
+            var langToggle = document.getElementById('lang-toggle');
+            var currentLang = 'en';
 
-            const elements = document.querySelectorAll('[data-lang]');
-
-            function setLanguage(lang) {
-                elements.forEach(el => {
-                    if (el.dataset.lang === lang) {
-                        el.classList.remove('hidden');
-                    } else {
-                        el.classList.add('hidden');
-                    }
-                });
-                document.documentElement.lang = lang;
-                currentLang = lang;
-                document.title = lang === 'zh' ? '香港理工大学 | 阳行意课题组招聘' : "Recruitment | Xingyi Yang's Group @ PolyU";
+            if (!openingPage || !langToggle) {
+                return;
             }
 
-            langToggle.addEventListener('click', () => {
-                const newLang = currentLang === 'zh' ? 'en' : 'zh';
-                setLanguage(newLang);
+            var elements = openingPage.querySelectorAll('[data-lang]');
+
+            function setLanguage(lang) {
+                Array.prototype.forEach.call(elements, function(el) {
+                    var isActive = el.getAttribute('data-lang') === lang;
+                    el.hidden = !isActive;
+                    el.classList.toggle('hidden', !isActive);
+                });
+
+                openingPage.setAttribute('data-active-lang', lang);
+                document.documentElement.lang = lang === 'zh' ? 'zh' : 'en';
+                document.title = lang === 'zh' ? '香港理工大学 | 阳行意课题组招聘' : "Recruitment | Xingyi Yang's Group @ PolyU";
+                langToggle.textContent = lang === 'zh' ? 'English' : '中文';
+                langToggle.setAttribute('aria-label', lang === 'zh' ? 'Switch to English' : '切换到中文');
+                currentLang = lang;
+            }
+
+            langToggle.addEventListener('click', function() {
+                setLanguage(currentLang === 'zh' ? 'en' : 'zh');
             });
 
-            // Set initial language on load
             setLanguage(currentLang);
         });
     </script>
