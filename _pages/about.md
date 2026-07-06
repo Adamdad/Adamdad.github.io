@@ -9,6 +9,16 @@ redirect_from:
 ---
 
 <style type="text/css">
+body.layout--single.wide-page #main {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+body.layout--single.wide-page .page__content {
+  max-width: none;
+  width: 100%;
+}
+
 .about-v2 {
   --about-ink: #1d1d1f;
   --about-muted: #66615a;
@@ -17,6 +27,9 @@ redirect_from:
   --about-accent: #a0232a;
   --about-accent-soft: rgba(160, 35, 42, 0.08);
   color: var(--about-ink);
+  font-size: 12pt;
+  max-width: none;
+  width: 100%;
 }
 
 .about-v2 .about-hero {
@@ -52,10 +65,10 @@ redirect_from:
 
 .about-v2 .about-statement {
   color: var(--about-muted);
-  font-size: 1rem;
   line-height: 1.7;
   margin: 1rem 0 0;
-  max-width: 760px;
+  max-width: none;
+  width: 100%;
 }
 
 .about-v2 .about-actions {
@@ -114,7 +127,8 @@ redirect_from:
 .about-v2 .about-copy {
   color: var(--about-muted);
   line-height: 1.78;
-  max-width: 780px;
+  max-width: none;
+  width: 100%;
 }
 
 .about-v2 .about-copy p {
