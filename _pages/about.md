@@ -9,34 +9,40 @@ redirect_from:
   - /about.html
 ---
 
-<section class="home-hero">
-  <div>
-    <p class="home-hero__kicker">PolyU DSAI / Hong Kong</p>
+<section class="profile-hero">
+  <img class="profile-hero__photo" src="{{ '/images/726691746359914_.pic_hd.jpg' | relative_url }}" alt="Xingyi Yang">
+
+  <div class="profile-hero__main">
     <h1>Xingyi Yang</h1>
-    <p class="home-hero__tagline">Generative AI, Spatial Intelligence, and World Models.</p>
-    <p class="home-hero__summary">I build generative and multimodal systems that learn to understand, simulate, and interact with the spatial world.</p>
-    <div class="hero-metrics" aria-label="Research snapshot">
-      <div class="hero-metric">
-        <strong>GenAI</strong>
-        <span>Research Focus</span>
-      </div>
-      <div class="hero-metric">
-        <strong>3D/4D</strong>
-        <span>Spatial Worlds</span>
-      </div>
-      <div class="hero-metric">
-        <strong>PolyU</strong>
-        <span>DSAI Group</span>
-      </div>
-    </div>
-    <p class="link-row">
-      <a href="{{ '/opening' | relative_url }}">Openings</a>
-      <a href="https://scholar.google.com/citations?user=1n2OPtwAAAAJ">Google Scholar</a>
-      <a href="{{ '/files/CV_XingyiYang_202506.pdf' | relative_url }}">CV</a>
-      <a href="mailto:x3yang@outlook.com">Email</a>
+    <p class="profile-hero__role">Tenure-Track Assistant Professor</p>
+    <p class="profile-hero__affiliation">
+      <a href="https://www.polyu.edu.hk/dsai/?sc_lang=en">Department of Data Science and Artificial Intelligence</a><br>
+      The Hong Kong Polytechnic University
     </p>
+    <p class="profile-hero__note">Presidential Young Scholar</p>
+    <p class="profile-hero__summary">I work on generative and multimodal systems for understanding, reconstructing, and interacting with spatial and dynamic physical worlds.</p>
   </div>
-  <img class="home-hero__photo" src="{{ '/images/726691746359914_.pic_hd.jpg' | relative_url }}" alt="Xingyi Yang">
+
+  <aside class="profile-hero__aside" aria-label="Research interests and links">
+    <div>
+      <h2>Research Interests</h2>
+      <ul>
+        <li>Generative AI</li>
+        <li>Spatial Intelligence</li>
+        <li>Multimodal Learning</li>
+        <li>Computer Vision</li>
+        <li>World Models</li>
+      </ul>
+    </div>
+    <div class="profile-hero__contact">
+      <a href="mailto:xingyi.yang@polyu.edu.hk"><span aria-hidden="true">✉</span>Email</a>
+      <a href="https://scholar.google.com/citations?user=1n2OPtwAAAAJ"><span aria-hidden="true">G</span>Google Scholar</a>
+      <a href="https://www.linkedin.com/in/xingyi-adam-yang-72375b170/"><span aria-hidden="true">in</span>LinkedIn</a>
+      <a href="https://twitter.com/yxy2168"><span aria-hidden="true">X</span>Twitter</a>
+      <a href="{{ '/files/CV_XingyiYang_202506.pdf' | relative_url }}"><span aria-hidden="true">CV</span>Curriculum Vitae</a>
+      <a href="{{ '/opening' | relative_url }}"><span aria-hidden="true">+</span>Openings</a>
+    </div>
+  </aside>
 </section>
 
 ## About
