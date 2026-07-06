@@ -59,6 +59,7 @@ I used to be a visiting student at University of Ottawa.
 
 ## Invited Talk 
 * [“Deep Model Reuse: Paving the Way for Efficient and Generalizable AI Systems"](https://ojs.aaai.org/index.php/AAAI/article/view/41361), AAAI New Faculty Highlight.
+
 * [“Deep Model Reuse: Paving the Way for Efficient and Generalizable AI Systems"](https://calendars.illinois.edu/detail/2654?eventId=33482580), Computer Vision Group @ UIUC.
 * "Anything-3d: Towards single-view anything reconstruction in the wild", The Future of 3D Vision in the Era of LLMs Seminar 2023 @ VALSE.
 
