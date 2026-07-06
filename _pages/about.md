@@ -51,7 +51,7 @@ Hi, my name is Xingyi Yang (Adam). I am a Tenure-Track Assistant Professor in th
 
 I received my Ph.D. from the National University of Singapore (NUS), advised by Prof. Xinchao Wang. I also had a wonderful experience as a visiting Ph.D. student at the University of Oxford, working with Prof. Philip Torr. Prior to that, I completed my Master's at UC San Diego (UCSD) and my Bachelor's at Southeast University (SEU).
 
-My research centers on **Generative AI**, **Spatial Intelligence**, **Multimodal Learning**, **Computer Vision**, and **World Models**. I am especially interested in building intelligent systems that can generate, reconstruct, reason about, and interact with dynamic physical worlds.
+My research spans **Machine Learning**, **Generative AI**, and **Computer Vision**, with a particular focus on building intelligent systems that can generate, reconstruct, reason about, and interact with dynamic physical worlds. Recent recognitions include the AAAI 2026 New Faculty Highlight, a NeurIPS 2022 Best Paper Honorable Mention, and Forbes 30 Under 30 Asia.
 
 <div class="focus-grid">
   <div class="focus-card">
