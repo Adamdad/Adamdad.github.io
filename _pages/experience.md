@@ -6,44 +6,101 @@ author_profile: false
 redirect_from: 
   - /exp
 ---
---------
-
 ## Education
-I get my PhD at National University of Singapore. I got my master's degree at [University of California, San Diego](https://ucsd.edu/) and my bachelor degree at [Southeast University](https://www.seu.edu.cn/english/), China. 
-<!-- I was also fortunate to work with [Prof.Pengtao Xie](https://pengtaoxie.github.io/), [Prof.Rose Yu](http://roseyu.com/), [Prof.Fenglong ma](http://personal.psu.edu/ffm5105/) and [Prof.Yining Hu](https://www.researchgate.net/profile/Yining-Hu-4) and [Dr.Xinjiang Wang](https://scholar.google.com/citations?user=q4lnWaoAAAAJ&hl=en).  -->
-I used to be a visiting student at University of Ottawa. 
-<!-- , supervised by [Prof.Robert Laganière](http://www.site.uottawa.ca/~laganier/).  -->
-- <img src="/images/singapore.png" alt="drawing" style="width:50px;" align="middle" border="3"/> Ph.D in Singapore, National Uniersity of Singapore, 2021-2025
 
-- <img src="/images/University_of_California,_San_Diego_seal.svg.png" alt="drawing" style="width:50px;" align="middle" border="3"/> M.S. in San Diego, University of California San Diego, 2019-2021
-  
-- <img src="/images/southeast.jpg" alt="drawing" style="width:50px;" align="middle" border="3"/> B.S. in Nanjing, Southeast University University, 2015-2019
+<div class="experience-timeline">
+  <div class="experience-entry">
+    <img class="experience-logo" src="/images/singapore.png" alt="National University of Singapore logo">
+    <div class="experience-main">
+      <strong>Ph.D.</strong>
+      <span>National University of Singapore</span>
+      <em>Singapore</em>
+    </div>
+    <div class="experience-date">2021–2025</div>
+  </div>
 
-- <img src="/images/ottawa.jpg" alt="drawing" style="width:50px;" align="middle" border="3"/> Visiting Student, in Ottawa, University of Ottawa, 2018
+  <div class="experience-entry">
+    <img class="experience-logo" src="/images/University_of_California,_San_Diego_seal.svg.png" alt="University of California San Diego logo">
+    <div class="experience-main">
+      <strong>M.S.</strong>
+      <span>University of California San Diego</span>
+      <em>San Diego, USA</em>
+    </div>
+    <div class="experience-date">2019–2021</div>
+  </div>
 
---------
+  <div class="experience-entry">
+    <img class="experience-logo" src="/images/southeast.jpg" alt="Southeast University logo">
+    <div class="experience-main">
+      <strong>B.S.</strong>
+      <span>Southeast University</span>
+      <em>Nanjing, China</em>
+    </div>
+    <div class="experience-date">2015–2019</div>
+  </div>
+
+  <div class="experience-entry">
+    <img class="experience-logo" src="/images/ottawa.jpg" alt="University of Ottawa logo">
+    <div class="experience-main">
+      <strong>Visiting Student</strong>
+      <span>University of Ottawa</span>
+      <em>Ottawa, Canada</em>
+    </div>
+    <div class="experience-date">2018</div>
+  </div>
+</div>
+
 ## Work experience
 
-* <img src="/images/tiktok.png" alt="drawing" style="width:50px;" align="middle" border="3"/> TikTok *Reseach Intern* | Summer 2022
-  
-  <!-- * Supervisor: [Dr.Daquan Zhou](https://scholar.google.com/citations?user=DdCAbWwAAAAJ&hl=en) and [Dr.Jiashi Feng](https://sites.google.com/site/jshfeng) -->
-  <!-- * Efficient Diffusion Model -->
+<div class="experience-timeline">
+  <div class="experience-entry">
+    <img class="experience-logo" src="/images/tiktok.png" alt="TikTok logo">
+    <div class="experience-main">
+      <strong>Research Intern</strong>
+      <span>TikTok</span>
+    </div>
+    <div class="experience-date">Summer 2022</div>
+  </div>
 
-* <img src="/images/sensetime.png" alt="drawing" style="width:50px;" align="middle" border="3"/> Sensetime Research&<img src="/images/shailab.jpg" alt="drawing" style="width:50px;" align="middle" border="3"/> Shanghai AI lab *Reseach Intern* | Spring 2021
-  
-  <!-- * Supervisor: [Dr.Xinjiang Wang](https://scholar.google.com/citations?user=q4lnWaoAAAAJ&hl=en) -->
+  <div class="experience-entry">
+    <div class="experience-logo-stack" aria-label="SenseTime Research and Shanghai AI Lab logos">
+      <img class="experience-logo" src="/images/sensetime.png" alt="SenseTime logo">
+      <img class="experience-logo" src="/images/shailab.jpg" alt="Shanghai AI Lab logo">
+    </div>
+    <div class="experience-main">
+      <strong>Research Intern</strong>
+      <span>SenseTime Research & Shanghai AI Lab</span>
+    </div>
+    <div class="experience-date">Spring 2021</div>
+  </div>
 
-* <img src="/images/University_of_California,_San_Diego_seal.svg.png" alt="drawing" style="width:50px;" align="middle" border="3"/> University of California *Student Researcher* | Autumn 2019
+  <div class="experience-entry">
+    <img class="experience-logo" src="/images/University_of_California,_San_Diego_seal.svg.png" alt="University of California logo">
+    <div class="experience-main">
+      <strong>Student Researcher</strong>
+      <span>University of California</span>
+    </div>
+    <div class="experience-date">Autumn 2019</div>
+  </div>
 
-  <!-- * Supervisor: [Prof.Pengtao Xie](http://www.cs.cmu.edu/~pengtaox/) -->
+  <div class="experience-entry">
+    <img class="experience-logo" src="/images/kneron.jpg" alt="Kneron logo">
+    <div class="experience-main">
+      <strong>Deep Learning Intern</strong>
+      <span>Kneron Inc.</span>
+    </div>
+    <div class="experience-date">Autumn 2019</div>
+  </div>
 
-* <img src="/images/kneron.jpg" alt="drawing" style="width:50px;" align="middle" border="3"/> Kneron Inc. *Deep Learning Intern* | Autumn 2019
-
-  <!-- * Supervisor: [Bike Xie](https://www.linkedin.com/in/bike-xie-82069b18/) -->
-
-* <img src="/images/viva.png" alt="drawing" style="width:50px;" align="middle" border="3"/> University of Ottawa, VIVA Lab *Research Assistant* | Summer 2018
-  <!-- * Supervisor: [Prof.Robert Laganière](http://www.site.uottawa.ca/~laganier/) -->
-  
+  <div class="experience-entry">
+    <img class="experience-logo" src="/images/viva.png" alt="VIVA Lab logo">
+    <div class="experience-main">
+      <strong>Research Assistant</strong>
+      <span>University of Ottawa, VIVA Lab</span>
+    </div>
+    <div class="experience-date">Summer 2018</div>
+  </div>
+</div>
 
 -------
 ## Teaching

@@ -665,6 +665,81 @@ b {
   background: var(--surface-strong);
 }
 
+.experience-timeline {
+  display: grid;
+  gap: 0.72rem;
+  margin: 1rem 0 2.1rem;
+}
+
+.experience-entry {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr) 9.5rem;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--soft-line);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.experience-logo,
+.experience-logo-stack {
+  justify-self: center;
+}
+
+.experience-logo {
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--surface-strong);
+  object-fit: contain;
+}
+
+.experience-logo-stack {
+  display: flex;
+  align-items: center;
+}
+
+.experience-logo-stack .experience-logo {
+  width: 36px;
+  height: 36px;
+}
+
+.experience-logo-stack .experience-logo + .experience-logo {
+  margin-left: -0.42rem;
+}
+
+.experience-main {
+  display: grid;
+  gap: 0.08rem;
+}
+
+.experience-main strong {
+  color: var(--ink);
+  font-size: 1.02rem;
+  line-height: 1.25;
+}
+
+.experience-main span {
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.experience-main em {
+  color: var(--faint);
+  font-style: normal;
+  font-size: 0.88rem;
+}
+
+.experience-date {
+  justify-self: end;
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 0.86rem;
+  white-space: nowrap;
+}
+
 .opening-page {
   max-width: var(--content-width);
   margin-inline: auto;
@@ -838,6 +913,15 @@ b {
 
   .publication-item__teaser img {
     max-width: 340px;
+  }
+
+  .experience-entry {
+    grid-template-columns: 52px minmax(0, 1fr);
+  }
+
+  .experience-date {
+    grid-column: 2;
+    justify-self: start;
   }
 }
 
