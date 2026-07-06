@@ -2,30 +2,36 @@
 layout: compress
 ---
 
-{% include base_path %}
-
 <!doctype html>
-<html lang="{{ site.locale | slice: 0,2 }}" class="no-js">
+<html lang="{{ site.locale | default: 'en-US' | slice: 0, 2 }}">
   <head>
     {% include head.html %}
-    {% include head/custom.html %}
   </head>
+  <body class="site-body layout--{{ page.layout }}{% if page.classes %} {{ page.classes }}{% endif %}">
+    <a class="skip-link" href="#content">Skip to content</a>
 
-  <body class="layout--{{ page.layout }}{% if page.classes %} {{ page.classes }}{% endif %}">
+    <header class="site-header">
+      <div class="site-shell site-header__inner">
+        <a class="site-title" href="{{ '/' | relative_url }}">{{ site.author.name | default: site.title }}</a>
+        <nav class="site-nav" aria-label="Primary navigation">
+          <a href="{{ '/' | relative_url }}">Home</a>
+          {% for item in site.data.navigation.main %}
+            <a href="{{ item.url | relative_url }}">{{ item.title }}</a>
+          {% endfor %}
+        </nav>
+      </div>
+    </header>
 
-    {% include browser-upgrade.html %}
-    {% include masthead.html %}
+    <main id="content" class="site-shell site-main">
+      {{ content }}
+    </main>
 
-    {{ content }}
-
-    <div class="page__footer">
-      <footer>
-        {% include footer/custom.html %}
-        {% include footer.html %}
-      </footer>
-    </div>
+    <footer class="site-footer">
+      <div class="site-shell">
+        <p>&copy; {{ site.time | date: '%Y' }} {{ site.author.name | default: site.title }}.</p>
+      </div>
+    </footer>
 
     {% include scripts.html %}
-
   </body>
 </html>

@@ -1,16 +1,11 @@
 ---
 layout: archive
 permalink: /experience/
-title: "About me"
+title: "Experience"
 author_profile: false
 redirect_from: 
   - /exp
 ---
-<style type="text/css">
-  body{
-  font-size: 14pt;
-}
-</style>
 --------
 
 ## Education
