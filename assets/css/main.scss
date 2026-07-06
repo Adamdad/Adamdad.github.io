@@ -248,6 +248,21 @@ b {
   max-width: var(--wide-width);
 }
 
+.home-page .page {
+  max-width: var(--wide-width);
+}
+
+.home-page .page-content > h2,
+.home-page .page-content > p {
+  max-width: var(--content-width);
+}
+
+.home-page .page-content > .focus-grid,
+.home-page .page-content > .research-gallery,
+.home-page .page-content > .callout {
+  max-width: var(--wide-width);
+}
+
 .page-header {
   margin-bottom: 2.1rem;
   padding: 1.4rem 0 1.2rem;
@@ -672,6 +687,29 @@ b {
 
 .opening-page ul {
   list-style: disc;
+}
+
+.opening-page article > section,
+.opening-page #intro-section {
+  margin-top: 1rem;
+  padding: 1.15rem 1.2rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.58);
+  box-shadow: var(--shadow-soft);
+}
+
+.opening-page article > section h2:first-child,
+.opening-page #intro-section h3:first-child {
+  margin-top: 0;
+}
+
+.opening-page .mb-4 {
+  margin-bottom: 1rem;
+}
+
+.opening-page .mt-4 {
+  margin-top: 1rem;
 }
 
 .opening-actions {

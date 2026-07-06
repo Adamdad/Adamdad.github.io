@@ -3,6 +3,7 @@ permalink: /
 title: "Xingyi Yang"
 excerpt: "About me"
 author_profile: false
+classes: home-page
 redirect_from:
   - /about/
   - /about.html
