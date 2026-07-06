@@ -3,7 +3,7 @@
 {% if post.header.teaser %}
   {% capture teaser %}{{ post.header.teaser }}{% endcapture %}
 {% else %}
-  {% assign teaser = site.teaser %}
+  {% assign teaser = nil %}
 {% endif %}
 
 {% if post.id %}
@@ -12,21 +12,72 @@
   {% assign title = post.title %}
 {% endif %}
 
-<div class="{{ include.type | default: "list" }}__item">
-  <article class="archive__item" itemscope itemtype="http://schema.org/CreativeWork" style="display: flex; align-items: center;">
+{% assign paper_url = post.paperurl %}
+{% if paper_url == nil or paper_url == "" %}
+  {% assign paper_parts = post.content | split: '[paper](' %}
+  {% if paper_parts.size > 1 %}
+    {% assign paper_url = paper_parts[1] | split: ')' | first %}
+  {% endif %}
+{% endif %}
+
+{% assign arxiv_url = nil %}
+{% assign arxiv_parts = post.content | split: '[arxiv](' %}
+{% if arxiv_parts.size > 1 %}
+  {% assign arxiv_url = arxiv_parts[1] | split: ')' | first %}
+{% endif %}
+
+{% assign code_url = nil %}
+{% assign code_parts = post.content | split: '[code](' %}
+{% if code_parts.size > 1 %}
+  {% assign code_url = code_parts[1] | split: ')' | first %}
+{% endif %}
+
+{% assign project_url = nil %}
+{% assign project_page_parts = post.content | split: '[project page](' %}
+{% if project_page_parts.size > 1 %}
+  {% assign project_url = project_page_parts[1] | split: ')' | first %}
+{% else %}
+  {% assign project_parts = post.content | split: '[project](' %}
+  {% if project_parts.size > 1 %}
+    {% assign project_url = project_parts[1] | split: ')' | first %}
+  {% endif %}
+{% endif %}
+
+{% assign demo_url = nil %}
+{% assign demo_parts = post.content | split: '[demo](' %}
+{% if demo_parts.size > 1 %}
+  {% assign demo_url = demo_parts[1] | split: ')' | first %}
+{% endif %}
+
+<div class="{{ include.type | default: "list" }}__item{% if post.collection == 'publications' %} xy-publication-card{% endif %}">
+  <article class="archive__item{% unless post.collection == 'publications' and teaser %} archive__item--no-teaser{% endunless %}" itemscope itemtype="http://schema.org/CreativeWork">
     {% if post.collection == 'publications' and teaser %}
-    <div class="archive__item-teaser" style="flex: 0 0 35%; max-width: 40%; margin-right: 10px;">
+    <div class="archive__item-teaser">
       <img src=
         {% if teaser contains "://" %}
           "{{ teaser }}"
         {% else %}
           "{{ teaser | prepend: "/images/" | prepend: base_path }}"
         {% endif %}
-        alt="" style="width: 100%; height: auto;">
+        alt="{{ title | strip_html }}">
     </div>
   {% endif %}
   
-    <div class="archive__item-content" style="flex: 1;">
+    <div class="archive__item-content">
+      {% if post.collection == 'publications' %}
+        <div class="xy-badge-row">
+          {% if post.venue contains 'Highlight' %}
+            <span class="xy-badge">Highlight</span>
+          {% endif %}
+          {% if post.venue contains 'Award' or post.venue contains 'Nomination' %}
+            <span class="xy-badge">Award</span>
+          {% endif %}
+          {% if post.venue contains 'Oral' %}
+            <span class="xy-badge">Oral</span>
+          {% endif %}
+        </div>
+      {% endif %}
+
       <h3 class="archive__item-title" itemprop="headline">
         {% if post.link %}
           <a href="{{ post.link }}">{{ title }}</a> <a href="{{ base_path }}{{ post.url }}" rel="permalink"><i class="fa fa-link" aria-hidden="true" title="permalink"></i><span class="sr-only">Permalink</span></a>
@@ -42,7 +93,7 @@
       {% if post.collection == 'teaching' %}
         <p>{{ post.type }}, <i>{{ post.venue }}</i>, {{ post.date | default: "1900-01-01" | date: "%Y" }}</p>
       {% elsif post.collection == 'publications' %}
-        <p><i>{{ post.venue }}</i>, {{ post.date | default: "1900-01-01" | date: "%Y" }}</p>
+        <p class="xy-publication-meta"><i>{{ post.venue }}</i>, {{ post.date | default: "1900-01-01" | date: "%Y" }}</p>
       {% elsif post.date %}
         <p class="page__date"><strong><i class="fa fa-fw fa-calendar" aria-hidden="true"></i> {{ site.data.ui-text[site.locale].date_label | default: "Published:" }}</strong> <time datetime="{{ post.date | default: "1900-01-01" | date_to_xmlschema }}">{{ post.date | default: "1900-01-01" | date: "%B %d, %Y" }}</time></p>
       {% endif %}
@@ -53,12 +104,23 @@
         <p class="archive__item-excerpt" itemprop="description">{{ post.excerpt | markdownify | remove: '<p>' | remove: '</p>' }}<strong><a href="{{ base_path }}{{ post.url }}" rel="permalink"> Read more</a></strong></p>
       {% endif %}
   
+      {% if post.collection == 'publications' %}
+        <p class="xy-paper-links">
+          <a href="{{ base_path }}{{ post.url }}">Details</a>
+          {% if paper_url %}<a href="{{ paper_url }}">Paper</a>{% endif %}
+          {% if arxiv_url %}<a href="{{ arxiv_url }}">arXiv</a>{% endif %}
+          {% if code_url %}<a href="{{ code_url }}">Code</a>{% endif %}
+          {% if project_url %}<a href="{{ project_url }}">Project</a>{% endif %}
+          {% if demo_url %}<a href="{{ demo_url }}">Demo</a>{% endif %}
+        </p>
+      {% endif %}
+
       {% if post.citation and post.paperurl %}
-        <p>{{ post.citation }} <a href="{{ post.paperurl }}"><u>{{ post.paperurl }}</u></a></p>
+        <p class="xy-publication-citation">{{ post.citation }} <a href="{{ post.paperurl }}"><u>{{ post.paperurl }}</u></a></p>
       {% elsif post.citation %}
-        <p>{{ post.citation }}</p>
+        <p class="xy-publication-citation">{{ post.citation }}</p>
       {% elsif post.paperurl %}
-        <p>Download <a href="{{ post.paperurl }}"><u>here</u></a></p>
+        <p class="xy-publication-citation">Download <a href="{{ post.paperurl }}"><u>here</u></a></p>
       {% endif %}
     </div>
   </article>

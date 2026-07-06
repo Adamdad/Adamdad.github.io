@@ -1,80 +1,176 @@
 ---
-layout: archive
+layout: single
 permalink: /experience/
-title: "About me"
+title: "Experience"
 author_profile: false
-redirect_from: 
+redirect_from:
   - /exp
 ---
-<style type="text/css">
-  body{
-  font-size: 14pt;
-}
-</style>
---------
 
-## Education
-I get my PhD at National University of Singapore. I got my master's degree at [University of California, San Diego](https://ucsd.edu/) and my bachelor degree at [Southeast University](https://www.seu.edu.cn/english/), China. 
-<!-- I was also fortunate to work with [Prof.Pengtao Xie](https://pengtaoxie.github.io/), [Prof.Rose Yu](http://roseyu.com/), [Prof.Fenglong ma](http://personal.psu.edu/ffm5105/) and [Prof.Yining Hu](https://www.researchgate.net/profile/Yining-Hu-4) and [Dr.Xinjiang Wang](https://scholar.google.com/citations?user=q4lnWaoAAAAJ&hl=en).  -->
-I used to be a visiting student at University of Ottawa. 
-<!-- , supervised by [Prof.Robert Laganière](http://www.site.uottawa.ca/~laganier/).  -->
-- <img src="..\images\singapore.png" alt="drawing" style="width:50px;" align="middle" border="3"/> Ph.D in Singapore, National Uniersity of Singapore, 2021-2025
+<div class="xy-page-intro">
+  <p>A compact timeline of appointments, education, research experience, teaching, talks, and academic service.</p>
+</div>
 
-- <img src="..\images\University_of_California,_San_Diego_seal.svg.png" alt="drawing" style="width:50px;" align="middle" border="3"/> M.S. in San Diego, University of California San Diego, 2019-2021
-  
-- <img src="..\images\southeast.jpg" alt="drawing" style="width:50px;" align="middle" border="3"/> B.S. in Nanjing, Southeast University University, 2015-2019
+<section class="xy-section">
+  <p class="xy-section-kicker">Appointments</p>
+  <h2 class="xy-section-title">Academic Appointments</h2>
+  <div class="xy-timeline">
+    <article class="xy-timeline-item">
+      <div class="xy-timeline-time">2026 -</div>
+      <div class="xy-timeline-body">
+        <h3>Tenure-Track Assistant Professor</h3>
+        <p>Department of Data Science and Artificial Intelligence, The Hong Kong Polytechnic University.</p>
+      </div>
+    </article>
+  </div>
+</section>
 
-- <img src="..\images\ottawa.jpg" alt="drawing" style="width:50px;" align="middle" border="3"/> Visiting Student, in Ottawa, University of Ottawa, 2018
+<section class="xy-section">
+  <p class="xy-section-kicker">Education</p>
+  <h2 class="xy-section-title">Education</h2>
+  <div class="xy-timeline">
+    <article class="xy-timeline-item">
+      <div class="xy-timeline-time">2021 - 2025</div>
+      <div class="xy-timeline-body">
+        <h3>Ph.D., National University of Singapore</h3>
+        <p>Advised by Prof. Xinchao Wang.</p>
+      </div>
+    </article>
+    <article class="xy-timeline-item">
+      <div class="xy-timeline-time">2019 - 2021</div>
+      <div class="xy-timeline-body">
+        <h3>M.S., University of California San Diego</h3>
+        <p>San Diego, United States.</p>
+      </div>
+    </article>
+    <article class="xy-timeline-item">
+      <div class="xy-timeline-time">2015 - 2019</div>
+      <div class="xy-timeline-body">
+        <h3>B.S., Southeast University</h3>
+        <p>Nanjing, China.</p>
+      </div>
+    </article>
+    <article class="xy-timeline-item">
+      <div class="xy-timeline-time">2018</div>
+      <div class="xy-timeline-body">
+        <h3>Visiting Student, University of Ottawa</h3>
+        <p>VIVA Lab, supervised by <a href="http://www.site.uottawa.ca/~laganier/">Prof. Robert Laganiere</a>.</p>
+      </div>
+    </article>
+  </div>
+</section>
 
---------
-## Work experience
+<section class="xy-section">
+  <p class="xy-section-kicker">Research</p>
+  <h2 class="xy-section-title">Research Experience</h2>
+  <div class="xy-timeline">
+    <article class="xy-timeline-item">
+      <div class="xy-timeline-time">Summer 2022</div>
+      <div class="xy-timeline-body">
+        <h3>TikTok, Research Intern</h3>
+        <p>Research on efficient diffusion models.</p>
+      </div>
+    </article>
+    <article class="xy-timeline-item">
+      <div class="xy-timeline-time">Spring 2021</div>
+      <div class="xy-timeline-body">
+        <h3>SenseTime Research and Shanghai AI Lab, Research Intern</h3>
+      </div>
+    </article>
+    <article class="xy-timeline-item">
+      <div class="xy-timeline-time">Autumn 2019</div>
+      <div class="xy-timeline-body">
+        <h3>University of California, Student Researcher</h3>
+      </div>
+    </article>
+    <article class="xy-timeline-item">
+      <div class="xy-timeline-time">Autumn 2019</div>
+      <div class="xy-timeline-body">
+        <h3>Kneron Inc., Deep Learning Intern</h3>
+      </div>
+    </article>
+    <article class="xy-timeline-item">
+      <div class="xy-timeline-time">Summer 2018</div>
+      <div class="xy-timeline-body">
+        <h3>University of Ottawa VIVA Lab, Research Assistant</h3>
+        <p>Supervisor: <a href="http://www.site.uottawa.ca/~laganier/">Prof. Robert Laganiere</a>.</p>
+      </div>
+    </article>
+  </div>
+</section>
 
-* <img src="..\images\tiktok.png" alt="drawing" style="width:50px;" align="middle" border="3"/> TikTok *Reseach Intern* | Summer 2022
-  
-  <!-- * Supervisor: [Dr.Daquan Zhou](https://scholar.google.com/citations?user=DdCAbWwAAAAJ&hl=en) and [Dr.Jiashi Feng](https://sites.google.com/site/jshfeng) -->
-  <!-- * Efficient Diffusion Model -->
+<section class="xy-section">
+  <p class="xy-section-kicker">Teaching</p>
+  <h2 class="xy-section-title">Teaching</h2>
+  <div class="xy-timeline">
+    <article class="xy-timeline-item">
+      <div class="xy-timeline-time">2026 Spring</div>
+      <div class="xy-timeline-body">
+        <h3>PolyU DSAI5207: Modern Deep Learning</h3>
+        <p>Instructor.</p>
+      </div>
+    </article>
+    <article class="xy-timeline-item">
+      <div class="xy-timeline-time">2022 Spring</div>
+      <div class="xy-timeline-body">
+        <h3>NUS EE5934/6934: Deep Learning</h3>
+        <p>Teaching Assistant.</p>
+      </div>
+    </article>
+    <article class="xy-timeline-item">
+      <div class="xy-timeline-time">2022 Spring</div>
+      <div class="xy-timeline-body">
+        <h3>NUS EE2211: Introduction to Machine Learning</h3>
+        <p>Teaching Assistant.</p>
+      </div>
+    </article>
+  </div>
+</section>
 
-* <img src="..\images\sensetime.png" alt="drawing" style="width:50px;" align="middle" border="3"/> Sensetime Research&<img src="..\images\shailab.jpg" alt="drawing" style="width:50px;" align="middle" border="3"/> Shanghai AI lab *Reseach Intern* | Spring 2021
-  
-  <!-- * Supervisor: [Dr.Xinjiang Wang](https://scholar.google.com/citations?user=q4lnWaoAAAAJ&hl=en) -->
+<section class="xy-section">
+  <p class="xy-section-kicker">Talks</p>
+  <h2 class="xy-section-title">Invited Talks</h2>
+  <div class="xy-timeline">
+    <article class="xy-timeline-item">
+      <div class="xy-timeline-time">UIUC</div>
+      <div class="xy-timeline-body">
+        <h3><a href="https://calendars.illinois.edu/detail/2654?eventId=33482580">Deep Model Reuse: Paving the Way for Efficient and Generalizable AI Systems</a></h3>
+        <p>Computer Vision Group @ UIUC.</p>
+      </div>
+    </article>
+    <article class="xy-timeline-item">
+      <div class="xy-timeline-time">VALSE 2023</div>
+      <div class="xy-timeline-body">
+        <h3>Anything-3D: Towards Single-View Anything Reconstruction in the Wild</h3>
+        <p>The Future of 3D Vision in the Era of LLMs Seminar @ VALSE.</p>
+      </div>
+    </article>
+  </div>
+</section>
 
-* <img src="..\images\University_of_California,_San_Diego_seal.svg.png" alt="drawing" style="width:50px;" align="middle" border="3"/> University of California *Student Researcher* | Autumn 2019
-
-  <!-- * Supervisor: [Prof.Pengtao Xie](http://www.cs.cmu.edu/~pengtaox/) -->
-
-* <img src="..\images\kneron.jpg" alt="drawing" style="width:50px;" align="middle" border="3"/> Kneron Inc. *Deep Learning Intern* | Autumn 2019
-
-  <!-- * Supervisor: [Bike Xie](https://www.linkedin.com/in/bike-xie-82069b18/) -->
-
-* <img src="..\images\viva.png" alt="drawing" style="width:50px;" align="middle" border="3"/> University of Ottawa, VIVA Lab *Research Assistant* | Summer 2018
-  * Supervisor: [Prof.Robert Laganière](http://www.site.uottawa.ca/~laganier/)
-  
-
-
--------
-## Teaching
-* PolyU DSAI5207: Modern Deep Learning, 2026 Spring, Instructor.
-* NUS EE5934/6934: Deep Learning, 2022 Spring, Teaching Assistant.
-* NUS EE2211: Introduction to Machine Learning, 2022 Spring, Teaching Assistant.
-
-## Invited Talk 
-* [“Deep Model Reuse: Paving the Way for Efficient and Generalizable AI Systems"](https://calendars.illinois.edu/detail/2654?eventId=33482580), Computer Vision Group @ UIUC.
-* "Anything-3d: Towards single-view anything reconstruction in the wild", The Future of 3D Vision in the Era of LLMs Seminar 2023 @ VALSE.
-
--------
-## Academic Service
-* Organizer for CVPR 2024 tutorial "Disentanglement and Compositionality in Computer Vision".
-* Organizer for ECCV 2024 tutorial "Emerging Trends in Disentanglement and Compositionality".
-* Organizer for NeurIPS 2020 workshop “Self-Supervised Learning – Theory and Practice”, serving as Workflow Chair.
-* Area chair for NeurIPS 2026.
-* Conference reviewer for 
-  - CVPR, NeurIPS, ICML, ICLR, ICCV, ECCV, ACL, IJCAI, AAAI, ICASSP, WWW 
-  
-* Journal reviewer for 
-  - IEEE Transactions on Image Processing (TIP)
-  - Pattern Recognition (PR)
-  - IEEE Transactions on Circuits and Systems for Video Technology (TCSVT)
-  - Journal of Biomedical and Health Informatics (JBHI)
-  - Expert Systems With Applications (ESWA)
-  - IEEE Transactions on Cognitive and Developmental Systems (TCDS)
-  
+<section class="xy-section">
+  <p class="xy-section-kicker">Service</p>
+  <h2 class="xy-section-title">Academic Service</h2>
+  <div class="xy-timeline">
+    <article class="xy-timeline-item">
+      <div class="xy-timeline-time">Service</div>
+      <div class="xy-timeline-body">
+        <h3>Community Roles</h3>
+        <ul>
+          <li>Area chair for NeurIPS 2026.</li>
+          <li>Organizer for CVPR 2024 tutorial "Disentanglement and Compositionality in Computer Vision".</li>
+          <li>Organizer for ECCV 2024 tutorial "Emerging Trends in Disentanglement and Compositionality".</li>
+          <li>Organizer for NeurIPS 2020 workshop "Self-Supervised Learning - Theory and Practice", serving as Workflow Chair.</li>
+        </ul>
+      </div>
+    </article>
+    <article class="xy-timeline-item">
+      <div class="xy-timeline-time">Reviewer</div>
+      <div class="xy-timeline-body">
+        <h3>Conference and Journal Reviewing</h3>
+        <p>Conference reviewer for CVPR, NeurIPS, ICML, ICLR, ICCV, ECCV, ACL, IJCAI, AAAI, ICASSP, and WWW.</p>
+        <p>Journal reviewer for IEEE TIP, Pattern Recognition, IEEE TCSVT, JBHI, ESWA, and IEEE TCDS.</p>
+      </div>
+    </article>
+  </div>
+</section>

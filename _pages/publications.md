@@ -5,19 +5,11 @@ permalink: /publications/
 author_profile: false
 ---
 
-<!-- {% if author.googlescholar %} -->
-  
-<!-- {% endif %} -->
-<style type="text/css">
-  body{
-  font-size: 12pt;
-}
-</style>
-
 {% include base_path %}
-You can also find my papers on <a href="https://scholar.google.com/citations?user=1n2OPtwAAAAJ">Google Scholar</a>.
 
------------
+<div class="xy-page-intro">
+  <p>You can also find my papers on <a href="https://scholar.google.com/citations?user=1n2OPtwAAAAJ">Google Scholar</a>.</p>
+</div>
 
 {% capture written_year %}'None'{% endcapture %}
 {% for post in site.publications reversed %}
@@ -28,5 +20,3 @@ You can also find my papers on <a href="https://scholar.google.com/citations?use
   {% endif %}
   {% include archive-single.html %}
 {% endfor %}
-
-

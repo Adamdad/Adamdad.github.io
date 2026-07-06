@@ -7,10 +7,10 @@
 
 # Site Settings
 locale                   : "en-US"
-title                    : "Adam"
+title                    : "Xingyi Yang"
 title_separator          : "|"
-name                     : &name "DSAI @ PolyU"
-description              : &description "A personal site of Xingyi Yang"
+name                     : &name "Xingyi Yang"
+description              : &description "Efficient generative AI, multimodal learning, and intelligent systems for physical worlds."
 url                      : https://Adamdad.github.io # the base hostname & protocol for your site e.g. "https://mmistakes.github.io"
 baseurl                  : "" # the subpath of your site, e.g. "/blog"
 logo                     : "site-logo.png"
@@ -83,7 +83,7 @@ analytics:
 author:
   name             : "Xingyi Yang"
   avatar           : "726691746359914_.pic_hd.jpg" # placed in /images/
-  bio              : "AP. PolyU"
+  bio              : "Assistant Professor, PolyU DSAI"
   location         : "Hong Kong SAR"
   employer         : 
   pubmed           : 
