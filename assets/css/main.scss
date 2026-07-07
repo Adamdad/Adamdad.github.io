@@ -38,6 +38,7 @@ html {
 
 body {
   margin: 0;
+  overflow-x: hidden;
   background:
     linear-gradient(rgba(22, 24, 25, 0.035) 1px, transparent 1px),
     linear-gradient(90deg, rgba(22, 24, 25, 0.035) 1px, transparent 1px),
@@ -256,7 +257,8 @@ b {
 
 .home-page .page-content > h2,
 .home-page .page-content > p {
-  max-width: var(--content-width);
+  width: 100%;
+  max-width: var(--wide-width);
 }
 
 .home-page .page-content > .focus-grid,
@@ -287,6 +289,7 @@ b {
 }
 
 .page-content > * {
+  max-width: 100%;
   animation: content-rise 620ms ease both;
 }
 
@@ -859,8 +862,13 @@ b {
 }
 
 @media (max-width: 900px) {
+  .site-shell {
+    width: min(var(--max-width), calc(100% - 1.6rem));
+  }
+
   .profile-hero {
     grid-template-columns: 180px minmax(0, 1fr);
+    gap: 1.6rem 2rem;
   }
 
   .profile-hero__photo {
@@ -874,6 +882,10 @@ b {
   .focus-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .publication-item {
+    grid-template-columns: 180px minmax(0, 1fr);
+  }
 }
 
 @media (max-width: 760px) {
@@ -881,53 +893,180 @@ b {
     background-size: 36px 36px, 36px 36px, auto;
   }
 
+  body::before {
+    background:
+      linear-gradient(180deg, rgba(247, 248, 247, 0.86), rgba(247, 248, 247, 0.98) 28rem),
+      radial-gradient(circle at 0% 0%, rgba(154, 31, 46, 0.04), transparent 18rem);
+  }
+
   .site-header__inner {
     display: block;
+    padding: 0.78rem 0;
+  }
+
+  .site-brand__name {
+    font-size: 1rem;
+  }
+
+  .site-brand__meta {
+    font-size: 0.62rem;
   }
 
   .site-nav {
     justify-content: flex-start;
     margin-top: 0.65rem;
+    gap: 0.28rem;
+    font-size: 0.72rem;
+  }
+
+  .site-nav a {
+    padding: 0.28rem 0.46rem;
+  }
+
+  .site-main {
+    padding: 1.9rem 0 3.2rem;
+  }
+
+  .page-header {
+    margin-bottom: 1.45rem;
+    padding: 0.7rem 0 1rem;
+  }
+
+  .page-header h1 {
+    font-size: clamp(2rem, 12vw, 3rem);
+  }
+
+  h2 {
+    margin-top: 2.4rem;
+    font-size: clamp(1.32rem, 7vw, 1.75rem);
   }
 
   .profile-hero {
     grid-template-columns: 1fr;
     gap: 1.3rem;
+    margin-bottom: 2rem;
+    padding: 0.35rem 0 1.7rem;
   }
 
   .profile-hero__photo {
     width: min(220px, 70vw);
   }
 
+  .profile-hero__main h1 {
+    margin-bottom: 1rem;
+    font-size: clamp(2.4rem, 14vw, 3rem);
+    letter-spacing: -0.035em;
+  }
+
+  .profile-hero__role {
+    font-size: 1.18rem;
+  }
+
+  .profile-hero__affiliation {
+    font-size: 1.04rem;
+  }
+
   .profile-hero__aside {
     grid-column: auto;
+    padding-top: 0;
+  }
+
+  .profile-hero__aside h2 {
+    font-size: 1.18rem;
+  }
+
+  .profile-hero__aside ul {
+    margin-bottom: 1.25rem;
+    font-size: 1rem;
+  }
+
+  .profile-hero__contact a {
+    font-size: 0.96rem;
+  }
+
+  .focus-card {
+    min-height: 0;
   }
 
   .research-gallery {
     grid-template-columns: 1fr 1fr;
+    gap: 0.7rem;
   }
 
   .publication-item {
     grid-template-columns: 1fr;
+    gap: 0.82rem;
+    padding: 0.85rem;
   }
 
   .publication-item__teaser img {
     max-width: 340px;
   }
 
+  .publication-item__links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.32rem;
+  }
+
+  .publication-item__links p,
+  .publication-item__links a {
+    margin: 0;
+  }
+
   .experience-entry {
     grid-template-columns: 52px minmax(0, 1fr);
+    gap: 0.8rem;
+    padding: 0.78rem 0.85rem;
+  }
+
+  .experience-logo {
+    width: 40px;
+    height: 40px;
+  }
+
+  .experience-logo-stack .experience-logo {
+    width: 32px;
+    height: 32px;
   }
 
   .experience-date {
     grid-column: 2;
     justify-self: start;
+    margin-top: 0.1rem;
+    font-size: 0.8rem;
+  }
+
+  .opening-page header {
+    margin-bottom: 1.4rem;
+    padding: 1rem 0.9rem;
+  }
+
+  .opening-page header img {
+    max-width: 190px;
+  }
+
+  .opening-page h1 {
+    font-size: clamp(1.65rem, 9vw, 2.35rem);
+  }
+
+  .opening-page article > section,
+  .opening-page #intro-section {
+    padding: 0.95rem 1rem;
+  }
+
+  .opening-actions {
+    margin-bottom: 0.85rem;
   }
 }
 
 @media (max-width: 520px) {
   .site-shell {
     width: min(var(--max-width), calc(100% - 1.2rem));
+  }
+
+  body {
+    background-size: 48px 48px, 48px 48px, auto;
   }
 
   .site-main {
@@ -940,7 +1079,83 @@ b {
   }
 
   .site-nav a {
-    padding-left: 0.46rem;
-    padding-right: 0.46rem;
+    padding-left: 0.4rem;
+    padding-right: 0.4rem;
+  }
+
+  .profile-hero__photo {
+    width: min(200px, 72vw);
+  }
+
+  .profile-hero__main h1 {
+    font-size: clamp(2.2rem, 15vw, 2.75rem);
+  }
+
+  .profile-hero__summary,
+  .page-header p {
+    font-size: 0.96rem;
+  }
+
+  .publication-item__teaser img {
+    max-width: 100%;
+  }
+
+  .publication-item__title {
+    font-size: 1.04rem;
+  }
+
+  .page-content > ul,
+  .page-content > ol {
+    padding: 0.85rem 0.9rem 0.85rem 1.55rem;
+  }
+
+  .callout,
+  .contact-box {
+    padding: 0.9rem;
+  }
+}
+
+@media (max-width: 380px) {
+  .site-shell {
+    width: min(var(--max-width), calc(100% - 0.9rem));
+  }
+
+  .site-nav {
+    font-size: 0.68rem;
+    gap: 0.2rem;
+  }
+
+  .site-nav a {
+    padding: 0.24rem 0.34rem;
+  }
+
+  .profile-hero__main h1 {
+    font-size: 2.15rem;
+  }
+
+  .profile-hero__role,
+  .profile-hero__affiliation {
+    font-size: 1rem;
+  }
+
+  .profile-hero__contact span {
+    width: 1.18rem;
+    height: 1.18rem;
+    font-size: 0.56rem;
+  }
+
+  .experience-entry {
+    grid-template-columns: 44px minmax(0, 1fr);
+    padding: 0.72rem;
+  }
+
+  .experience-logo {
+    width: 36px;
+    height: 36px;
+  }
+
+  .opening-page article > section,
+  .opening-page #intro-section {
+    padding: 0.82rem;
   }
 }

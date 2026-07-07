@@ -50,7 +50,7 @@ redirect_from:
   </div>
 </div>
 
-## Work experience
+<!-- ## Work experience
 
 <div class="experience-timeline">
   <div class="experience-entry">
@@ -100,7 +100,7 @@ redirect_from:
     </div>
     <div class="experience-date">Summer 2018</div>
   </div>
-</div>
+</div> -->
 
 -------
 ## Teaching

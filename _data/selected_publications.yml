@@ -1,0 +1,18 @@
+# Selected publications shown on /publications/.
+# Order matters: the page renders papers in the order listed here.
+# Use the filename in _publications/ without the .md extension.
+
+- id: 2026_iclr_sparsed
+- id: 2026_aaai_longvideo
+- id: 2025_iccv_c4d
+- id: 2025_neurips_test3r
+- id: 2025_cvpr_hash3d
+- id: 2025_iclr_kat
+- id: 2025_icml_moe
+- id: 2024_eccv_neumeta
+- id: 2024_neurips_lvx
+- id: 2023_iccv_repfusion
+- id: 2023_cvpr_diffusionmadeslim
+- id: 2023_cvpr_consistentteacher
+- id: 2022_neurips_dery
+- id: 2022_eccv_kf

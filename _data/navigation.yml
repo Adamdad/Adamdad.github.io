@@ -1,6 +1,6 @@
 # main links links
 main:
-  - title: "Publications"
+  - title: "Selected Publications"
     url: /publications/  
         
   # - title: "Blog Posts"
@@ -14,4 +14,3 @@ main:
   # - title: "Others"
   #   url: /other/
     
-
