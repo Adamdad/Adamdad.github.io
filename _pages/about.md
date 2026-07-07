@@ -93,7 +93,7 @@ My research spans **Machine Learning**, **Generative AI**, and **Computer Vision
 ## Open Positions
 
 <div class="callout">
-  I am looking for self-motivated Ph.D. students, postdocs, and research assistants for Spring/Fall 2027. For more details, please see <a href="{{ '/opening' | relative_url }}">Opening</a>. If you are interested in working with me, feel free to reach out via email at <strong>x3yang@outlook.com</strong> with your resume.
+  I am looking for self-motivated Ph.D. students, postdocs, and research assistants for 2027 Spring and Fall. For more details, please see <a href="{{ '/opening' | relative_url }}">Opening</a>. If you are interested in working with me, feel free to reach out via email at <strong>x3yang@outlook.com</strong> with your resume.
 </div>
 
 I believe in [Slow Science](http://slow-science.org/).
