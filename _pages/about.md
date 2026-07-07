@@ -28,10 +28,10 @@ redirect_from:
       <h2>Research Interests</h2>
       <ul>
         <li>Generative AI</li>
-        <li>Spatial Intelligence</li>
-        <li>Multimodal Learning</li>
         <li>Computer Vision</li>
-        <li>World Models</li>
+        <li>Spatial Intelligence</li>
+        <li>World Model</li>
+        <li>Efficient Learning</li>
       </ul>
     </div>
     <div class="profile-hero__contact">
@@ -55,30 +55,38 @@ My research spans **Machine Learning**, **Generative AI**, and **Computer Vision
 
 ## Research Glimpses
 
-<div class="research-gallery">
-  <figure class="research-tile">
-    <img src="{{ '/images/4dgs1k.gif' | relative_url }}" alt="4D Gaussian Splatting teaser" loading="lazy">
-    <figcaption>4D World</figcaption>
-  </figure>
-  <figure class="research-tile">
-    <img src="{{ '/images/sequence_traj_upon-ezgif.com-video-to-gif-converter.gif' | relative_url }}" alt="GFlow 4D world reconstruction teaser" loading="lazy">
-    <figcaption>World Recovery</figcaption>
-  </figure>
-  <figure class="research-tile">
-    <img src="{{ '/images/equigen.gif' | relative_url }}" alt="EquiGen spatial generation teaser" loading="lazy">
-    <figcaption>Spatial Generation</figcaption>
-  </figure>
+<div class="research-gallery research-gallery--pillars" aria-label="Research glimpses">
+
   <figure class="research-tile">
     <img src="{{ '/images/omini.jpg' | relative_url }}" alt="OminiControl controllable generation teaser" loading="lazy">
-    <figcaption>Controllable AI</figcaption>
+    <figcaption>
+      <span>Generative AI</span>
+      <strong>Controllable Creation</strong>
+    </figcaption>
   </figure>
+
+  <figure class="research-tile">
+    <img src="{{ '/images/sequence_traj_upon-ezgif.com-video-to-gif-converter.gif' | relative_url }}" alt="World model teaser" loading="lazy">
+    <figcaption>
+      <span>World Models</span>
+      <strong>Physical Intelligence</strong>
+    </figcaption>
+  </figure>
+
+  <figure class="research-tile">
+    <img src="{{ 'images/manipulation.gif' | relative_url }}" alt="GFlow 4D world reconstruction teaser" loading="lazy">
+    <figcaption>
+      <span>Embodied AI</span>
+      <strong>Interactive Agents</strong>
+    </figcaption>
+  </figure>
+
   <figure class="research-tile">
     <img src="{{ '/images/sparsed.gif' | relative_url }}" alt="SparseD sparse diffusion teaser" loading="lazy">
-    <figcaption>Sparse Diffusion</figcaption>
-  </figure>
-  <figure class="research-tile">
-    <img src="{{ '/images/test3r.jpg' | relative_url }}" alt="Test3R 3D reconstruction teaser" loading="lazy">
-    <figcaption>3D Reconstruction</figcaption>
+    <figcaption>
+      <span>Efficient AI</span>
+      <strong>Sparse Diffusion</strong>
+    </figcaption>
   </figure>
 </div>
 

@@ -559,6 +559,54 @@ b {
   text-transform: uppercase;
 }
 
+.research-gallery--pillars {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 0.95rem;
+}
+
+.research-gallery--pillars .research-tile {
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+
+.research-gallery--pillars .research-tile img {
+  aspect-ratio: 16 / 8.6;
+}
+
+.research-gallery--pillars .research-tile figcaption {
+  display: block;
+  min-height: 5rem;
+  padding: 0.78rem 0.9rem 0.86rem;
+  border-top: 1px solid var(--soft-line);
+  color: var(--muted);
+  font-family: var(--sans);
+  text-transform: none;
+  background:
+    linear-gradient(135deg, rgba(0, 59, 149, 0.05), rgba(154, 31, 46, 0.035)),
+    var(--surface);
+}
+
+.research-gallery--pillars .research-tile figcaption span {
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 0.42rem;
+  color: var(--accent-2);
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.research-gallery--pillars .research-tile figcaption strong {
+  display: block;
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 1.18rem;
+  line-height: 1.18;
+}
+
 .callout,
 .contact-box {
   margin: 1.2rem 0;
@@ -993,6 +1041,10 @@ b {
     gap: 0.7rem;
   }
 
+  .research-gallery--pillars .research-tile figcaption {
+    min-height: 0;
+  }
+
   .publication-item {
     grid-template-columns: 1fr;
     gap: 0.82rem;
@@ -1076,6 +1128,10 @@ b {
   .focus-grid,
   .research-gallery {
     grid-template-columns: 1fr;
+  }
+
+  .research-gallery--pillars .research-tile figcaption {
+    padding: 0.78rem 0.82rem 0.9rem;
   }
 
   .site-nav a {

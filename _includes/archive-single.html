@@ -28,8 +28,19 @@
         <p class="publication-item__authors">{{ item.citation }}</p>
       {% endif %}
 
-      {% if item.content != "" %}
-        <div class="publication-item__links">{{ item.content | markdownify }}</div>
+      {% assign publication_links = "" %}
+      {% assign publication_lines = item.content | split: "
+" %}
+      {% for line in publication_lines %}
+        {% assign stripped_line = line | strip %}
+        {% if stripped_line contains "](" %}
+          {% capture publication_links %}{{ publication_links }}
+{{ stripped_line }}{% endcapture %}
+        {% endif %}
+      {% endfor %}
+
+      {% if publication_links != "" %}
+        <div class="publication-item__links">{{ publication_links | markdownify }}</div>
       {% elsif item.paperurl %}
         <p class="publication-item__links"><a href="{{ item.paperurl }}">Paper</a></p>
       {% endif %}
