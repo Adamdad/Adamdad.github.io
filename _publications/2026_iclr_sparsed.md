@@ -9,9 +9,7 @@ header:
   teaser: 'sparsed.gif'
 ---
 
-[paper](https://arxiv.org/abs/2509.24014)
-
-[code](https://github.com/INV-WZQ/SparseD)
+[Paper](https://arxiv.org/abs/2509.24014) [Code](https://github.com/INV-WZQ/SparseD)
 
 
 

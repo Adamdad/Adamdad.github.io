@@ -9,5 +9,5 @@ showexcerpt: False
 header:
   teaser: 'covid19.jpg'
 ---
-[paper](https://arxiv.org/abs/2003.13865) [code](https://github.com/UCSD-AI4H/COVID-CT)
+[Paper](https://arxiv.org/abs/2003.13865) [Code](https://github.com/UCSD-AI4H/COVID-CT)
 

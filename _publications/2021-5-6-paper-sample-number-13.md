@@ -9,4 +9,4 @@ showexcerpt: False
 header:
   teaser: 'medwriter.jpg'
 ---
-[paper](https://arxiv.org/pdf/2106.06471.pdf)
+[Paper](https://arxiv.org/pdf/2106.06471.pdf)

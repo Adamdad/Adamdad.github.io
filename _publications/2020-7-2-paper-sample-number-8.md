@@ -9,4 +9,4 @@ showexcerpt: False
 header:
   teaser: 'eccv2020.png'
 ---
-[paper](https://arxiv.org/abs/2007.09529) [code](https://github.com/Jerrypiglet/ScaleNet) [project](https://jerrypiglet.github.io/ScaleNet/)
+[Paper](https://arxiv.org/abs/2007.09529) [Code](https://github.com/Jerrypiglet/ScaleNet) [Project](https://jerrypiglet.github.io/ScaleNet/)

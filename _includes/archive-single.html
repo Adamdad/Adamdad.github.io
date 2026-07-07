@@ -40,7 +40,7 @@
       {% endfor %}
 
       {% if publication_links != "" %}
-        <div class="publication-item__links">{{ publication_links | markdownify }}</div>
+        <div class="publication-item__links">{{ publication_links | replace: '[[', '[' | replace: ']]', ']' | markdownify }}</div>
       {% elsif item.paperurl %}
         <p class="publication-item__links"><a href="{{ item.paperurl }}">Paper</a></p>
       {% endif %}

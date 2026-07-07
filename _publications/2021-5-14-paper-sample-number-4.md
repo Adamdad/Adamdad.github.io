@@ -9,4 +9,4 @@ showexcerpt: False
 header:
   teaser: 'meddialog.jpg'
 ---
-[paper](https://arxiv.org/abs/2005.05442) [code](https://github.com/UCSD-AI4H/COVID-Dialogue)
+[Paper](https://arxiv.org/abs/2005.05442) [Code](https://github.com/UCSD-AI4H/COVID-Dialogue)

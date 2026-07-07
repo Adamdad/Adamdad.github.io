@@ -9,7 +9,4 @@ header:
   teaser: 'flashsplat.jpg'
 ---
 
-[arxiv](https://arxiv.org/abs/2409.08270)
-
-
-[code](https://github.com/florinshen/FlashSplat)
+[arXiv](https://arxiv.org/abs/2409.08270) [Code](https://github.com/florinshen/FlashSplat)

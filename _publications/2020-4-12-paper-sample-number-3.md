@@ -9,4 +9,4 @@ showexcerpt: False
 header:
   teaser: 'selftrans.jpg'
 ---
-[paper](https://www.medrxiv.org/content/10.1101/2020.04.13.20063941v1.full.pdf+html)
+[Paper](https://www.medrxiv.org/content/10.1101/2020.04.13.20063941v1.full.pdf+html)

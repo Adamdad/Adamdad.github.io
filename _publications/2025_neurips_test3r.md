@@ -9,10 +9,6 @@ header:
   teaser: 'test3r.jpg'
 ---
 
-[paper](https://arxiv.org/abs/2506.13750)
-
-[project page](https://test3r-nop.github.io/)
-
-[code](https://github.com/nopQAQ/Test3R)
+[Paper](https://arxiv.org/abs/2506.13750) [Code](https://github.com/nopQAQ/Test3R) [Project](https://test3r-nop.github.io/)
 
 

@@ -9,7 +9,5 @@ header:
   teaser: 'graphbridge.jpg'
 ---
 
-[arxiv](https://www.arxiv.org/abs/2502.19252)
-
-[code](https://github.com/jujulili888/GraphBridge)
+[arXiv](https://www.arxiv.org/abs/2502.19252) [Code](https://github.com/jujulili888/GraphBridge)
 

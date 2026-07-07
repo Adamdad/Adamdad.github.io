@@ -9,7 +9,5 @@ header:
   teaser: 'sequence_traj_upon-ezgif.com-video-to-gif-converter.gif'
 ---
 
-[arxiv](https://arxiv.org/abs/2405.18426)
-
-[project page](https://littlepure2333.github.io/GFlow/)
+[arXiv](https://arxiv.org/abs/2405.18426) [Project](https://littlepure2333.github.io/GFlow/)
 

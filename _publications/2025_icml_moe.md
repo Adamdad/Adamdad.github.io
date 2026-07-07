@@ -10,7 +10,7 @@ header:
 ---
 
 
-[paper](https://arxiv.org/abs/2503.07639)
+[Paper](https://arxiv.org/abs/2503.07639)
 
 
 

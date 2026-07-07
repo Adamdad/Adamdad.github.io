@@ -9,7 +9,4 @@ header:
   teaser: 'vista3d.jpg'
 ---
 
-[arxiv](https://arxiv.org/abs/2409.12193)
-
-
-[code](https://github.com/florinshen/Vista3D)
+[arXiv](https://arxiv.org/abs/2409.12193) [Code](https://github.com/florinshen/Vista3D)

@@ -10,11 +10,7 @@ header:
 ---
 
 
-[paper](https://arxiv.org/abs/2411.15098)
-
-[code](https://github.com/Yuanshi9815/OminiControl)
-
-[demo](https://huggingface.co/spaces/Yuanshi/OminiControl)
+[Paper](https://arxiv.org/abs/2411.15098) [Code](https://github.com/Yuanshi9815/OminiControl) [Demo](https://huggingface.co/spaces/Yuanshi/OminiControl)
 
 
 

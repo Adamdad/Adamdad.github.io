@@ -9,11 +9,7 @@ header:
   teaser: 'dualpipe-gif1.gif'
 ---
 
-[paper](https://arxiv.org/abs/2505.21070)
-
-[code](https://github.com/DualParal-Project/DualParal)
-
-[project](https://dualparal-project.github.io/dualparal.github.io/)
+[Paper](https://arxiv.org/abs/2505.21070) [Code](https://github.com/DualParal-Project/DualParal) [Project](https://dualparal-project.github.io/dualparal.github.io/)
 
 
 

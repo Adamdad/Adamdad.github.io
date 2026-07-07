@@ -9,10 +9,6 @@ header:
   teaser: 'equigen.gif'
 ---
 
-[project page](https://jeandiable.github.io/EquiGen/)
-
-[paper](https://arxiv.org/abs/2501.01601)
-
-[code](https://github.com/JeanDiable/EquiGen)
+[Paper](https://arxiv.org/abs/2501.01601) [Code](https://github.com/JeanDiable/EquiGen) [Project](https://jeandiable.github.io/EquiGen/)
 
 

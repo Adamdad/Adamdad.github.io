@@ -10,4 +10,4 @@ header:
 ---
 
 
-[[paper](https://openreview.net/forum?id=luGXvawYWJ)] [[arxiv](https://arxiv.org/abs/2210.16774)]  [[code](https://github.com/Huage001/DatasetFactorization)] 
+[Paper](https://openreview.net/forum?id=luGXvawYWJ) [arXiv](https://arxiv.org/abs/2210.16774) [Code](https://github.com/Huage001/DatasetFactorization)

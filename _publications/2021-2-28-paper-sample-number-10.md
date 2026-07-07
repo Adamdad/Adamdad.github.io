@@ -10,4 +10,4 @@ header:
   teaser: 'DRNAS.jpg'
 ---
 
-[paper](https://arxiv.org/abs/2012.06122)
+[Paper](https://arxiv.org/abs/2012.06122)

@@ -9,4 +9,4 @@ header:
   teaser: 'rrnet.jpg'
 ---
 
-[[project](https://wuyinwei-hah.github.io/rrnet.github.io/)]  [[code](https://github.com/WUyinwei-hah/RRNet)] [[paper](https://arxiv.org/abs/2403.20249)]
+[Paper](https://arxiv.org/abs/2403.20249) [Code](https://github.com/WUyinwei-hah/RRNet) [Project](https://wuyinwei-hah.github.io/rrnet.github.io/)

@@ -8,4 +8,4 @@ venue: 'Preprint'
 showexcerpt: False
 
 ---
-[paper](https://arxiv.org/abs/2006.10552) [code](https://github.com/UCSD-AI4H/XRayGAN) -->
+[Paper](https://arxiv.org/abs/2006.10552) [Code](https://github.com/UCSD-AI4H/XRayGAN) -->

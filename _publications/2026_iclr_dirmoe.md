@@ -9,4 +9,4 @@ header:
   teaser: 'DirMoE.png'
 ---
 
-[[paper](https://openreview.net/forum?id=a15cDnzr6r)] [[arxiv](https://arxiv.org/abs/2602.09001)]
+[Paper](https://openreview.net/forum?id=a15cDnzr6r) [arXiv](https://arxiv.org/abs/2602.09001)

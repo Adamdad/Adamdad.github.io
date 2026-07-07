@@ -9,4 +9,4 @@ showexcerpt: False
 header:
   teaser: 'unlearn.jpg'
 ---
-[code](https://github.com/JngwenYe/LIRF) [arxiv](https://arxiv.org/abs/2207.08224)
+[arXiv](https://arxiv.org/abs/2207.08224) [Code](https://github.com/JngwenYe/LIRF)

@@ -9,8 +9,6 @@ header:
   teaser: 'ieap.jpg'
 ---
 
-[paper](https://arxiv.org/abs/2506.04158)
-
-[code](https://github.com/YujiaHu1109/IEAP)
+[Paper](https://arxiv.org/abs/2506.04158) [Code](https://github.com/YujiaHu1109/IEAP)
 
 

@@ -9,8 +9,6 @@ header:
   teaser: '4dgs1k.gif'
 ---
 
-[paper](https://arxiv.org/abs/2503.16422)
-
-[project page](https://4dgs-1k.github.io/)
+[Paper](https://arxiv.org/abs/2503.16422) [Project](https://4dgs-1k.github.io/)
 
 

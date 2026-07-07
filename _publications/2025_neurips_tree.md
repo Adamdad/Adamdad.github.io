@@ -9,7 +9,7 @@ header:
   teaser: 'tree.jpg'
 ---
 
-[paper](https://openreview.net/pdf?id=5BfO9i4kj1)
+[Paper](https://openreview.net/pdf?id=5BfO9i4kj1)
 
 
 

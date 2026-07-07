@@ -9,6 +9,6 @@ header:
   teaser: 'edgs.jpg'
 ---
 
-[arxiv](https://arxiv.org/abs/2502.20378)
+[arXiv](https://arxiv.org/abs/2502.20378)
 
 

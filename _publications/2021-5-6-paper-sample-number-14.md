@@ -9,5 +9,4 @@ showexcerpt: False
 header:
   teaser: 'stprocess.jpg'
 ---
-[paper](https://arxiv.org/pdf/2112.06351.pdf)
-[code](https://github.com/Rose-STL-Lab/DeepSTPP)
+[Paper](https://arxiv.org/pdf/2112.06351.pdf) [Code](https://github.com/Rose-STL-Lab/DeepSTPP)

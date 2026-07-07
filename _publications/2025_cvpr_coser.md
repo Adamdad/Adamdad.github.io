@@ -9,6 +9,6 @@ header:
   teaser: 'coser.jpg'
 ---
 
-[paper](https://openaccess.thecvf.com/content/CVPR2025/papers/Li_CoSER_Towards_Consistent_Dense_Multiview_Text-to-Image_Generator_for_3D_Creation_CVPR_2025_paper.pdf)
+[Paper](https://openaccess.thecvf.com/content/CVPR2025/papers/Li_CoSER_Towards_Consistent_Dense_Multiview_Text-to-Image_Generator_for_3D_Creation_CVPR_2025_paper.pdf)
 
 

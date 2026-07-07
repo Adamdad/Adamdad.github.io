@@ -9,7 +9,4 @@ header:
   teaser: "metamorph.gif"
 ---
 
-[paper](https://www.ecva.net/papers/eccv_2024/papers_ECCV/papers/04943.pdf)
-
-
-[project page](https://adamdad.github.io/neumeta/)
+[Paper](https://www.ecva.net/papers/eccv_2024/papers_ECCV/papers/04943.pdf) [Project](https://adamdad.github.io/neumeta/)

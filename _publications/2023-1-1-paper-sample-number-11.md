@@ -8,4 +8,4 @@ venue: 'Tiny Papers @ ICLR 2023'
 header:
   teaser: 'stochastic.jpg'
 ---
-[paper](https://arxiv.org/abs/2012.12418) [code](https://github.com/Adamdad/Filter-Gradient-Decent)
+[Paper](https://arxiv.org/abs/2012.12418) [Code](https://github.com/Adamdad/Filter-Gradient-Decent)

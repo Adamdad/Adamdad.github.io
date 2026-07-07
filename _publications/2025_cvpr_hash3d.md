@@ -9,10 +9,6 @@ header:
   teaser: 'https://adamdad.github.io/hash3D/static/images/head.jpg'
 ---
 
-[project page](https://adamdad.github.io/hash3D/)
-
-[paper](https://openaccess.thecvf.com/content/CVPR2025/html/Yang_Hash3D_Training-free_Acceleration_for_3D_Generation_CVPR_2025_paper.html)
-
-[code](https://github.com/Adamdad/hash3D)
+[Paper](https://openaccess.thecvf.com/content/CVPR2025/html/Yang_Hash3D_Training-free_Acceleration_for_3D_Generation_CVPR_2025_paper.html) [Code](https://github.com/Adamdad/hash3D) [Project](https://adamdad.github.io/hash3D/)
 
 

@@ -9,5 +9,5 @@ header:
   teaser: 'lvx.png'
 ---
 
-[arxiv](https://arxiv.org/abs/2412.07802)
+[arXiv](https://arxiv.org/abs/2412.07802)
 

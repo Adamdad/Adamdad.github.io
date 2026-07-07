@@ -9,4 +9,4 @@ showexcerpt: False
 header:
   teaser: 'tlssl.jpg'
 ---
-[paper](https://arxiv.org/abs/2007.04234) [code](https://github.com/UCSD-AI4H/SSL-TL)
+[Paper](https://arxiv.org/abs/2007.04234) [Code](https://github.com/UCSD-AI4H/SSL-TL)

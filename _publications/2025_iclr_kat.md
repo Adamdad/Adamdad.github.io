@@ -9,7 +9,5 @@ header:
   teaser: 'KAT.png'
 ---
 
-[arxiv](https://arxiv.org/abs/2409.10594)
-
-[code](https://github.com/Adamdad/kat)
+[arXiv](https://arxiv.org/abs/2409.10594) [Code](https://github.com/Adamdad/kat)
 
