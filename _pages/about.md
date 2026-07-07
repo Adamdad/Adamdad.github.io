@@ -37,7 +37,7 @@ redirect_from:
     <div class="profile-hero__contact">
       <a href="mailto:xingyi.yang@polyu.edu.hk"><span aria-hidden="true">✉</span>Email</a>
       <a href="https://scholar.google.com/citations?user=1n2OPtwAAAAJ"><span aria-hidden="true">G</span>Google Scholar</a>
-      <a href="https://www.linkedin.com/in/xingyi-adam-yang-72375b170/"><span aria-hidden="true">in</span>LinkedIn</a>
+      <a href="https://www.linkedin.com/in/xingyi-yang-72375b170/"><span aria-hidden="true">in</span>LinkedIn</a>
       <a href="https://twitter.com/yxy2168"><span aria-hidden="true">X</span>Twitter</a>
       <a href="{{ '/files/CV_XingyiYang_202506.pdf' | relative_url }}"><span aria-hidden="true">CV</span>Curriculum Vitae</a>
       <a href="{{ '/opening' | relative_url }}"><span aria-hidden="true">+</span>Openings</a>
