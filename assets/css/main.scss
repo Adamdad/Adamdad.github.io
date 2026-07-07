@@ -330,6 +330,23 @@ b {
   margin: 0;
 }
 
+.visitor-map {
+  width: 150px;
+  max-width: 100%;
+  margin-top: 0.8rem;
+  opacity: 0.72;
+}
+
+.visitor-map iframe,
+.visitor-map img,
+.visitor-map object,
+.visitor-map canvas {
+  display: block;
+  width: 150px !important;
+  max-width: 100% !important;
+  height: auto !important;
+}
+
 .profile-hero {
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr) 260px;
