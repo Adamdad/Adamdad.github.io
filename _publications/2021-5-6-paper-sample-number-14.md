@@ -8,5 +8,12 @@ venue: 'Conference on Learning for Dynamics and Control <b>(L4DC)</b>'
 showexcerpt: False
 header:
   teaser: 'stprocess.jpg'
+links:
+  - label: "Paper"
+    url: "https://arxiv.org/pdf/2112.06351.pdf"
+    type: "paper"
+  - label: "Code"
+    url: "https://github.com/Rose-STL-Lab/DeepSTPP"
+    type: "code"
 ---
 [Paper](https://arxiv.org/pdf/2112.06351.pdf) [Code](https://github.com/Rose-STL-Lab/DeepSTPP)

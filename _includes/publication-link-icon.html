@@ -1,0 +1,48 @@
+{% assign icon_type = include.type | default: "link" %}
+{% if icon_type == "paper" or icon_type == "arxiv" %}
+  <svg class="publication-link__icon" aria-hidden="true" viewBox="0 0 24 24">
+    <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path>
+    <path d="M14 2v4a2 2 0 0 0 2 2h4"></path>
+    <path d="M10 9H8"></path>
+    <path d="M16 13H8"></path>
+    <path d="M16 17H8"></path>
+  </svg>
+{% elsif icon_type == "code" %}
+  <svg class="publication-link__icon" aria-hidden="true" viewBox="0 0 24 24">
+    <path d="m16 18 6-6-6-6"></path>
+    <path d="m8 6-6 6 6 6"></path>
+  </svg>
+{% elsif icon_type == "project" %}
+  <svg class="publication-link__icon" aria-hidden="true" viewBox="0 0 24 24">
+    <path d="M15 3h6v6"></path>
+    <path d="M10 14 21 3"></path>
+    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+  </svg>
+{% elsif icon_type == "demo" %}
+  <svg class="publication-link__icon" aria-hidden="true" viewBox="0 0 24 24">
+    <path d="M9.94 14.94 8.5 19l-1.44-4.06L3 13.5l4.06-1.44L8.5 8l1.44 4.06L14 13.5z"></path>
+    <path d="M16 3l1 3 3 1-3 1-1 3-1-3-3-1 3-1z"></path>
+  </svg>
+{% elsif icon_type == "poster" or icon_type == "slides" %}
+  <svg class="publication-link__icon" aria-hidden="true" viewBox="0 0 24 24">
+    <path d="M4 3h16"></path>
+    <path d="M5 3v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3"></path>
+    <path d="m8 21 4-4 4 4"></path>
+  </svg>
+{% elsif icon_type == "video" %}
+  <svg class="publication-link__icon" aria-hidden="true" viewBox="0 0 24 24">
+    <path d="M15 10l4.55-2.27A1 1 0 0 1 21 8.62v6.76a1 1 0 0 1-1.45.89L15 14"></path>
+    <rect width="12" height="12" x="3" y="6" rx="2"></rect>
+  </svg>
+{% elsif icon_type == "details" %}
+  <svg class="publication-link__icon" aria-hidden="true" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="10"></circle>
+    <path d="M12 16v-4"></path>
+    <path d="M12 8h.01"></path>
+  </svg>
+{% else %}
+  <svg class="publication-link__icon" aria-hidden="true" viewBox="0 0 24 24">
+    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+  </svg>
+{% endif %}

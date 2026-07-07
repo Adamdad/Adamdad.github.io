@@ -7,7 +7,13 @@ citation: Shizun Wang, <u>Xingyi Yang</u>, Qiuhong Shen, Zhenxiang Jiang, Xincha
 venue: 'Annual AAAI Conference on Artificial Intelligence <b>(AAAI)</b>'
 header:
   teaser: 'sequence_traj_upon-ezgif.com-video-to-gif-converter.gif'
+links:
+  - label: "arXiv"
+    url: "https://arxiv.org/abs/2405.18426"
+    type: "arxiv"
+  - label: "Project"
+    url: "https://littlepure2333.github.io/GFlow/"
+    type: "project"
 ---
-
 [arXiv](https://arxiv.org/abs/2405.18426) [Project](https://littlepure2333.github.io/GFlow/)
 

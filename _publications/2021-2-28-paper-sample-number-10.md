@@ -8,6 +8,9 @@ venue: '2021 Conference on Computer Vision and Pattern Recognition (CVPR2021)'
 showexcerpt: False
 header:
   teaser: 'DRNAS.jpg'
+links:
+  - label: "Paper"
+    url: "https://arxiv.org/abs/2012.06122"
+    type: "paper"
 ---
-
 [Paper](https://arxiv.org/abs/2012.06122)

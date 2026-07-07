@@ -8,5 +8,12 @@ venue: 'The Joint Conference of the 59th Annual Meeting of the Association for C
 showexcerpt: False
 header:
   teaser: 'meddialog.jpg'
+links:
+  - label: "Paper"
+    url: "https://arxiv.org/abs/2005.05442"
+    type: "paper"
+  - label: "Code"
+    url: "https://github.com/UCSD-AI4H/COVID-Dialogue"
+    type: "code"
 ---
 [Paper](https://arxiv.org/abs/2005.05442) [Code](https://github.com/UCSD-AI4H/COVID-Dialogue)

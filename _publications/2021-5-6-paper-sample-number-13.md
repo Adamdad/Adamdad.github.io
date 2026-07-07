@@ -8,5 +8,9 @@ venue: 'The Joint Conference of the 59th Annual Meeting of the Association for C
 showexcerpt: False
 header:
   teaser: 'medwriter.jpg'
+links:
+  - label: "Paper"
+    url: "https://arxiv.org/pdf/2106.06471.pdf"
+    type: "paper"
 ---
 [Paper](https://arxiv.org/pdf/2106.06471.pdf)

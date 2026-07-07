@@ -7,8 +7,11 @@ citation: Hanyang Kong, <u>Xingyi Yang</u>, Xinchao Wang
 venue: 'Computer Vision and Pattern Recognition <b>(CVPR)</b>'
 header:
   teaser: 'gsgs.jpg'
+links:
+  - label: "Paper"
+    url: "https://openaccess.thecvf.com/content/CVPR2025/html/Kong_Generative_Sparse-View_Gaussian_Splatting_CVPR_2025_paper.html"
+    type: "paper"
 ---
-
 [Paper](https://openaccess.thecvf.com/content/CVPR2025/html/Kong_Generative_Sparse-View_Gaussian_Splatting_CVPR_2025_paper.html)
 
 

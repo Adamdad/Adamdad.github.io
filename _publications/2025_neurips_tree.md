@@ -7,8 +7,11 @@ citation: Qiuhong Shen, <u>Xingyi Yang</u>, Xinchao Wang
 venue: 'Neural Information Processing Systems <b>(NeurIPS)</b>'
 header:
   teaser: 'tree.jpg'
+links:
+  - label: "Paper"
+    url: "https://openreview.net/pdf?id=5BfO9i4kj1"
+    type: "paper"
 ---
-
 [Paper](https://openreview.net/pdf?id=5BfO9i4kj1)
 
 

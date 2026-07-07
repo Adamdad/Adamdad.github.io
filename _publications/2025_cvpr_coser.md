@@ -7,8 +7,11 @@ citation: Bonan Li, Zicheng Zhang, <u>Xingyi Yang</u>, Xinchao Wang
 venue: 'Computer Vision and Pattern Recognition <b>(CVPR)</b>, <b style="color:red;">(Highlight)</b>'
 header:
   teaser: 'coser.jpg'
+links:
+  - label: "Paper"
+    url: "https://openaccess.thecvf.com/content/CVPR2025/papers/Li_CoSER_Towards_Consistent_Dense_Multiview_Text-to-Image_Generator_for_3D_Creation_CVPR_2025_paper.pdf"
+    type: "paper"
 ---
-
 [Paper](https://openaccess.thecvf.com/content/CVPR2025/papers/Li_CoSER_Towards_Consistent_Dense_Multiview_Text-to-Image_Generator_for_3D_Creation_CVPR_2025_paper.pdf)
 
 

@@ -7,8 +7,14 @@ citation: Zeqing Wang, Gongfan Fang, Xinyin Ma, <u>Xingyi Yang</u><sup>*</sup>, 
 venue: 'International Conference on Learning Representations <b>(ICLR)</b>'
 header:
   teaser: 'sparsed.gif'
+links:
+  - label: "Paper"
+    url: "https://arxiv.org/abs/2509.24014"
+    type: "paper"
+  - label: "Code"
+    url: "https://github.com/INV-WZQ/SparseD"
+    type: "code"
 ---
-
 [Paper](https://arxiv.org/abs/2509.24014) [Code](https://github.com/INV-WZQ/SparseD)
 
 

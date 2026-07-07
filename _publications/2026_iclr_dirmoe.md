@@ -7,6 +7,12 @@ citation: Amirhossein Vahidi, Hesam Asadollahzadeh, Navid Akhavan Attar, Marie M
 venue: 'International Conference on Learning Representations <b>(ICLR)</b>'
 header:
   teaser: 'DirMoE.png'
+links:
+  - label: "Paper"
+    url: "https://openreview.net/forum?id=a15cDnzr6r"
+    type: "paper"
+  - label: "arXiv"
+    url: "https://arxiv.org/abs/2602.09001"
+    type: "arxiv"
 ---
-
 [Paper](https://openreview.net/forum?id=a15cDnzr6r) [arXiv](https://arxiv.org/abs/2602.09001)

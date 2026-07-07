@@ -8,5 +8,12 @@ venue: 'European Conference on Computer Vision <b>(ECCV)</b>'
 showexcerpt: False
 header:
   teaser: 'unlearn.jpg'
+links:
+  - label: "arXiv"
+    url: "https://arxiv.org/abs/2207.08224"
+    type: "arxiv"
+  - label: "Code"
+    url: "https://github.com/JngwenYe/LIRF"
+    type: "code"
 ---
 [arXiv](https://arxiv.org/abs/2207.08224) [Code](https://github.com/JngwenYe/LIRF)

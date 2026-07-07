@@ -8,5 +8,12 @@ venue: 'Preprint'
 showexcerpt: False
 header:
   teaser: 'tlssl.jpg'
+links:
+  - label: "Paper"
+    url: "https://arxiv.org/abs/2007.04234"
+    type: "paper"
+  - label: "Code"
+    url: "https://github.com/UCSD-AI4H/SSL-TL"
+    type: "code"
 ---
 [Paper](https://arxiv.org/abs/2007.04234) [Code](https://github.com/UCSD-AI4H/SSL-TL)

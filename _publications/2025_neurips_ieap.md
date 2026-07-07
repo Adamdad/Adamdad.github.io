@@ -7,8 +7,14 @@ citation: Yujia Hu, Songhua Liu, ZhenXiong Tan, <u>Xingyi Yang</u>, Xinchao Wang
 venue: 'Neural Information Processing Systems <b>(NeurIPS)</b>'
 header:
   teaser: 'ieap.jpg'
+links:
+  - label: "Paper"
+    url: "https://arxiv.org/abs/2506.04158"
+    type: "paper"
+  - label: "Code"
+    url: "https://github.com/YujiaHu1109/IEAP"
+    type: "code"
 ---
-
 [Paper](https://arxiv.org/abs/2506.04158) [Code](https://github.com/YujiaHu1109/IEAP)
 
 

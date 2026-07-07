@@ -7,6 +7,12 @@ citation: Qiuhong Shen, <u>Xingyi Yang</u>, Michael Bi Mi, Xinchao Wang
 venue: 'European Conference on Computer Vision <b>(ECCV)</b>'
 header:
   teaser: 'vista3d.jpg'
+links:
+  - label: "arXiv"
+    url: "https://arxiv.org/abs/2409.12193"
+    type: "arxiv"
+  - label: "Code"
+    url: "https://github.com/florinshen/Vista3D"
+    type: "code"
 ---
-
 [arXiv](https://arxiv.org/abs/2409.12193) [Code](https://github.com/florinshen/Vista3D)

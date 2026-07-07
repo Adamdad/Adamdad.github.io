@@ -7,9 +7,11 @@ citation: <u>Xingyi Yang</u>, Constantin Venhoff, Ashkan Khakzar ,Christian Schr
 venue: 'International Conference on Machine Learning <b>(ICML)</b>'
 header:
   teaser: 'moex.png'
+links:
+  - label: "Paper"
+    url: "https://arxiv.org/abs/2503.07639"
+    type: "paper"
 ---
-
-
 [Paper](https://arxiv.org/abs/2503.07639)
 
 

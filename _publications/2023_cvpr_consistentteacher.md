@@ -7,7 +7,15 @@ citation:  Xinjiang Wang*, <u>Xingyi Yang</u>*, Shilong Zhang, Yijiang Li, Liton
 venue: 'Conference on Computer Vision and Pattern Recognition <b>(CVPR)</b>, <b style="color:red;">(Highlight)</b>'
 header:
   teaser: 'c_teacher.png'
+links:
+  - label: "Paper"
+    url: "https://arxiv.org/abs/2209.01589"
+    type: "paper"
+  - label: "Code"
+    url: "https://github.com/Adamdad/ConsistentTeacher"
+    type: "code"
+  - label: "Project"
+    url: "https://adamdad.github.io/consistentteacher/"
+    type: "project"
 ---
-
-
 [Paper](https://arxiv.org/abs/2209.01589) [Code](https://github.com/Adamdad/ConsistentTeacher) [Project](https://adamdad.github.io/consistentteacher/)

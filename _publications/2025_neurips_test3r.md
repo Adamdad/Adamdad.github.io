@@ -7,8 +7,17 @@ citation: Yuheng Yuan, Qiuhong Shen, Shizun Wang, <u>Xingyi Yang</u>, Xinchao Wa
 venue: 'Neural Information Processing Systems <b>(NeurIPS)</b>'
 header:
   teaser: 'test3r.jpg'
+links:
+  - label: "Paper"
+    url: "https://arxiv.org/abs/2506.13750"
+    type: "paper"
+  - label: "Code"
+    url: "https://github.com/nopQAQ/Test3R"
+    type: "code"
+  - label: "Project"
+    url: "https://test3r-nop.github.io/"
+    type: "project"
 ---
-
 [Paper](https://arxiv.org/abs/2506.13750) [Code](https://github.com/nopQAQ/Test3R) [Project](https://test3r-nop.github.io/)
 
 

@@ -8,5 +8,9 @@ venue: 'Preprint'
 showexcerpt: False
 header:
   teaser: 'selftrans.jpg'
+links:
+  - label: "Paper"
+    url: "https://www.medrxiv.org/content/10.1101/2020.04.13.20063941v1.full.pdf+html"
+    type: "paper"
 ---
 [Paper](https://www.medrxiv.org/content/10.1101/2020.04.13.20063941v1.full.pdf+html)

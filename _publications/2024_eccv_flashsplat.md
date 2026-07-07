@@ -7,6 +7,12 @@ citation: Qiuhong Shen, <u>Xingyi Yang</u>, Xinchao Wang
 venue: 'European Conference on Computer Vision <b>(ECCV)</b>'
 header:
   teaser: 'flashsplat.jpg'
+links:
+  - label: "arXiv"
+    url: "https://arxiv.org/abs/2409.08270"
+    type: "arxiv"
+  - label: "Code"
+    url: "https://github.com/florinshen/FlashSplat"
+    type: "code"
 ---
-
 [arXiv](https://arxiv.org/abs/2409.08270) [Code](https://github.com/florinshen/FlashSplat)

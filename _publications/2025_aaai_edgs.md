@@ -7,8 +7,11 @@ citation: Hanyang Kong, <u>Xingyi Yang</u>, Xinchao Wang
 venue: 'Annual AAAI Conference on Artificial Intelligence <b>(AAAI)</b>'
 header:
   teaser: 'edgs.jpg'
+links:
+  - label: "arXiv"
+    url: "https://arxiv.org/abs/2502.20378"
+    type: "arxiv"
 ---
-
 [arXiv](https://arxiv.org/abs/2502.20378)
 
 
