@@ -20,6 +20,16 @@ redirect_from:
   </div>
 
   <div class="experience-entry">
+    <img class="experience-logo" src="/images/oxford.png" alt="Oxford logo">
+    <div class="experience-main">
+      <strong>Visiting Ph.D.</strong>
+      <span>University of Oxford</span>
+      <em>Oxford, England</em>
+    </div>
+    <div class="experience-date">2021–2025</div>
+  </div>
+
+  <div class="experience-entry">
     <img class="experience-logo" src="/images/University_of_California,_San_Diego_seal.svg.png" alt="University of California San Diego logo">
     <div class="experience-main">
       <strong>M.S.</strong>
