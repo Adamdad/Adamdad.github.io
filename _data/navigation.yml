@@ -10,7 +10,7 @@ main:
     url: /experience/
 
   - title: "Team"
-    url: /team/
+    url: https://lglabpolyu.github.io/
     
   - title: "Openings"
     url: /opening
