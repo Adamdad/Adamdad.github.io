@@ -47,14 +47,14 @@ redirect_from:
 
 ## About
 
-Hi, my name is Xingyi Yang (Adam). I am a Tenure-Track Assistant Professor in the [Department of Data Science and Artificial Intelligence (DSAI)](https://www.polyu.edu.hk/dsai/?sc_lang=en) at The Hong Kong Polytechnic University. I am also honored to have been selected as the prestigious **Presidential Young Scholars** at PolyU.
+Hi, my name is Xingyi Yang (Adam). I am a Tenure-Track Assistant Professor in the [Department of Data Science and Artificial Intelligence (DSAI)](https://www.polyu.edu.hk/dsai/?sc_lang=en) at The Hong Kong Polytechnic University. I am also honored to have been selected as a **Presidential Young Scholar** at PolyU.
 
 I received my Ph.D. from the National University of Singapore (NUS), advised by Prof. Xinchao Wang. I also had a wonderful time as a visiting Ph.D. student at the University of Oxford, working with Prof. Philip Torr. Prior to that, I completed my Master's at UC San Diego (UCSD) and my Bachelor's at Southeast University (SEU).
 
 My research spans **Machine Learning**, **Generative AI**, and **Computer Vision**, with a particular focus on building intelligent systems that can generate, reconstruct, reason about, and interact with dynamic physical worlds. Recent recognitions include the AAAI 2026 New Faculty Highlight, a NeurIPS 2022 Best Paper Honorable Mention, and Forbes 30 Under 30 Asia.
 
 <div class="callout">
-  I am looking for self-motivated PhD, postdocs, and RAs for 2027 Spring and Fall. Please see <a href="{{ '/opening' | relative_url }}">Opening</a>. Email: <a href="mailto:xingyi.yang@polyu.edu.hk"><strong>xingyi.yang@polyu.edu.hk</strong></a>.
+  I am looking for self-motivated PhDs, postdocs, and RAs for 2027 Spring/Fall. Please see <a href="{{ '/opening' | relative_url }}">Opening</a>. Email: <a href="mailto:xingyi.yang@polyu.edu.hk"><strong>xingyi.yang@polyu.edu.hk</strong></a>.
 </div>
 
 ## Research Glimpses
