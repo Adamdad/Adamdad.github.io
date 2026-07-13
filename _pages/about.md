@@ -53,6 +53,10 @@ I received my Ph.D. from the National University of Singapore (NUS), advised by 
 
 My research spans **Machine Learning**, **Generative AI**, and **Computer Vision**, with a particular focus on building intelligent systems that can generate, reconstruct, reason about, and interact with dynamic physical worlds. Recent recognitions include the AAAI 2026 New Faculty Highlight, a NeurIPS 2022 Best Paper Honorable Mention, and Forbes 30 Under 30 Asia.
 
+<div class="callout">
+  I am looking for self-motivated PhD, postdocs, and RAs for 2027 Spring and Fall. Please see <a href="{{ '/opening' | relative_url }}">Opening</a>. Email: <a href="mailto:xingyi.yang@polyu.edu.hk"><strong>xingyi.yang@polyu.edu.hk</strong></a>.
+</div>
+
 ## Research Glimpses
 
 <div class="research-gallery research-gallery--pillars" aria-label="Research glimpses">
@@ -90,10 +94,6 @@ My research spans **Machine Learning**, **Generative AI**, and **Computer Vision
   </figure>
 </div>
 
-## Open Positions
 
-<div class="callout">
-  I am looking for self-motivated Ph.D. students, postdocs, and research assistants for 2027 Spring and Fall. For more details, please see <a href="{{ '/opening' | relative_url }}">Opening</a>. If you are interested in working with me, feel free to reach out via email at <strong>x3yang@outlook.com</strong> with your resume.
-</div>
 
 I believe in [Slow Science](http://slow-science.org/).
