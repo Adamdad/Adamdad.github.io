@@ -49,7 +49,7 @@ redirect_from:
 
 Hi, my name is Xingyi Yang (Adam). I am a Tenure-Track Assistant Professor in the [Department of Data Science and Artificial Intelligence (DSAI)](https://www.polyu.edu.hk/dsai/?sc_lang=en) at The Hong Kong Polytechnic University. I am also honored to have been selected as the prestigious **Presidential Young Scholars** at PolyU.
 
-I received my Ph.D. from the National University of Singapore (NUS), advised by Prof. Xinchao Wang. I also had a wonderful experience as a visiting Ph.D. student at the University of Oxford, working with Prof. Philip Torr. Prior to that, I completed my Master's at UC San Diego (UCSD) and my Bachelor's at Southeast University (SEU).
+I received my Ph.D. from the National University of Singapore (NUS), advised by Prof. Xinchao Wang. I also had a wonderful time as a visiting Ph.D. student at the University of Oxford, working with Prof. Philip Torr. Prior to that, I completed my Master's at UC San Diego (UCSD) and my Bachelor's at Southeast University (SEU).
 
 My research spans **Machine Learning**, **Generative AI**, and **Computer Vision**, with a particular focus on building intelligent systems that can generate, reconstruct, reason about, and interact with dynamic physical worlds. Recent recognitions include the AAAI 2026 New Faculty Highlight, a NeurIPS 2022 Best Paper Honorable Mention, and Forbes 30 Under 30 Asia.
 

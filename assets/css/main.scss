@@ -353,9 +353,13 @@ b {
   gap: clamp(1.6rem, 4vw, 3rem);
   align-items: start;
   max-width: var(--wide-width);
-  margin-bottom: 2.8rem;
+  margin-bottom: 1.4rem;
   padding: 2rem 0 2.2rem;
   border-bottom: 1px solid var(--line);
+}
+
+.home-page .profile-hero + h2 {
+  margin-top: 1.6rem;
 }
 
 .profile-hero__photo {
@@ -532,6 +536,10 @@ b {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.85rem;
   margin-top: 1.15rem;
+}
+
+.home-page .research-gallery + p {
+  margin-top: 1.65rem;
 }
 
 .research-tile {
@@ -1029,8 +1037,12 @@ b {
   .profile-hero {
     grid-template-columns: 1fr;
     gap: 1.3rem;
-    margin-bottom: 2rem;
+    margin-bottom: 1.1rem;
     padding: 0.35rem 0 1.7rem;
+  }
+
+  .home-page .profile-hero + h2 {
+    margin-top: 1.25rem;
   }
 
   .profile-hero__photo {
