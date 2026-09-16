@@ -2,7 +2,7 @@
 layout: teaching-demo
 permalink: /teaching/demos/feature-map-lifting/
 title: "A Feature Map Makes XOR Linear"
-demo_badge: "Demo 6 · Feature maps"
+demo_badge: "Demo 4 · Feature maps"
 key_concept: "XOR cannot be separated by one line in 2D, but lifting the points with ψ(x) = (x₁, x₂, x₁x₂) makes them separable by a single plane in 3D."
 demo_src: /assets/demos/nn-demo-06-lifting.html
 ---

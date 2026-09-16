@@ -2,7 +2,7 @@
 layout: teaching-demo
 permalink: /teaching/demos/scalar-accumulation/
 title: "Scalar Accumulation"
-demo_badge: "Demo 2 · Neurons & the forward pass"
+demo_badge: "Demo 1 · Neurons & the forward pass"
 key_concept: "What a single neuron computes: a weighted sum plus a bias, a = w₁x₁ + w₂x₂ + b."
 demo_src: /assets/demos/nn-demo-02-scalar.html
 ---

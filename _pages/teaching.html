@@ -24,7 +24,7 @@ hide_title: true
         <span class="demo-card__play">▶ Interactive</span>
       </a>
       <div class="demo-card__body">
-        <span class="demo-card__badge">Demo 2 · Neurons</span>
+        <span class="demo-card__badge">Demo 1 · Neurons</span>
         <h3 class="demo-card__title">Scalar Accumulation</h3>
         <p class="demo-card__desc">Step through a single neuron's forward pass, term by term: <code>a = w₁x₁ + w₂x₂ + b</code>, with a linked geometric view.</p>
         <p class="demo-card__concept"><strong>Knowledge point:</strong> weighted sums and the bias term inside a neuron.</p>
@@ -38,7 +38,7 @@ hide_title: true
         <span class="demo-card__play">▶ Interactive</span>
       </a>
       <div class="demo-card__body">
-        <span class="demo-card__badge">Demo 2.5 · Activations</span>
+        <span class="demo-card__badge">Demo 2 · Activations</span>
         <h3 class="demo-card__title">Scalar Activation</h3>
         <p class="demo-card__desc">Push the same weighted sum <code>z</code> through six switchable activation functions and see how <code>a = φ(z)</code> changes.</p>
         <p class="demo-card__concept"><strong>Knowledge point:</strong> why nonlinear activation functions matter.</p>
@@ -52,7 +52,7 @@ hide_title: true
         <span class="demo-card__play">▶ Interactive</span>
       </a>
       <div class="demo-card__body">
-        <span class="demo-card__badge">Demo 4 · Linear algebra</span>
+        <span class="demo-card__badge">Demo 3 · Linear algebra</span>
         <h3 class="demo-card__title">What a Linear Map Changes</h3>
         <p class="demo-card__desc">Watch a weight matrix <code>W</code> stretch a grid, a circle, and a point cloud, with the singular axes drawn to scale.</p>
         <p class="demo-card__concept"><strong>Knowledge point:</strong> matrices as geometric transformations of the data space.</p>
@@ -66,25 +66,11 @@ hide_title: true
         <span class="demo-card__play">▶ Interactive</span>
       </a>
       <div class="demo-card__body">
-        <span class="demo-card__badge">Demo 6 · Feature maps</span>
+        <span class="demo-card__badge">Demo 4 · Feature maps</span>
         <h3 class="demo-card__title">A Feature Map Makes XOR Linear</h3>
         <p class="demo-card__desc">Lift the XOR points into 3D with <code>ψ(x) = (x₁, x₂, x₁x₂)</code> and watch a plane separate what no line could.</p>
         <p class="demo-card__concept"><strong>Knowledge point:</strong> nonlinear feature maps and the kernel-trick intuition.</p>
         <a class="demo-card__cta" href="{{ '/teaching/demos/feature-map-lifting/' | relative_url }}">Open Demo →</a>
-      </div>
-    </article>
-
-    <article class="demo-card">
-      <a class="demo-card__thumb" href="{{ '/teaching/demos/forward-backward-update/' | relative_url }}">
-        <img src="{{ '/images/teaching/nn-07-backprop.png' | relative_url }}" alt="Forward backward update demo preview" loading="lazy">
-        <span class="demo-card__play">▶ Interactive</span>
-      </a>
-      <div class="demo-card__body">
-        <span class="demo-card__badge">Demo 7 · Backpropagation</span>
-        <h3 class="demo-card__title">Forward, Backward, Update</h3>
-        <p class="demo-card__desc">Train a small MLP on the XOR corners one phase at a time — forward activations, backward gradients, then a parameter update.</p>
-        <p class="demo-card__concept"><strong>Knowledge point:</strong> the full training loop, from forward pass to gradient descent.</p>
-        <a class="demo-card__cta" href="{{ '/teaching/demos/forward-backward-update/' | relative_url }}">Open Demo →</a>
       </div>
     </article>
 
@@ -94,11 +80,25 @@ hide_title: true
         <span class="demo-card__play">▶ Interactive</span>
       </a>
       <div class="demo-card__body">
-        <span class="demo-card__badge">Demo 8 · Autodiff</span>
+        <span class="demo-card__badge">Demo 5 · Autodiff</span>
         <h3 class="demo-card__title">Scalar Computation Graph</h3>
         <p class="demo-card__desc">Build a graph of <code>+ − × ÷</code> nodes and watch values flow forward while gradients flow back, node by node.</p>
         <p class="demo-card__concept"><strong>Knowledge point:</strong> the chain rule and how automatic differentiation works.</p>
         <a class="demo-card__cta" href="{{ '/teaching/demos/computation-graph/' | relative_url }}">Open Demo →</a>
+      </div>
+    </article>
+
+    <article class="demo-card">
+      <a class="demo-card__thumb" href="{{ '/teaching/demos/forward-backward-update/' | relative_url }}">
+        <img src="{{ '/images/teaching/nn-07-backprop.png' | relative_url }}" alt="Forward backward update demo preview" loading="lazy">
+        <span class="demo-card__play">▶ Interactive</span>
+      </a>
+      <div class="demo-card__body">
+        <span class="demo-card__badge">Demo 6 · Backpropagation</span>
+        <h3 class="demo-card__title">Forward, Backward, Update</h3>
+        <p class="demo-card__desc">Train a small MLP on the XOR corners one phase at a time — forward activations, backward gradients, then a parameter update.</p>
+        <p class="demo-card__concept"><strong>Knowledge point:</strong> the full training loop, from forward pass to gradient descent.</p>
+        <a class="demo-card__cta" href="{{ '/teaching/demos/forward-backward-update/' | relative_url }}">Open Demo →</a>
       </div>
     </article>
 

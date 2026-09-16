@@ -2,7 +2,7 @@
 layout: teaching-demo
 permalink: /teaching/demos/linear-map-geometry/
 title: "What a Linear Map Changes"
-demo_badge: "Demo 4 · Linear algebra as geometry"
+demo_badge: "Demo 3 · Linear algebra as geometry"
 key_concept: "A weight matrix W is a geometric transformation — it stretches, rotates, and reshapes the space the data lives in."
 demo_src: /assets/demos/nn-demo-04-geometry.html
 ---
