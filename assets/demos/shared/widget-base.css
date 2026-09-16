@@ -1,0 +1,353 @@
+/*
+ * DSAI4207 · interactive widget design system
+ *
+ * Shared by every widget so the pages read as one system rather than a set of
+ * lookalikes. Pages compose these classes; they should not redefine tokens or
+ * restyle the shell. Content-specific layout is the only thing a page owns.
+ *
+ * Designed for a 1160 x 430 box inside the slide's 1280 x 720 canvas.
+ */
+
+:root {
+  /* --- colour: PolyU semantic palette only --- */
+  --ink: #30343a;
+  --muted: #697078;
+  --line: #d7dce0;
+  --line-soft: #eef0f2;
+  --paper: #f7f8fa;
+  --red: #9a1921;          /* positive / primary emphasis */
+  --red-soft: #f7e9eb;
+  --blue: #1f4e79;         /* negative / contrast */
+  --blue-soft: #eaf2f8;
+
+  /* --- type scale --- */
+  --fs-title: 21px;
+  --fs-formula: 18px;
+  --fs-body: 18px;
+  --fs-label: 15px;
+  --fs-micro: 12.5px;
+  --fs-mono: 17px;
+  --fs-big: 52px;
+
+  /* --- spacing & shape --- */
+  --pad-x: 24px;
+  --pad-y: 16px;
+  --gap: 18px;
+  --r-panel: 10px;
+  --r-row: 8px;
+  --r-bar: 5px;
+
+  /* --- motion --- */
+  --dur: 340ms;
+  --step: 620ms;
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Segoe UI",
+          Arial, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body { margin: 0; padding: 0; height: 100%; }
+
+body {
+  font-family: var(--sans);
+  font-size: var(--fs-body);
+  line-height: 1.3;
+  color: var(--ink);
+  background: #fff;
+  padding: var(--pad-y) var(--pad-x) 18px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------------------------------------------------------------- header */
+
+.w-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gap);
+  padding-bottom: 9px;
+  border-bottom: 2px solid var(--line);
+  margin-bottom: 14px;
+  flex: 0 0 auto;
+}
+
+.w-head-main { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+
+.w-title {
+  margin: 0;
+  font-size: var(--fs-title);
+  font-weight: 700;
+  color: var(--red);
+  white-space: nowrap;
+}
+
+.w-formula {
+  font-size: var(--fs-formula);
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.w-actions { display: flex; gap: 8px; flex: 0 0 auto; }
+
+.w-btn {
+  font: inherit;
+  font-size: var(--fs-label);
+  font-weight: 700;
+  padding: 7px 14px;
+  border-radius: 7px;
+  border: 2px solid var(--red);
+  background: #fff;
+  color: var(--red);
+  cursor: pointer;
+}
+
+.w-btn-primary { background: var(--red); color: #fff; }
+
+.w-btn:active { transform: translateY(1px); }
+
+.w-btn:disabled { opacity: 0.45; cursor: default; }
+
+/* ------------------------------------------------------------------ grid */
+
+.w-grid {
+  display: flex;
+  gap: var(--gap);
+  align-items: center;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.w-col { min-width: 0; }
+
+.w-panel {
+  background: var(--paper);
+  border-radius: var(--r-panel);
+}
+
+.w-caption {
+  font-size: var(--fs-label);
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+/* ------------------------------------------------- controls: field rows */
+
+.w-field {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 7px;
+}
+
+.w-field-name {
+  flex: 0 0 auto;
+  font-family: var(--mono);
+  font-size: var(--fs-body);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.w-field-name small {
+  color: var(--muted);
+  font-size: var(--fs-micro);
+  font-weight: 400;
+}
+
+.w-field input[type=range] {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 22px;
+  margin: 0;
+  accent-color: var(--red);
+  cursor: pointer;
+}
+
+.w-field-value {
+  flex: 0 0 auto;
+  min-width: 52px;
+  text-align: right;
+  font-family: var(--mono);
+  font-size: var(--fs-body);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* read-only value chip, e.g. the fixed input vector */
+.w-fixed {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--paper);
+  border-radius: var(--r-row);
+  padding: 6px 12px;
+  margin-bottom: 10px;
+  font-size: var(--fs-mono);
+}
+
+.w-fixed .w-fixed-tag { color: var(--muted); font-size: var(--fs-label); }
+
+.w-fixed b { font-family: var(--mono); font-size: 19px; }
+
+/* --------------------------------------------------- accumulation rows */
+
+.w-stack { margin-bottom: 4px; }
+
+.w-stack-title {
+  font-size: var(--fs-label);
+  color: var(--muted);
+  margin: 0 0 2px;
+  transition: color var(--dur) var(--ease);
+}
+
+/* marks the group whose row is currently being accumulated */
+.w-stack-title.is-active { color: var(--red); font-weight: 700; }
+
+.w-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 42px;
+  opacity: 1;
+  transition: opacity var(--dur) var(--ease);
+}
+
+.w-row.is-hidden { opacity: 0; }
+
+.w-row-label {
+  flex: 0 0 auto;
+  font-family: var(--mono);
+  font-size: var(--fs-label);
+  white-space: nowrap;
+}
+
+.w-row-label em { font-style: normal; color: var(--muted); font-size: var(--fs-micro); }
+
+.w-track {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 22px;
+  background: var(--paper);
+  border-radius: var(--r-bar);
+}
+
+/* zero axis */
+.w-track::after {
+  content: "";
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  left: 50%;
+  width: 2px;
+  background: var(--line);
+  border-radius: 1px;
+}
+
+.w-fill {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 50%;
+  width: 0;
+  background: var(--red);
+  border-radius: 4px;
+  transition: width var(--dur) var(--ease), left var(--dur) var(--ease);
+}
+
+.w-fill.neg { background: var(--blue); }
+
+.w-row-value {
+  flex: 0 0 auto;
+  min-width: 60px;
+  text-align: right;
+  font-family: var(--mono);
+  font-size: var(--fs-mono);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.w-row-value.pos { color: var(--red); }
+.w-row-value.neg { color: var(--blue); }
+.w-row-value.zero { color: var(--muted); }
+
+.w-row.is-total { border-top: 2px solid var(--line); margin-top: 3px; padding-top: 3px; }
+.w-row.is-total .w-row-label { font-weight: 700; }
+.w-row.is-total .w-track { background: var(--line-soft); }
+.w-row.is-total .w-row-value { font-size: var(--fs-body); }
+
+@keyframes w-pulse {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+.w-row.is-pulsing { animation: w-pulse 300ms var(--ease); }
+
+/* ------------------------------------------------------- result panel */
+
+.w-result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  padding: 10px;
+  text-align: center;
+}
+
+.w-result .w-caption { margin-bottom: 4px; }
+
+.w-big {
+  font-family: var(--mono);
+  font-size: var(--fs-big);
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  transition: color var(--dur) var(--ease);
+}
+
+.w-big.pos { color: var(--red); }
+.w-big.neg { color: var(--blue); }
+.w-big.zero { color: var(--muted); }
+
+/* for multi-component results (a vector), so the panel can hold more than one */
+.w-big.is-compact { font-size: 34px; }
+
+.w-vec-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 10px;
+}
+
+.w-vec-item + .w-vec-item { margin-top: 4px; }
+
+.w-vec-item .w-vec-name {
+  font-family: var(--mono);
+  font-size: var(--fs-label);
+  color: var(--muted);
+}
+
+.w-expr {
+  margin-top: 10px;
+  font-family: var(--mono);
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--muted);
+  word-break: break-word;
+}
+
+/* ------------------------------------------------------------- reduced */
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur: 0ms; }
+  .w-row.is-pulsing { animation: none; }
+}

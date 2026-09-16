@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="en" data-page-node-id="UFyhMGC9qZL86FxeKv2eKZ">
+<head data-page-node-id="5xNJ343hFD30DEmDSIxFqK">
+<meta charset="UTF-8" data-page-node-id="x46NRgl97q141NStekTW9d">
+<meta name="viewport" content="width=device-width, initial-scale=1" data-page-node-id="o9myAfsX32KaBFBPrhwCcI">
+<title>What a linear map changes · a = Wx + b</title>
+<link rel="stylesheet" href="shared/widget-base.css" data-page-node-id="SVkJArO4jZeFrYH79ncCtj">
+<style>
+  /* page-owned layout only; every token and component comes from widget-base.css */
+  .col-controls { flex: 0 0 240px; }
+  .col-spaces   { flex: 1 1 auto; min-width: 0; }
+  .col-profile  { flex: 0 0 180px; }
+
+  /* preset buttons: same visual language as .w-btn, sized to sit in a grid */
+  .presets { display: flex; flex-wrap: wrap; gap: 5px; }
+  .preset {
+    font: inherit;
+    font-size: var(--fs-micro);
+    font-weight: 700;
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 1.5px solid var(--line);
+    background: #fff;
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .preset:hover { border-color: var(--red); color: var(--red); }
+  .preset:active { transform: translateY(1px); }
+
+  /* the profile panel is a readout, not a result: left-aligned, not centred */
+  .col-profile { padding: 9px 11px; }
+
+  /* ------------------------------------------------ the two spaces */
+  .spaces { display: flex; align-items: center; gap: 12px; }
+
+  .space { flex: 1 1 0; min-width: 0; }
+  .space svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1 / 1;
+    overflow: hidden;   /* marks clip to the panel; a plot has an edge */
+  }
+
+  .map-arrow {
+    flex: 0 0 34px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    color: var(--muted);
+  }
+  .map-arrow b { font-family: var(--mono); font-size: 17px; font-weight: 700; color: var(--red); }
+  .map-arrow i { font-style: normal; font-size: 20px; line-height: 1; }
+
+  /* --------------------------------------------------- canvas marks */  .gr { stroke: var(--line); stroke-width: 1; fill: none; }
+  .gr-ax { stroke: #c3cad0; stroke-width: 1.4; fill: none; }
+
+  .ring { fill: none; stroke: var(--muted); stroke-width: 1.6; stroke-dasharray: 4 3; }
+  .ring-fill { fill: rgba(154, 25, 33, 0.05); stroke: none; }
+
+  /* grey family = the decision boundary (a property of the data)
+     ink family  = the singular axes (a property of the map)  */
+  .boundary { stroke: var(--muted); stroke-width: 1.4; stroke-dasharray: 6 5; fill: none; opacity: 0.65; }
+
+  .basis { stroke-width: 2.4; fill: none; }
+  .basis-a { stroke: var(--red); }
+  .basis-b { stroke: var(--blue); }
+
+  .dom { stroke: var(--ink); stroke-width: 2; fill: none; }
+  .dom-2 { stroke: var(--muted); stroke-width: 1.4; stroke-dasharray: 3 3; fill: none; opacity: 0.8; }
+  .rug { stroke: var(--ink); stroke-width: 1.3; opacity: 0.4; }
+
+  /* the ghost family, ordered by how much each mark wants your attention:
+     lattice (background) < original point < the displacement it underwent */
+  .ghost { stroke: var(--line-soft); stroke-width: 1; fill: none; }
+  .ghost-pt { fill: none; stroke: #c3cad0; stroke-width: 1.1; }
+  .disp { stroke: #a3aeb7; stroke-width: 1.1; stroke-linecap: round; fill: none; }
+
+  /* The unit square and its image. Filled, because an area is the point: the
+   * determinant is not a number the panel computes, it is the size of this
+   * quadrilateral, and the two have to be seen to be the same thing. */
+  .cell-in { fill: rgba(31, 78, 121, 0.10); stroke: var(--blue); stroke-width: 1.6; }
+  .cell-out { fill: rgba(154, 25, 33, 0.13); stroke: var(--red); stroke-width: 1.8; }
+
+  .pt { stroke: #fff; stroke-width: 1.1; }
+  .pt-a { fill: var(--red); }
+  .pt-b { fill: var(--blue); }
+
+  .dom-tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    fill: var(--ink);
+    font-weight: 700;
+    text-anchor: middle;
+    dominant-baseline: central;
+    /* Halo: the stroke is painted under the fill, so the label survives
+       landing on the point cloud. Both ends of the major axis are occupied by
+       a class of points, so there is nowhere on the axis that is guaranteed
+       clear. */
+    stroke: #fff;
+    stroke-width: 3;
+    paint-order: stroke fill;
+  }
+
+  /* reveal levels, driven from JS */
+  .lay-ring, .lay-basis, .lay-dom { transition: opacity var(--dur) var(--ease); }
+  .lv-0 .lay-ring, .lv-0 .lay-basis, .lv-0 .lay-dom { opacity: 0; }
+  .lv-1 .lay-basis, .lv-1 .lay-dom { opacity: 0; }
+  .lv-2 .lay-dom { opacity: 0; }
+
+  /* ------------------------------------------------ the profile panel */
+  .p-block + .p-block { margin-top: 7px; }
+  .p-title {
+    font-size: 11.5px;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 2px;
+  }
+  .p-bar { display: flex; align-items: center; gap: 7px; height: 17px; }
+  .p-name { flex: 0 0 auto; width: 30px; font-family: var(--mono); font-size: var(--fs-micro); }
+  .p-track { position: relative; flex: 1 1 auto; min-width: 0; height: 9px; background: var(--line-soft); border-radius: 5px; }
+  .p-fill { position: absolute; top: 0; bottom: 0; left: 0; width: 0; background: var(--red); border-radius: 5px; transition: width var(--dur) var(--ease); }
+  .p-fill.alt { background: var(--blue); }
+  .p-val { flex: 0 0 auto; min-width: 30px; text-align: right; font-family: var(--mono); font-size: var(--fs-micro); font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  .p-kv { display: flex; align-items: baseline; justify-content: space-between;
+          font-size: var(--fs-micro); line-height: 1.25; }
+  .p-kv span { color: var(--muted); }
+  .p-kv b { font-family: var(--mono); font-size: 14px; }
+
+  /* the two rows that are the same number by two routes */
+  .p-kv.is-key b { color: var(--red); }
+  .p-kv.is-key + .p-kv.is-key { margin-top: -2px; }
+
+  .x-note {
+    display: flex; align-items: center; gap: 6px;
+    margin-top: 0; padding: 0 9px; max-height: 0;
+    border-width: 0; overflow: hidden;
+    border-radius: var(--r-row); background: var(--red-soft);
+    border-style: solid; border-color: #eccfd2;
+    font-size: var(--fs-micro); color: var(--red);
+    opacity: 0; transform: translateY(-3px);
+    transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease),
+                max-height var(--dur) var(--ease), margin-top var(--dur) var(--ease),
+                padding var(--dur) var(--ease);
+  }
+  .x-note.on {
+    opacity: 1; transform: none;
+    max-height: 40px; margin-top: 7px; padding: 4px 9px;
+    border-width: 1.5px;
+  }
+  .x-note b { font-family: var(--mono); font-weight: 700; white-space: nowrap; }
+
+  /* distribution along the dominant axis: two stacked histograms sharing one
+     x-range, so the widening is directly readable */
+  .hist-row { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
+  .hist-row svg { flex: 1 1 auto; min-width: 0; height: 21px; display: block; }
+  .hb-in { fill: #c3cad0; }
+  .hb-out { fill: var(--red); }
+  .hzero { stroke: var(--line); stroke-width: 1; }
+</style>
+</head>
+<body data-page-node-id="Yq2Wd5GCkpLZI0L90OVyIr">
+
+<header class="w-head" data-page-node-id="N5ad0USyRSKT4aOesa5Vbs">
+  <div class="w-head-main" data-page-node-id="zGWAkgtUPwIGBuD0hHOySh">
+    <h1 class="w-title" data-page-node-id="yaVlBMQnY0j2sRMdAn1tGq">What a linear map changes</h1>
+    <span class="w-formula" data-page-node-id="AKprvMuNIEHsjfEDgKokO3">a = Wx + b</span>
+  </div>
+  <div class="w-actions" data-page-node-id="5cAeVO7h7VlNcgw9pyw7yy">
+    <button class="w-btn w-btn-primary" id="play" type="button" data-page-node-id="mvDVBcTQhTGkZmGvBkNL5P">Step through</button>
+    <button class="w-btn" id="reset" type="button" data-page-node-id="OUqFxMBk9AgEYqildYEnj2">Reset</button>
+  </div>
+</header>
+
+<div class="w-grid" data-page-node-id="BjAoWgf1CkbeJbQxrt3S3C">
+
+  <section class="w-col col-controls" data-page-node-id="ZqwN3OXgzHBFDGVOIYoDD7">
+    <div class="w-caption" data-page-node-id="5nS4kfV4c0n1RwcztDdfhE">The map W</div>
+
+    <div class="w-field" data-page-node-id="6R9D3G7r446McMtgpIV2Lc">
+      <span class="w-field-name" data-page-node-id="6bSdp6GMhJnnpDpDj2eRq4">w&#8321;&#8321;</span>
+      <input id="w11" type="range" min="-1.5" max="1.5" step="0.05" value="1.2" data-page-node-id="wA44G9k2mVlLZx1gbncrl0">
+      <span class="w-field-value" id="w11v" data-page-node-id="jmavHTguIIBTrSFPveuruE">1.20</span>
+    </div>
+    <div class="w-field" data-page-node-id="ZF6oM08HngnXCCDHO1InPO">
+      <span class="w-field-name" data-page-node-id="D4fPKqevNA6ZDD5Ccq2pjL">w&#8321;&#8322;</span>
+      <input id="w12" type="range" min="-1.5" max="1.5" step="0.05" value="0.8" data-page-node-id="mXAMtK4rXJE4LwQiN0dMbM">
+      <span class="w-field-value" id="w12v" data-page-node-id="fixM5MNDzKq5JXwUuWhGbK">0.80</span>
+    </div>
+    <div class="w-field" data-page-node-id="OLPAwApMvTOpssnO53NZg5">
+      <span class="w-field-name" data-page-node-id="ik6RdHtOchRfngLsTMHd84">w&#8322;&#8321;</span>
+      <input id="w21" type="range" min="-1.5" max="1.5" step="0.05" value="-0.4" data-page-node-id="kIfjuf2AsY3PudxWPqyEhl">
+      <span class="w-field-value" id="w21v" data-page-node-id="nbP62w5lnQHdGWfSH2Gfcj">&#8722;0.40</span>
+    </div>
+    <div class="w-field" data-page-node-id="bVYNQ8EE2wvdqoSjJLd7bY">
+      <span class="w-field-name" data-page-node-id="0EyDhWIbFQsX4sYW7ZoeRV">w&#8322;&#8322;</span>
+      <input id="w22" type="range" min="-1.5" max="1.5" step="0.05" value="0.9" data-page-node-id="Z9zp2wHyivENY8ddc7MqUW">
+      <span class="w-field-value" id="w22v" data-page-node-id="ktDNi3vs1iJGUcxD6GcA87">0.90</span>
+    </div>
+
+    <div class="w-caption" style="margin-top:11px" data-page-node-id="FtMp2U7GABg6MgbR9HKA7t">Presets</div>
+    <div class="presets" data-page-node-id="112ZUWjVve12TNaK4jcsJr">
+      <button class="preset" data-m="1,0,0,1" type="button" data-page-node-id="sD6WfCMqXybA4PH3uerpTh">Identity</button>
+      <button class="preset" data-m="1.5,0,0,0.5" type="button" data-page-node-id="BgmDzafK0YBMPQfwTWV9IQ">Scale</button>
+      <button class="preset" data-m="0.87,-0.5,0.5,0.87" type="button" data-page-node-id="On1kEBf72vto55ZJVhYNb5">Rotate</button>
+      <button class="preset" data-m="1,0.9,0,1" type="button" data-page-node-id="3hDHCPS3vfzxHH00to4iKy">Shear</button>
+      <button class="preset" data-m="1,0.6,0.6,0.36" type="button" data-page-node-id="xZOsMKQeCbd9BZhwi7UqYA">Collapse</button>
+    </div>
+  </section>
+
+  <section class="w-col col-spaces" data-page-node-id="onbbffxhqxj6jYi0wyXJlF">
+    <div class="spaces" data-page-node-id="6nV4AG2ywuzi7bzPuWe58o">
+      <div class="space" data-page-node-id="4hez5hGx2IU7pj6TXDt1U4">
+        <div class="w-caption" data-page-node-id="7KwSYgh0zUo2mVi02XyJ15">Input space &mdash; the data as it is</div>
+        <svg id="svgIn" viewBox="0 0 290 290" preserveAspectRatio="xMidYMid meet" data-page-node-id="A4SXQdL7LC2SazEvHtiZhq"></svg>
+      </div>
+
+      <div class="map-arrow" data-page-node-id="jWOGhUOB1ZmxxxLRm5t76q"><b data-page-node-id="qEWdpjGiOCAH0jYqLsDdZY">W</b><i data-page-node-id="rTL5d52LShV5OHdwLD7vOq">&#8594;</i></div>
+
+      <div class="space" data-page-node-id="UgxvZ8rDnOoXDNgS5zTvtZ">
+        <div class="w-caption" data-page-node-id="WkG8OzItt8jQpKpPuuKIp8">Output space &mdash; after the map</div>
+        <svg id="svgOut" viewBox="0 0 290 290" preserveAspectRatio="xMidYMid meet" data-page-node-id="ckIuU29Fzz8Og8MNl1DIH6"></svg>
+      </div>
+    </div>
+  </section>
+
+  <aside class="w-panel col-profile" data-page-node-id="oowwDcq2YtmHROFVAP20VV">
+    <span class="w-caption" data-page-node-id="U2ImBophFfto4kAIJRH1cD">Data profile</span>
+
+    <div class="p-block" data-page-node-id="KkrlyPmNIlJpkPKSXpWF38">
+      <div class="p-title" data-page-node-id="Ym3BS2KffOYpymZnvA5xmO">Spread</div>
+      <div class="p-bar" data-page-node-id="vqgT3Jv2gPcjgD6DCMrf43">
+        <span class="p-name" data-page-node-id="wdpf2CgQYe9HQzXXTPtQGn">&#963;&#8321;</span>
+        <span class="p-track" data-page-node-id="Y2lNS7LBX3JuLtFIwHBcbB"><span class="p-fill" id="b1" data-page-node-id="6JVvkjRCPiwSQVYu90rpnx"></span></span>
+        <span class="p-val" id="v1" data-page-node-id="8YmoXBey8SurjnayUKs4fs">2.05</span>
+      </div>
+      <div class="p-bar" data-page-node-id="sYE1HVZuSb72MZuktNCFdn">
+        <span class="p-name" data-page-node-id="UqIpxe41QyICb06snQoslo">&#963;&#8322;</span>
+        <span class="p-track" data-page-node-id="DjuLfcI10Mn26tAW6rCcO5"><span class="p-fill alt" id="b2" data-page-node-id="TpR1f5qikWQeIEFLE6PEYQ"></span></span>
+        <span class="p-val" id="v2" data-page-node-id="gqTrPRKAJTYGcGyhfc29Z3">0.68</span>
+      </div>
+    </div>
+
+    <div class="p-block" data-page-node-id="Zem3cgjLewFgFjblpfx63h">
+      <div class="p-title" data-page-node-id="FfNjgGKJyXNhE4wghyroSP">Geometry</div>
+      <div class="p-kv" data-page-node-id="s8R08NDgLhIYAfnb4eCK4v"><span data-page-node-id="LibWiofZC4dmLu7HKJfBGF">Dominant axis</span><b id="ang" data-page-node-id="cVlWzLhQ07yr90ijcK2JMV">18&#176;</b></div>
+      <div class="p-kv" data-page-node-id="nYG5k0qYkfhmWnVKN4IIxl"><span data-page-node-id="KEAPT36pWrVt4wXHmoIPcq">Anisotropy &#963;&#8321;/&#963;&#8322;</span><b id="ratio" data-page-node-id="pOjEYMcnC7JFK0Xy9la3VO">3.0&#215;</b></div>
+      <!-- Two rows, one number each. det comes from ad - bc and the product
+           of the singular values comes out of the SVD; the two routes share no
+           code, and the panel puts them next to each other live. Printing the
+           factors as well would not survive rounding: a rotation has
+           s1 = s2 = 1.0034, which would read "1.00 x 1.00 = 1.01". -->
+      <div class="p-kv is-key" data-page-node-id="y5JOciESE9loZr3ux4bVE3"><span data-page-node-id="PWHuscuNEqpPEIZiKNL79O">Area |det W|</span><b id="area" data-page-node-id="dBnlMhWAlFFtAh5uXjABhy">1.40</b></div>
+      <div class="p-kv is-key"><span>&#963;&#8321; &#183; &#963;&#8322;</span><b id="ident">1.40</b></div>
+
+      <div class="x-note" id="collapse">
+        <b>det W = 0</b>
+        <span>the plane collapsed</span>
+      </div>
+    </div>
+
+    <div class="p-block" data-page-node-id="5TleDuytCeKER0Zb0UhAMA">
+      <div class="p-title" data-page-node-id="TESqK3Rf3CvFZArAi446zn">Along the dominant axis</div>
+      <div class="hist-row" data-page-node-id="hm1TBBllQ7kPRfUGm8v0po"><span class="p-name" data-page-node-id="PrnkJJIBAUyi952Aysz6Uf">in</span><svg id="histIn" viewBox="0 0 148 30" preserveAspectRatio="none" data-page-node-id="c54qMU40Ark60hznIBgfsn"></svg></div>
+      <div class="hist-row" data-page-node-id="aCN4oQrtlNQGEH5WHBTkW8"><span class="p-name" data-page-node-id="DF2hkJSB4bLr4ynIdv0rdp">out</span><svg id="histOut" viewBox="0 0 148 30" preserveAspectRatio="none" data-page-node-id="iiHW6k5BF1vZDhB9ujSBud"></svg></div>
+      <div class="p-kv" data-page-node-id="gC736WHoOgpuo8JbqPFkwS"><span data-page-node-id="jUgjakruavjxJE03a8cLcA">spread in &#8594; out</span><b id="gain" data-page-node-id="jkMAKlYFuCVXK1YykrHzg9">&#215;1.0</b></div>
+    </div>
+  </aside>
+
+</div>
+
+<script src="shared/widget-base.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  var WB = window.WidgetBase;
+
+  /* ==================================================================
+   * Fixed geometry of the two panels.
+   *
+   * Both panels share one world-to-screen mapping so the deformation is
+   * directly comparable: a shape that doubles in size really doubles. The
+   * scale is deliberately FIXED, not auto-fitted — auto-fitting would
+   * silently undo the scaling and hide the very thing being taught.
+   * ================================================================== */
+  var BOX = 290;
+  var MID = BOX / 2;
+  var WORLD = 3.4;            // world units from centre to edge
+  var GRID_N = 3;             // integer grid lines, -GRID_N .. GRID_N
+  var S = MID / WORLD;        // px per world unit
+
+  var IDENT = [1, 0, 0, 1];
+
+  /* ---------------------------------------------------------- vector math */
+
+  function apply(m, p) {
+    return [m[0] * p[0] + m[1] * p[1], m[2] * p[0] + m[3] * p[1]];
+  }
+
+  function toScreen(p) {
+    return [MID + p[0] * S, MID - p[1] * S];
+  }
+
+  /* The quadrilateral spanned by the two columns — which is exactly the image
+   * of the unit square, because the columns ARE the images of the basis
+   * vectors. Its area is |det W|, so this is the determinant drawn rather than
+   * computed. */
+  function cellPath(m) {
+    var q = [[0, 0], [1, 0], [1, 1], [0, 1]].map(function (p) { return toScreen(apply(m, p)); });
+    return "M" + q.map(function (p) {
+      return p[0].toFixed(2) + " " + p[1].toFixed(2);
+    }).join("L") + "Z";
+  }
+
+  function seg(p1, p2) {
+    var a = toScreen(p1), b = toScreen(p2);
+    return "M" + a[0].toFixed(2) + " " + a[1].toFixed(2) +
+           "L" + b[0].toFixed(2) + " " + b[1].toFixed(2);
+  }
+
+  /* Singular value decomposition of a 2x2 matrix, closed form.
+   * s1 >= s2 are the semi-axes of the image of the unit circle; v1 is the
+   * input-space direction that gets stretched most, u1 its image direction.
+   * This is what "the dominant dimension" means here, and it is why the
+   * profile panel can quantify the geometry instead of just describing it. */
+  function svd(m) {
+    var a = m[0], b = m[1], c = m[2], d = m[3];
+    var m11 = a * a + c * c;          // WᵀW, entry (1,1)
+    var m12 = a * b + c * d;          // WᵀW, entry (1,2)
+    var m22 = b * b + d * d;          // WᵀW, entry (2,2)
+    var tr = m11 + m22;
+    var dt = (a * d - b * c) * (a * d - b * c);
+    var disc = Math.sqrt(Math.max(tr * tr - 4 * dt, 0));
+    var l1 = (tr + disc) / 2;
+    var l2 = (tr - disc) / 2;
+    var s1 = Math.sqrt(Math.max(l1, 0));
+    var s2 = Math.sqrt(Math.max(l2, 0));
+
+    var v1;
+    if (Math.abs(m12) > 1e-9) {
+      v1 = norm([m12, l1 - m11]);
+    } else {
+      v1 = m11 >= m22 ? [1, 0] : [0, 1];
+    }
+    if (!v1) v1 = [1, 0];
+
+    /* Eigenvectors have no intrinsic sign; pin it so the arrow does not
+     * flip around while a slider is being dragged. */
+    if (v1[0] < -1e-9 || (Math.abs(v1[0]) <= 1e-9 && v1[1] < 0)) {
+      v1 = [-v1[0], -v1[1]];
+    }
+
+    var wv = apply(m, v1);
+    var u1 = s1 > 1e-9 ? [wv[0] / s1, wv[1] / s1] : [1, 0];
+
+    return { s1: s1, s2: s2, v1: v1, u1: u1, det: a * d - b * c };
+  }
+
+  function norm(v) {
+    var n = Math.sqrt(v[0] * v[0] + v[1] * v[1]);
+    if (n < 1e-12) return null;
+    return [v[0] / n, v[1] / n];
+  }
+
+  /* --------------------------------------------------------- the dataset */
+
+  /* A deterministic two-class cloud. Fixed seed so the picture is identical
+   * on every run — a lecture slide must not shuffle between rehearsals. */
+  function cloud() {
+    var s = 20260915;
+    function rnd() {
+      s = (s * 1103515245 + 12345) % 2147483648;
+      return s / 2147483648;
+    }
+    var pts = [];
+    var centers = [[0.95, 0.80, "a"], [-0.95, -0.80, "b"]];
+    for (var k = 0; k < 2; k += 1) {
+      var cx = centers[k][0], cy = centers[k][1], cls = centers[k][2];
+      for (var i = 0; i < 17; i += 1) {
+        pts.push({
+          p: [cx + (rnd() - 0.5) * 0.92, cy + (rnd() - 0.5) * 0.92],
+          cls: cls
+        });
+      }
+    }
+    return pts;
+  }
+
+  var DATA = cloud();
+
+  /* The separating line, chosen perpendicular to the class centres. It is a
+   * straight line, and it stays a straight line under every W — which is the
+   * whole lesson of this page. */
+  var BOUNDARY = [[-2.6, 2.6], [2.6, -2.6]];
+
+  function ringPath(m, r, steps) {
+    var d = "";
+    for (var i = 0; i <= steps; i += 1) {
+      var t = (i / steps) * Math.PI * 2;
+      var q = toScreen(apply(m, [Math.cos(t) * r, Math.sin(t) * r]));
+      d += (i ? "L" : "M") + q[0].toFixed(2) + " " + q[1].toFixed(2);
+    }
+    return d + "Z";
+  }
+
+  function gridPath(m) {
+    var d = "";
+    for (var i = -GRID_N; i <= GRID_N; i += 1) {
+      d += seg(apply(m, [i, -WORLD]), apply(m, [i, WORLD]));
+      d += seg(apply(m, [-WORLD, i]), apply(m, [WORLD, i]));
+    }
+    return d;
+  }
+
+  function axisPath(m) {
+    return seg(apply(m, [-WORLD, 0]), apply(m, [WORLD, 0])) +
+           seg(apply(m, [0, -WORLD]), apply(m, [0, WORLD]));
+  }
+
+  function arrowLine(origin, dir, len) {
+    var p1 = [origin[0], origin[1]];
+    var p2 = [origin[0] + dir[0] * len, origin[1] + dir[1] * len];
+    return seg(p1, p2);
+  }
+
+  /* ------------------------------------------------------------ rendering */
+
+  function svgEl(id) { return document.getElementById(id); }
+
+  var svgIn = svgEl("svgIn");
+  var svgOut = svgEl("svgOut");
+
+  function buildStatic(m, opts) {
+    var o = "";
+
+    /* Ghost of the untouched space. Drawing the identity grid and the
+     * original point positions underneath the transformed ones is what turns
+     * two separate pictures into one visible displacement. */
+    if (opts.ghost) {
+      o += '<path class="ghost" d="' + gridPath(IDENT) + '"/>';
+      var gi, gq, disp = "";
+      for (gi = 0; gi < DATA.length; gi += 1) {
+        gq = toScreen(DATA[gi].p);
+        o += '<circle class="ghost-pt" cx="' + gq[0].toFixed(2) +
+             '" cy="' + gq[1].toFixed(2) + '" r="3.1"/>';
+        disp += seg(DATA[gi].p, apply(m, DATA[gi].p));
+      }
+      /* One hairline per point, from where it started to where W put it. The
+       * ghost circles alone ask the eye to pair 34 grey outlines with 34
+       * coloured dots, which it cannot do; the segment states the pairing
+       * outright. And because |Wp − p| grows with |p|, the arrows lengthen
+       * away from the origin — that growth *is* the linear map, and it is the
+       * one thing a per-axis bar chart can never show. */
+      o += '<path class="disp" d="' + disp + '"/>';
+    }
+
+    o += '<path class="gr" d="' + gridPath(m) + '"/>';
+    o += '<path class="gr-ax" d="' + axisPath(m) + '"/>';
+
+    /* under the ring and the points, so it reads as a background region */
+    if (opts.cell) {
+      o += '<path class="' + (opts.cell === "in" ? "cell-in" : "cell-out") +
+           '" d="' + cellPath(m) + '"/>';
+    }
+
+    if (opts.ring) {
+      o += '<path class="lay-ring ring-fill" d="' + ringPath(m, 1, 72) + '"/>';
+      o += '<path class="lay-ring ring" d="' + ringPath(m, 1, 72) + '"/>';
+    }
+
+    o += '<path class="boundary" d="' +
+         seg(apply(m, BOUNDARY[0]), apply(m, BOUNDARY[1])) + '"/>';
+
+    var i, q;
+    for (i = 0; i < DATA.length; i += 1) {
+      q = toScreen(apply(m, DATA[i].p));
+      o += '<circle class="pt pt-' + DATA[i].cls + '" cx="' + q[0].toFixed(2) +
+           '" cy="' + q[1].toFixed(2) + '" r="3.1"/>';
+    }
+
+    if (opts.basis) {
+      o += '<path class="lay-basis basis basis-a" d="' +
+           arrowLine([0, 0], [m[0], m[2]], 1) + '"/>';
+      o += '<path class="lay-basis basis basis-b" d="' +
+           arrowLine([0, 0], [m[1], m[3]], 1) + '"/>';
+    }
+    return o;
+  }
+
+  /* The two semi-axes of the ellipse, drawn at their true lengths s1 and s2.
+   * These ARE the singular values made visible, which is why the panel can
+   * report a number and show the same number as a geometric extent. */
+  function axesMarkup(m, ax) {
+    var o = "";
+
+    var a1 = [ax.u1[0] * ax.s1, ax.u1[1] * ax.s1];
+    var u2 = [-ax.u1[1], ax.u1[0]];
+    var a2 = [u2[0] * ax.s2, u2[1] * ax.s2];
+
+    o += '<path class="lay-dom dom" d="' + seg([-a1[0], -a1[1]], a1) + '"/>';
+    o += '<path class="lay-dom dom-2" d="' + seg([-a2[0], -a2[1]], a2) + '"/>';
+
+    var tip = toScreen(a1);
+    var base = toScreen([a1[0] * 0.86, a1[1] * 0.86]);
+    var ang = Math.atan2(tip[1] - base[1], tip[0] - base[0]) * 180 / Math.PI;
+    o += '<path class="lay-dom dom" d="M' + tip[0].toFixed(2) + ' ' + tip[1].toFixed(2) +
+         'l-8 4l0-8Z" transform="rotate(' + ang.toFixed(1) + ' ' +
+         tip[0].toFixed(2) + ' ' + tip[1].toFixed(2) + ')"/>';
+
+    /* Rug plot: every point projected onto the dominant direction. This is
+     * the "distribution along the dominant dimension" — the ticks show how
+     * the data piles up along the one direction that carries the most
+     * spread, which no bar chart of the raw coordinates can show. */
+    if (ax.rug) {
+      var perp = [-ax.u1[1], ax.u1[0]];
+      var h = 3.4 / S;
+      var rug = "";
+      var i, proj, c, p1, p2;
+      for (i = 0; i < DATA.length; i += 1) {
+        proj = apply(m, DATA[i].p);
+        proj = proj[0] * ax.u1[0] + proj[1] * ax.u1[1];
+        c = [ax.u1[0] * proj, ax.u1[1] * proj];
+        p1 = [c[0] - perp[0] * h, c[1] - perp[1] * h];
+        p2 = [c[0] + perp[0] * h, c[1] + perp[1] * h];
+        rug += seg(p1, p2);
+      }
+      o += '<path class="lay-dom rug" d="' + rug + '"/>';
+    }
+
+    if (ax.label) {
+      /* Labelled just past the arrowhead, not part-way along the shaft. The
+       * tip is the one point on the axis that unambiguously belongs to this
+       * arrow; anywhere inboard the two basis arrows are only a few degrees
+       * away (measured: a shaft position put this label 2 px off the blue
+       * basis arrow, so it read as annotating that instead). The white halo
+       * on .dom-tag keeps it legible where it lands on the scatter, which is
+       * unavoidable — both ends of the major axis carry a class of points. */
+      var tipAt = ax.s1 + 11 / S;
+      var lp = toScreen([ax.u1[0] * tipAt, ax.u1[1] * tipAt]);
+      o += '<text class="lay-dom dom-tag" x="' + lp[0].toFixed(2) +
+           '" y="' + lp[1].toFixed(2) + '">' + ax.label + "</text>";
+    }
+    return o;
+  }
+
+  function draw(m, reveal) {
+    var sv = svd(m);
+
+    /* Input panel: the data untouched, plus v1 — the direction that W is
+     * about to stretch most. It is the same arrow the output panel shows,
+     * before the map has acted on it. */
+    svgIn.innerHTML =
+      buildStatic(IDENT, { ring: true, basis: true, cell: "in" }) +
+      axesMarkup(IDENT, { u1: sv.v1, s1: 1, s2: 1, rug: false, label: "v\u2081" });
+    svgIn.setAttribute("class", "lv-" + reveal);
+
+    svgOut.innerHTML =
+      buildStatic(m, { ring: true, basis: true, ghost: true, cell: "out" }) +
+      axesMarkup(m, {
+        u1: sv.u1, s1: sv.s1, s2: sv.s2, rug: true, label: "\u03c3\u2081"
+      });
+    svgOut.setAttribute("class", "lv-" + reveal);
+  }
+
+  /* -------------------------------------------------------------- profile */
+
+  var SMAX = 3.2;
+
+  function setBar(fill, value, max) {
+    fill.style.width = Math.max(0, Math.min(value / max, 1)) * 100 + "%";
+  }
+
+  /* ---- distribution along the dominant axis -------------------------------
+   *
+   * Every point projected onto one direction. This is a genuinely different
+   * view from the scatter: the scatter shows *where* the data sits, the
+   * histogram shows *how much* of it sits where along the single direction
+   * that carries the most spread. Stacking the before and after on one
+   * x-range is what makes the stretching legible as a shape change rather
+   * than a number.
+   */
+
+  var HIST_SPAN = 2.8;   // world units either side of zero
+  var BINS = 15;
+
+  function projections(m, u1) {
+    var out = [];
+    for (var i = 0; i < DATA.length; i += 1) {
+      var q = apply(m, DATA[i].p);
+      out.push(q[0] * u1[0] + q[1] * u1[1]);
+    }
+    return out;
+  }
+
+  function rms(a) {
+    var s = 0;
+    for (var i = 0; i < a.length; i += 1) s += a[i] * a[i];
+    return Math.sqrt(s / a.length);
+  }
+
+  function histogram(values, cls) {
+    var counts = new Array(BINS);
+    var i, k;
+    for (i = 0; i < BINS; i += 1) counts[i] = 0;
+
+    var width = (HIST_SPAN * 2) / BINS;
+    for (i = 0; i < values.length; i += 1) {
+      k = Math.floor((values[i] + HIST_SPAN) / width);
+      if (k >= 0 && k < BINS) counts[k] += 1;
+    }
+
+    var peak = 1;
+    for (i = 0; i < BINS; i += 1) if (counts[i] > peak) peak = counts[i];
+
+    var w = 148 / BINS;
+    var o = "";
+    for (i = 0; i < BINS; i += 1) {
+      if (!counts[i]) continue;
+      var h = (counts[i] / peak) * 27;
+      o += '<rect class="hb ' + cls + '" x="' + (i * w + 0.6).toFixed(2) +
+           '" y="' + (30 - h).toFixed(2) + '" width="' + (w - 1.2).toFixed(2) +
+           '" height="' + h.toFixed(2) + '"/>';
+    }
+    o += '<line class="hzero" x1="74" y1="1" x2="74" y2="30"/>';
+    return o;
+  }
+
+  function profile(m) {
+    var sv = svd(m);
+
+    svgEl("w11v").textContent = WB.fmt(m[0], 2);
+    svgEl("w12v").textContent = WB.fmt(m[1], 2);
+    svgEl("w21v").textContent = WB.fmt(m[2], 2);
+    svgEl("w22v").textContent = WB.fmt(m[3], 2);
+
+    setBar(svgEl("b1"), sv.s1, SMAX);
+    setBar(svgEl("b2"), sv.s2, SMAX);
+    svgEl("v1").textContent = WB.fmt(sv.s1, 2);
+    svgEl("v2").textContent = WB.fmt(sv.s2, 2);
+
+    var ang = Math.atan2(sv.u1[1], sv.u1[0]) * 180 / Math.PI;
+    svgEl("ang").textContent = WB.fmt(ang, 0) + "\u00b0";
+
+    /* s2 -> 0 means the map has collapsed the plane onto a line; the ratio
+     * is genuinely infinite there, so say so rather than printing a huge
+     * number that looks like a bug. */
+    svgEl("ratio").textContent =
+      sv.s2 < 0.02 ? "\u221e" : WB.fmt(sv.s1 / sv.s2, 1) + "\u00d7";
+    svgEl("area").textContent = WB.fmt(Math.abs(sv.det), 2);
+
+    /* The identity, kept live. s1*s2 comes from the SVD and |det| from ad-bc;
+     * the two routes share no code, so agreement is evidence rather than
+     * tautology. The shaded cell in the output panel is the same quantity
+     * drawn a third way. */
+    svgEl("ident").textContent = WB.fmt(sv.s1 * sv.s2, 2);
+
+    /* s2 -> 0 is not a small determinant, it is a collapse: the image of the
+     * plane has one dimension fewer than the plane. */
+    svgEl("collapse").classList.toggle("on", Math.abs(sv.det) < 0.05);
+
+    var before = projections(IDENT, sv.v1);
+    var after = projections(m, sv.u1);
+    svgEl("histIn").innerHTML = histogram(before, "hb-in");
+    svgEl("histOut").innerHTML = histogram(after, "hb-out");
+
+    var si = rms(before);
+    svgEl("gain").textContent =
+      si > 1e-6 ? "\u00d7" + WB.fmt(rms(after) / si, 1) : "\u2014";
+  }
+
+  /* ------------------------------------------------------------- the morph
+   *
+   * The map is animated from the identity to W, so the audience watches the
+   * grid bend, the unit circle become an ellipse and the cloud swing round,
+   * rather than being shown the two endpoints and asked to infer the middle.
+   * Path `d` cannot be CSS-transitioned, so this is a rAF tween.
+   */
+
+  var TARGET = [1.2, 0.8, -0.4, 0.9];
+  var t = 1;                  // 0 = identity, 1 = TARGET
+  var reveal = 3;
+  var raf = null;
+
+  function lerpMatrix(u) {
+    return [
+      IDENT[0] + (TARGET[0] - IDENT[0]) * u,
+      IDENT[1] + (TARGET[1] - IDENT[1]) * u,
+      IDENT[2] + (TARGET[2] - IDENT[2]) * u,
+      IDENT[3] + (TARGET[3] - IDENT[3]) * u
+    ];
+  }
+
+  function render() {
+    var m = lerpMatrix(t);
+    draw(m, reveal);
+    profile(m);
+  }
+
+  function animateTo(u, dur) {
+    if (raf) cancelAnimationFrame(raf);
+    var from = t;
+    var t0 = performance.now();
+    function frame(now) {
+      /* Clamp at both ends. The first rAF callback's timestamp can predate the
+       * performance.now() taken when the frame was scheduled — it marks the
+       * start of the frame, which may be before the JS that requested it. That
+       * makes (now - t0) negative, which drives the ease-out factor negative
+       * and extrapolates the matrix *past* its start point (measured: t =
+       * -0.063). Harmless for one frame, but it is a real out-of-range value
+       * reaching the renderer, so clamp rather than reason about it. */
+      var k = Math.min(Math.max((now - t0) / dur, 0), 1);
+      // ease-out, matching the shared --ease feel
+      var e = 1 - Math.pow(1 - k, 3);
+      t = from + (u - from) * e;
+      render();
+      if (k < 1) {
+        raf = requestAnimationFrame(frame);
+      } else {
+        raf = null;
+        t = u;
+        render();
+      }
+    }
+    raf = requestAnimationFrame(frame);
+  }
+
+  /* --------------------------------------------------------------- inputs */
+
+  var keys = ["w11", "w12", "w21", "w22"];
+  var el = {};
+  keys.forEach(function (k) { el[k] = document.getElementById(k); });
+
+  function readTarget() {
+    return [parseFloat(el.w11.value), parseFloat(el.w12.value),
+            parseFloat(el.w21.value), parseFloat(el.w22.value)];
+  }
+
+  function writeTarget(m) {
+    el.w11.value = m[0]; el.w12.value = m[1];
+    el.w21.value = m[2]; el.w22.value = m[3];
+  }
+
+  keys.forEach(function (k) {
+    el[k].addEventListener("input", function () {
+      stepper.stop();
+      if (raf) { cancelAnimationFrame(raf); raf = null; }
+      TARGET = readTarget();
+      t = 1;
+      reveal = 4;
+      render();
+    });
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll(".preset"), function (b) {
+    b.addEventListener("click", function () {
+      stepper.stop();
+      if (raf) { cancelAnimationFrame(raf); raf = null; }
+      TARGET = b.getAttribute("data-m").split(",").map(Number);
+      writeTarget(TARGET);
+      reveal = 4;
+      /* Morph from the identity rather than snapping to the new matrix. The
+       * deformation is the lesson; a jump cut shows only its two endpoints and
+       * asks the audience to infer the middle, which is exactly what a static
+       * figure already does. */
+      t = 0;
+      render();
+      animateTo(1, 900);
+    });
+  });
+
+  /* ------------------------------------------------------------- stepper
+   *
+   * Four beats, mirroring the scalar page's rhythm: show the data as it is,
+   * watch the map act on it, see the basis vectors move, then read off the
+   * dominant direction. The morph is spread across the middle two beats so
+   * the deformation is the thing the audience actually watches.
+   */
+  var stepper = WB.createStepper({
+    steps: [
+      { t: 0.0, reveal: 1 },
+      { t: 0.5, reveal: 2 },
+      { t: 1.0, reveal: 3 },
+      { t: 1.0, reveal: 4 }
+    ],
+    stepMs: 780,
+    onStep: function (s) {
+      /* createStepper calls onStep(0) — the bare number — to reset before the
+       * sequence starts, so this payload must survive a non-object. Reading
+       * s.t off the number 0 yields undefined, and animateTo(undefined) would
+       * poison t with NaN; the tween would then jump to its endpoint without
+       * ever interpolating. Handle the reset explicitly. */
+      if (typeof s !== "object" || s === null) {
+        reveal = 1;
+        animateTo(0, 220);
+        return;
+      }
+      reveal = s.reveal;
+      animateTo(s.t, 480);
+    }
+  });
+
+  document.getElementById("play").addEventListener("click", function () {
+    TARGET = readTarget();
+    stepper.play();
+  });
+
+  document.getElementById("reset").addEventListener("click", function () {
+    stepper.stop();
+    if (raf) { cancelAnimationFrame(raf); raf = null; }
+    TARGET = [1.2, 0.8, -0.4, 0.9];
+    writeTarget(TARGET);
+    t = 1;
+    reveal = 4;
+    render();
+  });
+
+  render();
+
+  window.__widget = {
+    getStep: function () { return reveal; },
+    getT: function () { return t; },
+    getMatrix: function () { return lerpMatrix(t); },
+    getTarget: function () { return TARGET.slice(); },
+    getSigma: function () { var s = svd(lerpMatrix(t)); return [s.s1, s.s2]; },
+    getDet: function () { var m = lerpMatrix(t); return m[0] * m[3] - m[1] * m[2]; },
+    getCell: function () { return cellPath(lerpMatrix(t)); },
+    isCollapsed: function () {
+      return document.getElementById("collapse").classList.contains("on");
+    },
+    getDominant: function () { var s = svd(lerpMatrix(t)); return s.u1; },
+    isPlaying: function () { return stepper.isPlaying(); }
+  };
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1048 @@
+<!DOCTYPE html>
+<html lang="en" data-page-node-id="iPzQnN46bH69CxgZs8uHP9">
+<head data-page-node-id="XhXEMfhD9YtAjrGSwe3lxP">
+<meta charset="UTF-8" data-page-node-id="3r5LKEWvEFC1JyWIgKAZm7">
+<meta name="viewport" content="width=device-width, initial-scale=1" data-page-node-id="T7nMQFqFhvQgoZ9ZtFQmTa">
+<title>Forward, backward, update</title>
+<link rel="stylesheet" href="shared/widget-base.css" data-page-node-id="FcN8Wwz0ebEb7y4sVSwAm6">
+<style>
+  /* page-owned layout only; tokens and components come from widget-base.css */
+  .col-graph { flex: 1 1 auto; display: flex; align-items: center;
+               justify-content: center; min-width: 0; }
+  .col-graph svg { display: block; width: 100%; height: auto; }
+
+  .col-panel { flex: 0 0 296px; padding: 11px 13px 13px;
+               display: flex; flex-direction: column; }
+
+  /* ------------------------------------------------------------- phases */
+  .x-phases { display: flex; gap: 5px; margin-bottom: 6px; }
+  .x-phase {
+    flex: 1 1 0; text-align: center; padding: 4px 2px 3px;
+    border-radius: var(--r-row); border: 1.5px solid var(--line);
+    font-size: var(--fs-micro); font-weight: 700; letter-spacing: 0.02em;
+    color: var(--muted); background: #fff;
+    transition: all var(--dur) var(--ease);
+  }
+  .x-phase.on { border-color: var(--red); background: var(--red-soft); color: var(--red); }
+  .x-phase.done { border-color: var(--line); background: var(--line-soft); color: var(--muted); }
+
+  /* --------------------------------------------------------- the number */
+  .x-loss { display: flex; align-items: baseline; gap: 8px; margin-bottom: 1px; }
+  .x-loss b {
+    font-family: var(--mono); font-size: 30px; font-weight: 700; line-height: 1;
+    font-variant-numeric: tabular-nums; color: var(--red);
+  }
+  .x-loss span { font-family: var(--mono); font-size: var(--fs-label); color: var(--muted); }
+  .x-meta {
+    display: flex; justify-content: space-between;
+    font-size: var(--fs-micro); color: var(--muted); margin-bottom: 7px;
+  }
+  .x-meta b { font-family: var(--mono); color: var(--ink); font-weight: 700; }
+
+  /* The colour ramp is not self-evident, so it is stated once. The band max is
+   * shown because one scale is shared by every node in a band, which is what
+   * makes the growth of the activations across layers visible. */
+  .x-legend { display: flex; align-items: center; gap: 9px; margin-bottom: 4px;
+              font-family: var(--mono); font-size: var(--fs-micro); color: var(--muted); }
+  .x-legend b { color: var(--ink); font-weight: 700; }
+  .x-sw { display: inline-block; width: 11px; height: 11px; border-radius: 3px;
+          margin-right: 3px; vertical-align: -1px; }
+  .x-sw-p { background: rgba(154, 25, 33, 0.78); }
+  .x-sw-n { background: rgba(31, 78, 121, 0.78); }
+
+  .x-curve { display: block; width: 100%; height: auto; margin-bottom: 4px; }
+
+  /* ------------------------------------------------------------- slider */
+  .x-eta { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+  .x-eta .x-eta-name { font-family: var(--mono); font-size: var(--fs-label);
+                       font-weight: 700; white-space: nowrap; }
+  .x-eta input { flex: 1 1 auto; min-width: 0; height: 20px; margin: 0;
+                 accent-color: var(--red); cursor: pointer; }
+  .x-eta .x-eta-val { flex: 0 0 auto; min-width: 40px; text-align: right;
+                      font-family: var(--mono); font-size: var(--fs-label);
+                      font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  /* The chapter has been walking toward this since the XOR page: four corners,
+   * four correct. It happens once, in the middle of a 60-step run, and without
+   * a mark it goes past unnoticed — so it gets a single pop and a colour. */
+  .x-meta b.solved { color: var(--red); animation: solved-pop 900ms var(--ease); }
+  @keyframes solved-pop {
+    0%   { transform: scale(1); }
+    30%  { transform: scale(1.55); }
+    62%  { transform: scale(1.08); }
+    100% { transform: scale(1); }
+  }
+
+  /* -------------------------------------------------------- layer detail */
+  .x-det { border-top: 1px solid var(--line); padding-top: 5px; flex: 1 1 auto;
+           display: flex; flex-direction: column; min-height: 0; }
+  .x-det-head { display: flex; align-items: baseline; justify-content: space-between;
+                margin-bottom: 3px; }
+  .x-det-head span { font-size: var(--fs-micro); color: var(--muted); }
+  .x-det-head b { font-family: var(--mono); font-size: var(--fs-label); }
+  /* W and gradW sit side by side rather than stacked. Two reasons: the update
+   * theta <- theta - eta*grad is a statement about the two together, and
+   * stacking them made the panel grow by one matrix the moment the gradient
+   * appeared, which pushed the page past the 430px slide height. Side by side
+   * the row is always as tall as the taller of the two, which is W. */
+  .x-mats { display: flex; gap: 12px; margin-bottom: 6px; }
+  .x-mat { flex: 1 1 0; min-width: 0; }
+  .x-mat-tag { display: block; font-family: var(--mono); font-size: var(--fs-micro);
+               color: var(--muted); margin-bottom: 3px; }
+
+  .x-w { display: flex; align-items: center; gap: 7px; margin-bottom: 3px; }
+  .x-w-tag { flex: 0 0 34px; font-family: var(--mono); font-size: var(--fs-micro);
+             color: var(--muted); }
+  .x-w-num { flex: 0 0 auto; min-width: 30px; text-align: right;
+             font-family: var(--mono); font-size: var(--fs-micro);
+             color: var(--ink); font-weight: 700; font-variant-numeric: tabular-nums; }
+  .x-w-grid { display: grid; gap: 2px; }
+  .x-w-cell {
+    display: flex; align-items: center; justify-content: center;
+    height: 17px; min-width: 30px; border-radius: 3px;
+    font-family: var(--mono); font-size: 10.5px;
+    font-variant-numeric: tabular-nums;
+    transition: background var(--dur) var(--ease);
+  }
+  .x-bar { height: 5px; border-radius: 3px; background: var(--line-soft);
+           overflow: hidden; flex: 1 1 auto; }
+  .x-bar i { display: block; height: 100%; background: var(--red);
+             border-radius: 3px; transition: width var(--dur) var(--ease); }
+
+  /* ---------------------------------------------------------- graph bits */
+  .g-node-label { font-family: var(--mono); font-size: 12px; font-weight: 700;
+                  fill: var(--ink); text-anchor: middle; }
+  .g-node-sub { font-family: var(--mono); font-size: 9.5px; fill: var(--muted);
+                text-anchor: middle; }
+  .g-block { fill: #fff; stroke: var(--line); stroke-width: 1.6; rx: 7; }
+  .g-block.on { stroke: var(--red); stroke-width: 2; }
+  .g-block-lbl { font-family: var(--mono); font-size: 12px; font-weight: 700;
+                 fill: var(--ink); text-anchor: middle; }
+  .g-block-lbl.on { fill: var(--red); }
+  .g-block-sub { font-family: var(--mono); font-size: 9px; fill: var(--muted);
+                 text-anchor: middle; }
+  .g-cell { stroke: #fff; stroke-width: 0.7; }
+  .g-edge { stroke: var(--line); stroke-width: 1.6; fill: none; }
+  .g-edge.on { stroke: var(--red); stroke-width: 2.2; }
+  .g-arrowhead { fill: var(--line); }
+  .g-arrowhead.on { fill: var(--red); }
+  .g-dot { fill: var(--red); }
+  .g-band { font-family: var(--mono); font-size: 10px; fill: var(--muted);
+            text-anchor: middle; }
+  .g-legend { font-family: var(--mono); font-size: 9.5px; fill: var(--muted); }
+  .g-grad-lbl { font-family: var(--mono); font-size: 9px; fill: var(--muted);
+                text-anchor: middle; }
+  .g-loss-box { fill: var(--red-soft); stroke: var(--red); stroke-width: 1.8; rx: 7; }
+  .g-loss-val { font-family: var(--mono); font-size: 15px; font-weight: 700;
+                fill: var(--red); text-anchor: middle; }
+  .g-loss-val.off { fill: var(--muted); }
+</style>
+</head>
+<body data-page-node-id="MPlNOMEfsKInfJWaE77MkQ">
+
+<header class="w-head" data-page-node-id="FDuPmPna3jbuRO3HEBu5J2">
+  <div class="w-head-main" data-page-node-id="AmOCIupGWm4HzCgpz8DQZV">
+    <h1 class="w-title" data-page-node-id="Yy7XgrfWH5DHpb8Hz3KVFB">Forward, backward, update</h1>
+    <span class="w-formula" data-page-node-id="WQQvZsYSzS2RwdUAFcxsZM">&#952; &#8592; &#952; &#8722; &#951;&#8711;<sub data-page-node-id="a3E3tb03ce4IHlaAS7ULxU">&#952;</sub>&#8466;</span>
+  </div>
+  <div class="w-actions" data-page-node-id="FRNUO37z8dByLkIXwcryZd">
+    <button class="w-btn w-btn-primary" id="step" type="button" data-page-node-id="1yGZ46lh7ECB6Efiw7Rit4">Step</button>
+    <button class="w-btn" id="train" type="button" data-page-node-id="TGhQxjbCAp9U5CixaphgA4">Train</button>
+    <button class="w-btn" id="reset" type="button" data-page-node-id="U03tqvSPvCdKYqT1sIH9AG">Reset</button>
+  </div>
+</header>
+
+<div class="w-grid" data-page-node-id="5YRpJWG5zl0IMqwaJKIyiG">
+
+  <section class="col-graph" data-page-node-id="2I6cUMLaT3EYHp8yhaQVNN">
+    <svg id="graph" viewBox="0 0 780 292" preserveAspectRatio="xMidYMid meet"
+         role="img" aria-label="Forward activations and backward gradients through a three-layer network" data-page-node-id="BDmSYfM4WlcvUO78B2suPX"></svg>
+  </section>
+
+  <aside class="w-panel col-panel" data-page-node-id="3U5IkzNHhvkOU22JxUMt7e">
+
+    <div class="x-phases" data-page-node-id="B9HKByQSynSAWQuh5ZiCEG">
+      <div class="x-phase" id="ph-forward" data-page-node-id="U3nkaUCDbHujj7dycR1KGU">FORWARD</div>
+      <div class="x-phase" id="ph-backward" data-page-node-id="F4bXo0c47TAVCR7rF9nVT1">BACKWARD</div>
+      <div class="x-phase" id="ph-update" data-page-node-id="sweC0F5IpjvlJHo0sPWQjb">UPDATE</div>
+    </div>
+
+    <div class="x-loss" data-page-node-id="iNz3OZqVAFvqcdOQDi1KCH">
+      <b id="loss" data-page-node-id="1voE78ectkXvRm0xr0Ytzp">&#8212;</b>
+      <span data-page-node-id="chNvUiqeUB0a2COrxri5GN">&#8466;</span>
+    </div>
+    <div class="x-meta" data-page-node-id="zoAEITN3w7lC5roXL1t1Ts">
+      <span data-page-node-id="208VsWJIfTCb02yUBnNSdP">step <b id="step-n" data-page-node-id="Lil2G9HU7saIj0YybZtCki">0</b></span>
+      <span data-page-node-id="XBaPpJKYmY1azkCaoK9ESw">XOR correct <b id="acc" data-page-node-id="3UFkwn9PmrxEtEbJCsjOuk">&#8212;</b></span>
+    </div>
+
+    <div class="x-legend" data-page-node-id="WzUYWT0DtwMYHkdEDHQ5FO">
+      <span data-page-node-id="Mf9FRX14VnEN5gZZCY4EQy"><i class="x-sw x-sw-p" data-page-node-id="jILLE7JdvY7rfDZ7b8Z0BZ"></i>+</span>
+      <span data-page-node-id="OsLSYDnkMsGVPjdNMB65NN"><i class="x-sw x-sw-n" data-page-node-id="OGgvJXV5qcAlcMqxw6jKE4"></i>&#8722;</span>
+      <span data-page-node-id="CpUJB2QZXq351lDQAilbKu">band &#177;<b id="band-max" data-page-node-id="uRq9rBHDCXFMwYPo1DnLNy">&#8212;</b></span>
+    </div>
+
+    <svg class="x-curve" id="curve" viewBox="0 0 268 50"
+         preserveAspectRatio="none" aria-label="Loss against training step" data-page-node-id="GVitGfZJ3AnbHYo2N4yC9D"></svg>
+
+    <div class="x-eta" data-page-node-id="LWuUz4qgIKgJt1be7TyRVY">
+      <span class="x-eta-name" data-page-node-id="SpK3cpczDaRGgJ4AMOYdTV">&#951;</span>
+      <input id="eta" type="range" min="-2" max="0.18" step="0.01" value="-0.3" data-page-node-id="8HxlTXMft57QDBu6IGDhuT">
+      <span class="x-eta-val" id="eta-v" data-page-node-id="yBh6VTD6Lm71q8lF1sGLac">0.50</span>
+    </div>
+
+    <div class="x-det" data-page-node-id="xhu5wdfYFPulHNCXMjlN80">
+      <div class="x-det-head" data-page-node-id="Yif3rVGQ4HHrYQAjV9DHb7">
+        <b id="det-name" data-page-node-id="IJGVYBEVxBGXzzK4TEvtWu">L3</b>
+        <span id="det-sub" data-page-node-id="OVYsScd35fWCW3FZm1l6k0">W&#8323; 2&#215;3</span>
+      </div>
+      <div class="x-mats" data-page-node-id="bFiODoEeCZrvor90hzfVAb">
+        <div class="x-mat" data-page-node-id="AHFCBiTHlw75GRtAEeUch9">
+          <span class="x-mat-tag" data-page-node-id="LDIQbgQtLCWBCo1A02PpIv">W</span>
+          <div class="x-w-grid" id="det-w" data-page-node-id="fRRClPP9Vo3Eezi9hJwnac"></div>
+        </div>
+        <div class="x-mat" data-page-node-id="4PtFHzGtQa17c8RCsI9Is4">
+          <span class="x-mat-tag" data-page-node-id="BU5EA2DjrwZOSUpigplhza">&#8711;W</span>
+          <div class="x-w-grid" id="det-g" data-page-node-id="M6yb7ePuzciPSYxzvTKeHW"></div>
+        </div>
+      </div>
+      <div class="x-w" data-page-node-id="nH7hLNE0jCOFak2ekB26u5">
+        <span class="x-w-tag" data-page-node-id="cML04EdTGgSQysoxiurUC9">&#8214;&#8711;W&#8214;</span>
+        <div class="x-bar" data-page-node-id="lIATo6ebSaL5jU8hiAd2D2"><i id="det-bar" style="width:0%" data-page-node-id="1mquFOVUvC5WyYS8CeeEgB"></i></div>
+        <span class="x-w-num" id="det-gn" data-page-node-id="MPe5fsbhUW3QLa1rX3IO21">&#8212;</span>
+      </div>
+    </div>
+
+  </aside>
+
+</div>
+
+<script src="shared/widget-base.js"></script>
+<script src="shared/nn-math.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  var W = window.WidgetBase;
+  var NN = window.NNMath;
+
+  var REDUCED = !!(window.matchMedia &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  function dur(ms) { return REDUCED ? 1 : ms; }
+
+  /* ------------------------------------------------------------- problem */
+
+  /* The four XOR corners, rescaled to +-1 for conditioning. Same points V04
+   * makes the student fail on and V05 lifts into three dimensions; here a
+   * network has to find the feature map for itself. */
+  var SIZES = [2, 3, 3, 2];
+  var SEED = 430;                 // chosen for robust convergence, see README
+  var CLASSES = 2;
+  var ACT_NAME = "relu";
+
+  var CORNERS = [[0, 0], [0, 1], [1, 0], [1, 1]];
+  var CORNER_CLS = [0, 1, 1, 0];  // red, blue, blue, red
+  var BATCH = CORNERS.length;
+
+  var X = [[], []], Y = [[], []];
+  (function buildData() {
+    var j;
+    for (j = 0; j < BATCH; j += 1) {
+      X[0].push(CORNERS[j][0] * 2 - 1);
+      X[1].push(CORNERS[j][1] * 2 - 1);
+      Y[0].push(CORNER_CLS[j] === 0 ? 1 : 0);
+      Y[1].push(CORNER_CLS[j] === 1 ? 1 : 0);
+    }
+  }());
+
+  /* --------------------------------------------------------------- state */
+
+  var net, cache, grad, dIn, dZ, before, after;
+  var stepIndex = 0;
+  var phase = "rest";              // rest | forward | backward | update
+  var prog = 0;                    // progress within the current phase, 0..1
+  var lossHist = [];
+  var accNow = null;
+  var lastSolved = false;          // so the 4/4 mark fires once, not every render
+  var selLayer = 2;                // which layer's W the panel shows
+  var raf = null, playing = false;
+  /* The default is 0.5, which is the learning rate the shipped seed was chosen
+   * at (see README): 60 steps takes the loss from 2.60 to about 0.005 with all
+   * four XOR corners correct. The slider reaches 0.01 to 1.51. */
+  var eta = 0.5;
+  var trainTimer = null;
+
+  var svg = document.getElementById("graph");
+  var out = {
+    loss: document.getElementById("loss"),
+    stepN: document.getElementById("step-n"),
+    acc: document.getElementById("acc"),
+    curve: document.getElementById("curve"),
+    etaV: document.getElementById("eta-v"),
+    phF: document.getElementById("ph-forward"),
+    phB: document.getElementById("ph-backward"),
+    phU: document.getElementById("ph-update"),
+    detName: document.getElementById("det-name"),
+    detSub: document.getElementById("det-sub"),
+    detW: document.getElementById("det-w"),
+    detG: document.getElementById("det-g"),
+    detBar: document.getElementById("det-bar"),
+    detGn: document.getElementById("det-gn"),
+    bandMax: document.getElementById("band-max")
+  };
+
+  /* ------------------------------------------------------------- tween */
+  /* The clock note: a rAF timestamp marks the START of the frame and can
+   * precede the performance.now() taken when the frame was requested, so
+   * (now - t0) can come out negative. Without the lower clamp the ease-out
+   * factor goes negative and the animation extrapolates past its start. */
+  function tween(duration, apply, done) {
+    if (raf) { cancelAnimationFrame(raf); raf = null; }
+    var t0 = performance.now();
+    playing = true;
+    function frame(now) {
+      var k = Math.min(Math.max((now - t0) / duration, 0), 1);
+      var e = 1 - Math.pow(1 - k, 3);
+      prog = e;
+      apply(e);
+      render();
+      if (k < 1) {
+        raf = requestAnimationFrame(frame);
+      } else {
+        raf = null;
+        playing = false;
+        apply(1);
+        render();
+        if (done) done();
+      }
+    }
+    raf = requestAnimationFrame(frame);
+  }
+
+  /* --------------------------------------------------------- graph layout */
+
+  /* Two stacked bands of the same height, each holding a grid at most three
+   * rows tall. ACT_TOP and GRAD_TOP are the tops of the bands; the grids are
+   * centred inside them, so a 2-row and a 3-row node share a centre line and
+   * the arrows between them stay level.
+   *
+   * The 51 that used to be here was half of the band height written out by
+   * hand, and it was applied as (51 - rows*CELL_H)/2 rather than to the band
+   * centre — which put every grid 25.5 units too high, so a 3-row node was
+   * drawn starting at y=4.5, over the top of its own label. Derive the centre
+   * from the band height instead of restating it. */
+  var CELL_W = 22, CELL_H = 34, GAP = 12;
+  var BAND_H = 102;
+  var ACT_TOP = 30, GRAD_TOP = 168;
+  var ACT_MID = ACT_TOP + BAND_H / 2;      // 81
+  var GRAD_MID = GRAD_TOP + BAND_H / 2;    // 219
+  var BLOCK_W = 64, CE_W = 80, LOSS_W = 36;
+
+  /* The row is 756 wide, which leaves no room for a caption beside it, so the
+   * band captions are set vertically in a narrow gutter and the whole row is
+   * pushed right by GUTTER. */
+  var VBW = 780, GUTTER = 18;
+
+  /* Nine nodes, left to right. Vector nodes carry the flowing signal; blocks
+   * carry the parameters and their gradients. */
+  var NODES = [
+    { id: "x",    kind: "vec",   rows: 2, label: "X",    sub: "2\u00D74" },
+    { id: "l1",   kind: "block", label: "L1",   sub: "W\u2081 3\u00D72", layer: 0 },
+    { id: "h1",   kind: "vec",   rows: 3, label: "H\u00B9", sub: "3\u00D74" },
+    { id: "l2",   kind: "block", label: "L2",   sub: "W\u2082 3\u00D73", layer: 1 },
+    { id: "h2",   kind: "vec",   rows: 3, label: "H\u00B2", sub: "3\u00D74" },
+    { id: "l3",   kind: "block", label: "L3",   sub: "W\u2083 2\u00D73", layer: 2 },
+    { id: "z",    kind: "vec",   rows: 2, label: "Z",    sub: "2\u00D74" },
+    { id: "ce",   kind: "block", label: "\u03C3+CE", sub: "p \u2212 y" },
+    { id: "loss", kind: "loss",  label: "\u2112", sub: "" }
+  ];
+
+  /* x position of each node's left edge, then the shared band geometry. */
+  var GEO = (function () {
+    var g = [], x = 0, i, n, w;
+    for (i = 0; i < NODES.length; i += 1) {
+      n = NODES[i];
+      if (n.kind === "vec") w = BATCH * CELL_W;
+      else if (n.kind === "loss") w = LOSS_W;
+      else if (n.id === "ce") w = CE_W;
+      else w = BLOCK_W;
+      g.push({ x: x, w: w });
+      x += w + GAP;
+    }
+    /* Centre the whole row in the viewBox, clear of the caption gutter. */
+    var used = x - GAP;
+    var shift = GUTTER + (VBW - GUTTER - used) / 2;
+    for (i = 0; i < g.length; i += 1) g[i].x += shift;
+    return g;
+  }());
+
+  function nodeW(i) { return GEO[i].w; }
+  function nodeCx(i) { return GEO[i].x + GEO[i].w / 2; }
+
+  /* Vertical centre of the activation band, which is where the arrows run. */
+  var MID = ACT_MID;
+
+  /* ------------------------------------------------------------- colour */
+
+  /* One ramp for both directions: red is positive, blue is negative, and the
+   * alpha carries the magnitude. The pages share it so a value reads the same
+   * wherever it appears.
+   *
+   * The floor is 0.16 rather than 0.08 because the band scale is shared: the
+   * input X is +-1 while a hidden pre-activation reaches 6, so at the old floor
+   * the input layer read as blank. It is still much paler than the hidden
+   * layers, which is the true picture. */
+  var RAMP_POS = [154, 25, 33];    // red
+  var RAMP_NEG = [31, 78, 121];    // blue
+
+  function heatAlpha(v, vmax) {
+    var t = Math.min(Math.abs(v) / (vmax > 0 ? vmax : 1), 1);
+    return 0.16 + 0.79 * t;
+  }
+
+  function heat(v, vmax) {
+    var rgb = v >= 0 ? RAMP_POS : RAMP_NEG;
+    return "rgba(" + rgb[0] + "," + rgb[1] + "," + rgb[2] + "," +
+           heatAlpha(v, vmax).toFixed(3) + ")";
+  }
+
+  /* Label colour for a heat cell. Derived from the composited colour's WCAG
+   * relative luminance rather than from a hand-tuned alpha, so it cannot drift
+   * out of step when the ramp or the floor changes. */
+  function inkOn(v, vmax) {
+    var rgb = v >= 0 ? RAMP_POS : RAMP_NEG;
+    var a = heatAlpha(v, vmax);
+    var lin = function (c) {
+      c /= 255;
+      return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    };
+    var L = 0, k;
+    for (k = 0; k < 3; k += 1) L += [0.2126, 0.7152, 0.0722][k] * lin(rgb[k] * a + 255 * (1 - a));
+    return (1.05 / (L + 0.05)) >= (L + 0.05) / 0.05 ? "#fff" : "#30343a";
+  }
+
+  function globalMax(mat) {
+    var m = 0, i, j;
+    for (i = 0; i < mat.length; i += 1) {
+      for (j = 0; j < mat[i].length; j += 1) m = Math.max(m, Math.abs(mat[i][j]));
+    }
+    return m;
+  }
+
+  function n2(v) { return (Math.round(v * 100) / 100).toFixed(2); }
+
+  /* A gradient of -1e-9 formats as "-0.00", which reads as a negative number
+   * when it is zero. Fold it. */
+  function f2(v) { return v.toFixed(2) === "-0.00" ? "0.00" : v.toFixed(2); }
+
+  /* ----------------------------------------------------------- reveal
+   *
+   * A phase is a scalar 0..1; node i of n switches on as the sweep passes it.
+   * Returning a 0..1 per node lets each one fade rather than pop. */
+  function reveal(i, n, at) {
+    var span = 1 / n;
+    var local = (at - i * span) / (span * 0.78);
+    return Math.min(Math.max(local, 0), 1);
+  }
+
+  /* ------------------------------------------------------------ render */
+
+  function render() {
+    var i, j, o = "";
+    var fwdOrder = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+    var bwdOrder = [8, 7, 6, 5, 4, 3, 2, 1, 0];
+    var order = (phase === "backward") ? bwdOrder : fwdOrder;
+    var showing = (phase === "backward" || phase === "update");
+
+    /* per-node reveal amount, indexed by node id */
+    var on = {};
+    for (i = 0; i < NODES.length; i += 1) on[NODES[i].id] = 0;
+    if (phase === "rest") {
+      /* The input is data, not something the network computes, so it is on from
+       * the start. Leaving it blank made the page's first impression a
+       * wireframe: eight empty grids and no indication of what is being fed in.
+       * Everything to the right of it stays dark until Step. */
+      on.x = 1;
+    } else if (phase === "forward") {
+      for (i = 0; i < fwdOrder.length; i += 1) {
+        on[NODES[fwdOrder[i]].id] = reveal(i, fwdOrder.length, prog);
+      }
+    } else {
+      /* forward is complete and stays on; the backward sweep adds gradients */
+      for (i = 0; i < NODES.length; i += 1) on[NODES[i].id] = 1;
+    }
+
+    /* ---- edges first, so nodes paint over them ---- */
+    var edgeOn = {};
+    if (phase === "forward") {
+      for (i = 0; i + 1 < fwdOrder.length; i += 1) {
+        edgeOn[i] = reveal(i, fwdOrder.length, prog);
+      }
+    } else if (phase === "backward") {
+      for (i = 0; i + 1 < bwdOrder.length; i += 1) {
+        edgeOn[NODES.length - 2 - i] = reveal(i, bwdOrder.length, prog);
+      }
+    } else {
+      for (i = 0; i + 1 < NODES.length; i += 1) edgeOn[i] = 0;
+    }
+
+    for (i = 0; i + 1 < NODES.length; i += 1) {
+      var x0 = GEO[i].x + nodeW(i), x1 = GEO[i + 1].x;
+      var t = edgeOn[i] || 0;
+      var cls = t > 0.02 ? "g-edge on" : "g-edge";
+      o += '<line class="' + cls + '" x1="' + n2(x0 + 2) + '" y1="' + MID +
+           '" x2="' + n2(x1 - 6) + '" y2="' + MID + '"/>';
+      o += '<polygon class="' + (t > 0.02 ? "g-arrowhead on" : "g-arrowhead") +
+           '" points="' + n2(x1 - 6) + ',' + MID + ' ' + n2(x1 - 12) + ',' +
+           (MID - 3.5) + ' ' + n2(x1 - 12) + ',' + (MID + 3.5) + '"/>';
+      /* the travelling dot: where the sweep is right now */
+      if (t > 0.02 && t < 0.98) {
+        o += '<circle class="g-dot" cx="' + n2(x0 + (x1 - x0) * t) + '" cy="' + MID +
+             '" r="3.4"/>';
+      }
+    }
+
+    /* ---- nodes ---- */
+    for (i = 0; i < NODES.length; i += 1) {
+      var nd = NODES[i];
+      var a = on[nd.id];
+      var x = GEO[i].x, w = nodeW(i);
+
+      o += '<text class="g-node-label" x="' + n2(x + w / 2) + '" y="15">' +
+           nd.label + '</text>';
+      if (nd.sub) {
+        o += '<text class="g-node-sub" x="' + n2(x + w / 2) + '" y="' + (ACT_TOP - 4) +
+             '">' + nd.sub + '</text>';
+      }
+
+      if (nd.kind === "vec") {
+        o += vecGrid(i, a, showing);
+      } else if (nd.kind === "block") {
+        o += blockNode(i, a, showing);
+      } else {
+        o += lossNode(i, a);
+      }
+    }
+
+    /* ---- band captions ----
+     * Set vertically: the row already fills the viewBox, so a horizontal
+     * caption would sit on top of the first node. The gradient caption only
+     * appears once there are gradients, otherwise it labels an empty band. */
+    o += '<text class="g-band" x="11" y="' + ACT_MID +
+         '" transform="rotate(-90 11 ' + ACT_MID + ')">activations</text>';
+    if (showing && dIn) {
+      o += '<text class="g-band" x="11" y="' + GRAD_MID +
+           '" transform="rotate(-90 11 ' + GRAD_MID + ')">gradients</text>';
+    }
+
+    svg.innerHTML = o;
+    paintPanel();
+  }
+
+  /* The activation grid for a vector node, plus its gradient grid beneath. */
+  function vecGrid(i, a, showing) {
+    var id = NODES[i].id;
+    var rows = NODES[i].rows;
+    var x = GEO[i].x;
+    var data = null, gdata = null, o = "", r, c;
+
+    if (id === "x") { data = X; gdata = dIn ? dIn[0] : null; }
+    else if (id === "h1") { data = cache ? cache.acts[0].H : null; gdata = dIn ? dIn[1] : null; }
+    else if (id === "h2") { data = cache ? cache.acts[1].H : null; gdata = dIn ? dIn[2] : null; }
+    else if (id === "z") { data = cache ? cache.Z : null; gdata = dZ; }
+
+    if (!data) return "";
+
+    /* One scale across every node in a band, so magnitudes are comparable
+     * between layers instead of each node normalising itself. */
+    var vmax = BAND_MAX.act;
+    var gmax = BAND_MAX.grad;
+
+    var y = ACT_MID - rows * CELL_H / 2;
+    for (r = 0; r < rows; r += 1) {
+      for (c = 0; c < BATCH; c += 1) {
+        o += '<rect class="g-cell" x="' + n2(x + c * CELL_W) + '" y="' + n2(y + r * CELL_H) +
+             '" width="' + CELL_W + '" height="' + CELL_H + '" rx="2" fill="' +
+             heat(data[r][c], vmax) + '" opacity="' + a.toFixed(3) + '"/>';
+      }
+    }
+
+    if (showing && gdata) {
+      var gy = GRAD_MID - rows * CELL_H / 2;
+      o += '<text class="g-grad-lbl" x="' + n2(x + BATCH * CELL_W / 2) + '" y="' +
+           (GRAD_TOP - 8) + '">' + gradLabel(id) + '</text>';
+      for (r = 0; r < rows; r += 1) {
+        for (c = 0; c < BATCH; c += 1) {
+          o += '<rect class="g-cell" x="' + n2(x + c * CELL_W) + '" y="' + n2(gy + r * CELL_H) +
+               '" width="' + CELL_W + '" height="' + CELL_H + '" rx="2" fill="' +
+               heat(gdata[r][c], gmax) + '" opacity="' + a.toFixed(3) + '"/>';
+        }
+      }
+    }
+    return o;
+  }
+
+  function gradLabel(id) {
+    if (id === "x") return "\u2202\u2112/\u2202X";
+    if (id === "h1") return "\u2202\u2112/\u2202H\u00B9";
+    if (id === "h2") return "\u2202\u2112/\u2202H\u00B2";
+    return "\u2202\u2112/\u2202Z";
+  }
+
+  /* A parameter block: the matrix, its bias, and how big its gradient is. */
+  function blockNode(i, a, showing) {
+    var nd = NODES[i];
+    var x = GEO[i].x, w = nodeW(i);
+    var isSel = (nd.layer !== undefined && nd.layer === selLayer);
+    var o = "";
+    var h = 34;
+    var y = MID - h / 2;
+
+    o += '<rect class="g-block' + (isSel ? " on" : "") + '" x="' + n2(x) + '" y="' + n2(y) +
+         '" width="' + w + '" height="' + h + '"/>';
+    o += '<text class="g-block-lbl' + (isSel ? " on" : "") + '" x="' + n2(x + w / 2) +
+         '" y="' + n2(y + 15) + '">' + nd.label + '</text>';
+    o += '<text class="g-block-sub" x="' + n2(x + w / 2) + '" y="' + n2(y + 27) + '">' +
+         nd.sub + '</text>';
+
+    /* the gradient bar under the block, only while going backward */
+    if (showing && grad && nd.layer !== undefined) {
+      var gn = NN.matNorm(grad.grads[nd.layer].dW);
+      var frac = Math.min(gn / BAND_MAX.gn, 1);
+      var bw = w * frac * a;
+      o += '<rect x="' + n2(x) + '" y="' + n2(y + h + 5) + '" width="' + n2(w) +
+           '" height="4" rx="2" fill="#eef0f2"/>';
+      o += '<rect x="' + n2(x) + '" y="' + n2(y + h + 5) + '" width="' + n2(bw) +
+           '" height="4" rx="2" fill="#9a1921"/>';
+      o += '<text class="g-grad-lbl" x="' + n2(x + w / 2) + '" y="' + n2(y + h + 20) +
+           '">\u2016\u2207W\u2016 ' + f2(gn) + '</text>';
+    }
+    return o;
+  }
+
+  function lossNode(i, a) {
+    var x = GEO[i].x, w = nodeW(i);
+    var y = MID - 22;
+    var has = (phase === "forward" || phase === "backward" || phase === "update");
+    var o = "";
+    /* The parameter blocks draw at full strength even at rest, so the loss box
+     * keeps a visible outline too — otherwise the graph looks like it is
+     * missing its last node rather than like nothing has been computed. */
+    o += '<rect class="g-loss-box" x="' + n2(x) + '" y="' + n2(y) + '" width="' + w +
+         '" height="44" rx="7" opacity="' + Math.max(a, 0.34).toFixed(3) + '"/>';
+    if (has && lossHist.length) {
+      o += '<text class="g-loss-val" x="' + n2(x + w / 2) + '" y="' + n2(y + 28) +
+           '" opacity="' + a.toFixed(3) + '">' +
+           (lossHist[lossHist.length - 1] < 1 ? lossHist[lossHist.length - 1].toFixed(2)
+                                              : lossHist[lossHist.length - 1].toFixed(1)) +
+           '</text>';
+    }
+    return o;
+  }
+
+  /* ------------------------------------------------------------ panel */
+
+  var BAND_MAX = { act: 1, grad: 1, gn: 1 };
+
+  function paintPanel() {
+    var last = lossHist.length ? lossHist[lossHist.length - 1] : null;
+    out.loss.textContent = last === null ? "\u2014" : last.toFixed(4);
+    out.stepN.textContent = String(stepIndex);
+    out.acc.textContent = accNow === null ? "\u2014" : accNow + " / " + BATCH;
+    /* Mark the first moment the network gets all four corners. Re-adding the
+     * class from a clean slate is what restarts the animation; the reflow read
+     * in between is what makes it a new animation rather than a no-op. */
+    var solved = (accNow === BATCH);
+    if (solved !== lastSolved) {
+      out.acc.classList.remove("solved");
+      void out.acc.offsetWidth;
+      if (solved) out.acc.classList.add("solved");
+      lastSolved = solved;
+    }
+    out.bandMax.textContent = cache ? BAND_MAX.act.toFixed(1) : "\u2014";
+
+    out.phF.className = "x-phase" + (phase === "forward" ? " on" :
+      (phase === "rest" ? "" : " done"));
+    out.phB.className = "x-phase" + (phase === "backward" ? " on" :
+      (phase === "update" ? " done" : ""));
+    out.phU.className = "x-phase" + (phase === "update" ? " on" : "");
+
+    paintCurve();
+    paintDetail();
+  }
+
+  /* Log-scale y axis. The loss runs from about 2.6 to 0.005, which on a linear
+   * axis is a cliff followed by a flat line; three decades on a log axis is
+   * the honest way to show it, and the axis says so. */
+  var CURVE_TOP = 3.0, CURVE_BOT = 0.004;
+
+  function paintCurve() {
+    var w = 268, h = 50, pad = 3;
+    var o = "";
+    var lg = function (v) {
+      var t = (Math.log10(Math.max(v, CURVE_BOT)) - Math.log10(CURVE_BOT)) /
+              (Math.log10(CURVE_TOP) - Math.log10(CURVE_BOT));
+      return h - pad - t * (h - 2 * pad);
+    };
+    var xAt = function (k) {
+      return pad + (60 > 1 ? (k / 60) * (w - 2 * pad) : 0);
+    };
+
+    /* decade gridlines, so the reader can see it is not a linear axis */
+    var dec = [1, 0.1, 0.01];
+    var d;
+    for (d = 0; d < dec.length; d += 1) {
+      o += '<line x1="0" y1="' + n2(lg(dec[d])) + '" x2="' + w + '" y2="' + n2(lg(dec[d])) +
+           '" stroke="#eef0f2" stroke-width="1"/>';
+    }
+    o += '<rect x="0" y="0" width="' + w + '" height="' + h + '" fill="none" ' +
+         'stroke="#d7dce0" stroke-width="1" rx="5"/>';
+
+    /* With one measurement there is no curve to draw, and an empty framed box
+     * reads as a broken chart. Say what the box is instead. */
+    if (lossHist.length < 2) {
+      o += '<text x="' + n2(w / 2) + '" y="' + n2(h / 2 + 4) + '" text-anchor="middle" ' +
+           'font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10" ' +
+           'fill="#697078">loss vs step</text>';
+    } else {
+      var dpath = "", k;
+      for (k = 0; k < lossHist.length; k += 1) {
+        dpath += (k ? "L" : "M") + n2(xAt(k)) + "," + n2(lg(lossHist[k]));
+      }
+      o += '<path d="' + dpath + '" fill="none" stroke="#9a1921" stroke-width="2.2" ' +
+           'stroke-linejoin="round" stroke-linecap="round"/>';
+      o += '<circle cx="' + n2(xAt(lossHist.length - 1)) + '" cy="' +
+           n2(lg(lossHist[lossHist.length - 1])) + '" r="3.2" fill="#9a1921"/>';
+    }
+    out.curve.innerHTML = o;
+  }
+
+  /* The selected layer's weight matrix and its gradient matrix, then the
+   * gradient norm as a bar.
+   *
+   * The gradient is shown as a matrix rather than only as a norm because the
+   * page is about the update theta <- theta - eta*grad: a student can see the
+   * sign and the size of the quantity that is actually subtracted, not just how
+   * big it is overall. W and gradW each get their own scale — they are
+   * different quantities, and sharing one scale would flatten whichever is
+   * smaller into invisibility. */
+  function paintDetail() {
+    var a = net.layers[selLayer];
+    var Wm = a.W;
+    var Gm = (grad && grad.grads[selLayer]) ? grad.grads[selLayer].dW : null;
+    var i, j;
+
+    var wmax = 0;
+    for (i = 0; i < Wm.length; i += 1) {
+      for (j = 0; j < Wm[i].length; j += 1) wmax = Math.max(wmax, Math.abs(Wm[i][j]));
+    }
+    var gmax = 0;
+    if (Gm) {
+      for (i = 0; i < Gm.length; i += 1) {
+        for (j = 0; j < Gm[i].length; j += 1) gmax = Math.max(gmax, Math.abs(Gm[i][j]));
+      }
+    }
+
+    var cols = "repeat(" + Wm[0].length + ", 1fr)";
+    out.detW.style.gridTemplateColumns = cols;
+    out.detG.style.gridTemplateColumns = cols;
+
+    var ow = "", og = "";
+    for (i = 0; i < Wm.length; i += 1) {
+      for (j = 0; j < Wm[i].length; j += 1) {
+        ow += '<div class="x-w-cell" style="background:' + heat(Wm[i][j], wmax) +
+              ';color:' + inkOn(Wm[i][j], wmax) +
+              '">' + f2(Wm[i][j]) + '</div>';
+      }
+    }
+    if (Gm) {
+      for (i = 0; i < Gm.length; i += 1) {
+        for (j = 0; j < Gm[i].length; j += 1) {
+          og += '<div class="x-w-cell" style="background:' + heat(Gm[i][j], gmax) +
+                ';color:' + inkOn(Gm[i][j], gmax) +
+                '">' + f2(Gm[i][j]) + '</div>';
+        }
+      }
+    }
+    out.detW.innerHTML = ow;
+    /* Before the backward pass there is no gradient to show, so the grid says
+     * so instead of rendering as an empty gap. */
+    out.detG.innerHTML = Gm ? og :
+      '<div class="x-w-cell" style="grid-column:1/-1;background:#eef0f2;' +
+      'color:#697078">not yet</div>';
+
+    out.detName.textContent = "L" + (selLayer + 1);
+    out.detSub.innerHTML = "W<sub>" + (selLayer + 1) + "</sub> " +
+      Wm.length + "\u00D7" + Wm[0].length;
+
+    var gn = Gm ? NN.matNorm(Gm) : 0;
+    out.detBar.style.width = Math.min(gn / BAND_MAX.gn, 1) * 100 + "%";
+    out.detGn.textContent = Gm ? gn.toFixed(2) : "\u2014";
+  }
+
+  /* ------------------------------------------------------------- phases */
+
+  function computeBands() {
+    /* One scale per band across all nodes, recomputed when the data changes,
+     * so a cell's darkness means the same thing on every node. */
+    var m = 0;
+    if (cache) {
+      m = Math.max(m, globalMax(X), globalMax(cache.acts[0].H),
+        globalMax(cache.acts[1].H), globalMax(cache.Z));
+      BAND_MAX.act = m || 1;
+    }
+    var g = 0;
+    if (dIn) {
+      g = Math.max(g, globalMax(dIn[0]), globalMax(dIn[1]), globalMax(dIn[2]));
+    }
+    if (dZ) g = Math.max(g, globalMax(dZ));
+    if (g > 0) BAND_MAX.grad = g;
+
+    var gn = 1;
+    if (grad) {
+      var l;
+      for (l = 0; l < grad.grads.length; l += 1) {
+        gn = Math.max(gn, NN.matNorm(grad.grads[l].dW));
+      }
+    }
+    BAND_MAX.gn = gn;
+  }
+
+  function toForward() {
+    phase = "forward";
+    prog = 0;
+    cache = NN.forward(net, X);
+    dIn = null; dZ = null; grad = null;
+    var r = NN.lossAndAcc(net, X, Y);
+    accNow = Math.round(r.acc * BATCH);
+    if (lossHist.length <= stepIndex) lossHist.push(r.loss);
+    computeBands();
+    tween(dur(880), function () {}, null);
+  }
+
+  function toBackward() {
+    if (!cache) { toForward(); return; }
+    phase = "backward";
+    prog = 0;
+    grad = NN.backward(net, cache, Y);
+    dIn = grad.dIn;
+    dZ = grad.dZ;
+    computeBands();
+    tween(dur(880), function () {}, null);
+  }
+
+  function toUpdate() {
+    if (!grad) { toBackward(); return; }
+    phase = "update";
+    prog = 0;
+    before = NN.snapshot(net);
+    NN.applyUpdate(net, grad.grads, eta);
+    after = NN.snapshot(net);
+    stepIndex += 1;
+    /* the next loss, so the curve gains a point at the update */
+    var r = NN.lossAndAcc(net, X, Y);
+    lossHist.push(r.loss);
+    accNow = Math.round(r.acc * BATCH);
+    cache = NN.forward(net, X);
+    computeBands();
+    tween(dur(460), function () {}, null);
+  }
+
+  function advance() {
+    if (phase === "rest" || phase === "update") { toForward(); return; }
+    if (phase === "forward") { toBackward(); return; }
+    if (phase === "backward") { toUpdate(); return; }
+  }
+
+  /* ------------------------------------------------------------ controls */
+
+  document.getElementById("step").addEventListener("click", function () {
+    stopTrain();
+    advance();
+  });
+
+  var trainBtn = document.getElementById("train");
+
+  function stopTrain() {
+    if (trainTimer) { clearTimeout(trainTimer); trainTimer = null; }
+    trainBtn.textContent = "Train";
+    trainBtn.classList.remove("w-btn-primary");
+  }
+
+  /* Training mode skips the per-node sweep: 60 steps at ~110 ms is five
+   * seconds, where the explained pace would be two minutes. The graph still
+   * updates every step, so the heatmaps visibly settle. */
+  function trainTick() {
+    if (phase === "rest" || phase === "update") {
+      toForward();
+      /* fast: jump straight to the computed state */
+      prog = 1;
+      phase = "forward";
+      cache = NN.forward(net, X);
+      render();
+      trainTimer = setTimeout(trainTick, 110);
+      return;
+    }
+    if (phase === "forward") {
+      phase = "backward";
+      grad = NN.backward(net, cache, Y);
+      dIn = grad.dIn; dZ = grad.dZ;
+      computeBands(); render();
+      trainTimer = setTimeout(trainTick, 110);
+      return;
+    }
+    if (phase === "backward") {
+      before = NN.snapshot(net);
+      NN.applyUpdate(net, grad.grads, eta);
+      after = NN.snapshot(net);
+      stepIndex += 1;
+      var r = NN.lossAndAcc(net, X, Y);
+      lossHist.push(r.loss);
+      accNow = Math.round(r.acc * BATCH);
+      phase = "update";
+      render();
+      if (stepIndex >= 60) { stopTrain(); render(); return; }
+      trainTimer = setTimeout(trainTick, 110);
+    }
+  }
+
+  trainBtn.addEventListener("click", function () {
+    if (trainTimer) { stopTrain(); return; }
+    if (stepIndex >= 60) reset();
+    trainBtn.textContent = "Pause";
+    trainBtn.classList.add("w-btn-primary");
+    trainTick();
+  });
+
+  document.getElementById("reset").addEventListener("click", reset);
+
+  function reset() {
+    stopTrain();
+    if (raf) { cancelAnimationFrame(raf); raf = null; }
+    net = NN.createMLP(SIZES, ACT_NAME, SEED);
+    cache = null; grad = null; dIn = null; dZ = null;
+    before = null; after = null;
+    stepIndex = 0;
+    phase = "rest";
+    prog = 0;
+    lossHist = [];
+    accNow = null;
+    BAND_MAX = { act: 1, grad: 1, gn: 1 };
+    render();
+  }
+
+  var etaEl = document.getElementById("eta");
+  var ETA_MIN = Math.pow(10, -2), ETA_MAX = Math.pow(10, 0.18);
+
+  /* The slider is in log10 space so the useful range 0.02 .. 1.5 is not
+   * crammed into the first tenth of the track. The slider and setEta() both go
+   * through here, so the readout and the track cannot disagree and an
+   * out-of-range value from the console is clamped rather than silently used. */
+  function setEta(v, fromSlider) {
+    eta = Math.min(Math.max(v, ETA_MIN), ETA_MAX);
+    if (!fromSlider) etaEl.value = String(Math.log10(eta));
+    out.etaV.textContent = eta < 0.1 ? eta.toFixed(3) : eta.toFixed(2);
+    return eta;
+  }
+
+  etaEl.addEventListener("input", function () {
+    setEta(Math.pow(10, parseFloat(etaEl.value)), true);
+  });
+
+  /* clicking a layer block selects it in the panel */
+  svg.addEventListener("click", function (evt) {
+    var t = evt.target;
+    var x = null;
+    /* map the click back into viewBox units */
+    var r = svg.getBoundingClientRect();
+    var vb = VBW / r.width;
+    x = (evt.clientX - r.left) * vb;
+    var i;
+    for (i = 0; i < NODES.length; i += 1) {
+      if (NODES[i].layer === undefined) continue;
+      if (x >= GEO[i].x && x <= GEO[i].x + nodeW(i)) {
+        selLayer = NODES[i].layer;
+        render();
+        return;
+      }
+    }
+  });
+
+  /* --------------------------------------------------------------- boot */
+
+  setEta(Math.pow(10, parseFloat(etaEl.value)), true);
+  reset();
+
+  window.__widget = {
+    getPhase: function () { return phase; },
+    getStep: function () { return stepIndex; },
+    getLoss: function () { return lossHist.length ? lossHist[lossHist.length - 1] : null; },
+    getLossHistory: function () { return lossHist.slice(); },
+    getAccuracy: function () { return accNow; },
+    getEta: function () { return eta; },
+    setEta: function (v) { return setEta(v); },
+    getSelectedLayer: function () { return selLayer; },
+    setSelectedLayer: function (l) { selLayer = l; render(); },
+    isPlaying: function () { return playing || trainTimer !== null; },
+    isTraining: function () { return trainTimer !== null; },
+    /* the numbers the graph is drawing, for the checker */
+    getForwardValues: function () {
+      if (!cache) return null;
+      return {
+        X: X,
+        H1: cache.acts[0].H,
+        H2: cache.acts[1].H,
+        Z: cache.Z,
+        P: cache.P,
+        loss: lossHist.length ? lossHist[lossHist.length - 1] : null
+      };
+    },
+    getGradients: function () {
+      if (!grad) return null;
+      return {
+        dIn: grad.dIn,
+        dZ: grad.dZ,
+        dW: grad.grads.map(function (g) { return g.dW; }),
+        db: grad.grads.map(function (g) { return g.db; })
+      };
+    },
+    getParams: function () {
+      return net.layers.map(function (a) { return { W: a.W, b: a.b }; });
+    },
+    getBands: function () { return { act: BAND_MAX.act, grad: BAND_MAX.grad, gn: BAND_MAX.gn }; },
+    /* step the whole cycle without waiting for the animation */
+    advanceNow: function () {
+      stopTrain();
+      if (phase === "rest" || phase === "update") toForward();
+      else if (phase === "forward") toBackward();
+      else toUpdate();
+      if (raf) { cancelAnimationFrame(raf); raf = null; }
+      prog = 1;
+      playing = false;
+      render();
+      return phase;
+    },
+    /* Run n COMPLETE training steps (three phase transitions each), not n
+     * transitions: a caller asking for 60 steps means 60 weight updates, and
+     * an off-by-three here would silently under-train every check that uses
+     * it. The guard stops a runaway if a phase ever fails to advance. */
+    trainSteps: function (n) {
+      stopTrain();
+      var target = stepIndex + n, guard = 0;
+      while (stepIndex < target && guard < n * 4 + 8) {
+        if (phase === "rest" || phase === "update") toForward();
+        else if (phase === "forward") toBackward();
+        else toUpdate();
+        if (raf) { cancelAnimationFrame(raf); raf = null; }
+        prog = 1;
+        playing = false;
+        guard += 1;
+      }
+      render();
+      return stepIndex;
+    }
+  };
+}());
+</script>
+</body>
+</html>

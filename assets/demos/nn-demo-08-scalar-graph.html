@@ -1,0 +1,1772 @@
+<!DOCTYPE html>
+<html lang="en" data-page-node-id="vtaTikolwVtu07OElC9erK">
+<head data-page-node-id="jrPLycyLDMEtsq3171zFVK">
+<meta charset="UTF-8" data-page-node-id="XiTgzI7BAMKP8muZpYD9TT">
+<meta name="viewport" content="width=device-width, initial-scale=1" data-page-node-id="riUhuSGSHonxhRlnK9luCM">
+<title>Scalar computation graph · forward, local gradient, backward</title>
+<!--
+  DSAI4207 · scalar computation graph (forward / local gradient / backward)
+
+  Deliberately different from every other page in widgets/: this one does NOT
+  link _shared/widget-base.css or _shared/widget-base.js. The tokens, the shell
+  styles and the formatter are inlined so the file runs by double-click with no
+  sibling files and no server.
+
+  The token values are copied from widget-base.css one for one. Note that an SVG
+  presentation attribute does NOT resolve var() — only CSS declarations do — so
+  the script uses the literal table C rather than "var(--red)". To fold this page
+  back into the pipeline, swap the :root block below for
+  <link rel="stylesheet" href="_shared/widget-base.css"> and align C with it.
+
+  Two modes, one toggle:
+    chain  — click any node; the whole chain rule from e down to it is drawn.
+    local  — the forward pass is stepped node by node showing what each node
+             must SAVE, and the backward pass is stepped three sub-steps per
+             node: receive upstream, evaluate local gradient, hand off.
+             That three-beat walk is the "backward contract" from 05b, made
+             concrete.
+-->
+<style>
+:root {
+  --ink: #30343a;
+  --muted: #697078;
+  --line: #d7dce0;
+  --line-soft: #eef0f2;
+  --paper: #f7f8fa;
+  --red: #9a1921;
+  --red-soft: #f7e9eb;
+  --blue: #1f4e79;
+  --blue-soft: #eaf2f8;
+
+  --fs-title: 21px;
+  --fs-formula: 17px;
+  --fs-body: 18px;
+  --fs-label: 15px;
+  --fs-micro: 12.5px;
+
+  --pad-x: 24px;
+  --pad-y: 16px;
+  --gap: 18px;
+  --r-panel: 10px;
+  --r-row: 8px;
+
+  --dur: 340ms;
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Segoe UI", Arial, sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; height: 100%; }
+
+body {
+  font-family: var(--sans);
+  font-size: var(--fs-body);
+  line-height: 1.3;
+  color: var(--ink);
+  background: #fff;
+  padding: var(--pad-y) var(--pad-x) 18px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------------------------------------------------------------- header */
+
+.w-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 9px;
+  border-bottom: 2px solid var(--line);
+  margin-bottom: 12px;
+  flex: 0 0 auto;
+}
+.w-head-main { display: flex; align-items: baseline; gap: 12px; min-width: 0; flex: 1 1 auto; }
+.w-title { margin: 0; font-size: var(--fs-title); font-weight: 700; color: var(--red); white-space: nowrap; }
+.w-formula {
+  font-family: var(--mono);
+  font-size: var(--fs-formula);
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.w-actions { display: flex; gap: 8px; flex: 0 0 auto; align-items: center; }
+
+.w-btn {
+  font: inherit;
+  font-size: var(--fs-label);
+  font-weight: 700;
+  padding: 6px 13px;
+  border-radius: 7px;
+  border: 2px solid var(--red);
+  background: #fff;
+  color: var(--red);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.w-btn-primary { background: var(--red); color: #fff; }
+.w-btn:active { transform: translateY(1px); }
+.w-btn:disabled { opacity: 0.4; cursor: default; }
+.w-btn-sm { padding: 4px 11px; }
+
+/* Manual step control. The counter is width-stable — tabular figures plus a
+ * reserved min-width — so the button never reflows the control row as the walk
+ * advances. Padding is trimmed below w-btn-sm because .ctl has only ~110 px of
+ * free space at its right edge and a counter-bearing button measures 96 px. */
+#btn-step { padding: 4px 8px; }
+#btn-step .st-n {
+  display: inline-block;
+  margin-left: 7px;
+  min-width: 34px;
+  text-align: right;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+/* At step 0 nothing has been revealed yet, so the counter reads as a placeholder
+ * the way the node values do; it goes red on its own once step 1 lands. */
+#btn-step.at-zero .st-n { color: var(--muted); }
+#btn-step.done { background: var(--red-soft); }
+
+/* segmented mode switch */
+.seg { display: flex; border: 2px solid var(--red); border-radius: 7px; overflow: hidden; }
+.seg-btn {
+  font: inherit;
+  font-size: var(--fs-label);
+  font-weight: 700;
+  padding: 6px 12px;
+  border: 0;
+  background: #fff;
+  color: var(--red);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.seg-btn + .seg-btn { border-left: 2px solid var(--red); }
+.seg-btn.on { background: var(--red); color: #fff; }
+
+/* ------------------------------------------------------------ control bar */
+
+.ctl {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  margin-bottom: 10px;
+  background: var(--paper);
+  border-radius: var(--r-panel);
+  flex: 0 0 auto;
+}
+.ctl-group { display: flex; align-items: center; gap: 7px; }
+.ctl-tag {
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.ctl-sep { width: 1px; align-self: stretch; background: var(--line); }
+
+select {
+  font-family: var(--mono);
+  font-size: var(--fs-label);
+  font-weight: 700;
+  color: var(--ink);
+  background: #fff;
+  border: 1.5px solid var(--line);
+  border-radius: var(--r-row);
+  padding: 3px 4px;
+  cursor: pointer;
+  max-width: 104px;
+}
+select:focus { outline: none; border-color: var(--red); }
+
+.inp { display: flex; align-items: center; gap: 6px; }
+.inp-name { font-family: var(--mono); font-size: var(--fs-label); font-weight: 700; }
+.inp input[type=range] { width: 76px; height: 20px; margin: 0; accent-color: var(--red); cursor: pointer; }
+.inp-val {
+  font-family: var(--mono);
+  font-size: var(--fs-label);
+  font-weight: 700;
+  min-width: 44px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ----------------------------------------------------------------- stage */
+
+.stage { flex: 1 1 auto; min-height: 0; }
+.stage svg { width: 100%; height: 100%; display: block; }
+#g text { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.nd { cursor: pointer; }
+.nd .box { transition: fill var(--dur) var(--ease), stroke var(--dur) var(--ease); }
+
+/* ------------------------------------------------------------- readout */
+
+.panel {
+  flex: 0 0 auto;
+  margin-top: 10px;
+  min-height: 96px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 14px;
+  background: var(--paper);
+  border-radius: var(--r-panel);
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.5;
+  overflow: hidden;
+}
+.panel-body { flex: 1 1 auto; min-width: 0; }
+.panel-side { flex: 0 0 auto; text-align: right; white-space: nowrap; }
+
+.p-head { display: flex; align-items: baseline; gap: 9px; margin-bottom: 4px; }
+.p-step {
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--red);
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+.p-step.muted { background: var(--line); color: var(--muted); }
+.p-node { font-size: 13px; font-weight: 700; color: var(--ink); }
+.p-phase { font-family: var(--sans); font-size: var(--fs-micro); color: var(--muted); }
+
+.p-row { display: flex; gap: 10px; align-items: baseline; white-space: nowrap; overflow: hidden; }
+.p-key { flex: 0 0 74px; font-family: var(--sans); font-size: var(--fs-micro); color: var(--muted); }
+.p-val { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
+.p-row.pending .p-val { color: var(--line); }
+.p-val em { font-style: normal; color: var(--muted); }
+.p-val b { color: var(--red); font-weight: 700; }
+
+.p-hint { color: var(--muted); font-family: var(--sans); font-size: var(--fs-label); }
+.p-chain-sym { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.p-chain-num { color: var(--ink); font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.co-cap { display: block; font-size: var(--fs-micro); color: var(--muted); font-family: var(--sans); }
+.co-num { font-size: 21px; font-weight: 700; color: var(--red); }
+.co-num.neg { color: var(--blue); }
+.co-num.zero { color: var(--muted); }
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur: 0ms; }
+}
+</style>
+</head>
+<body data-page-node-id="lMBZ1FbL79dHViuLntb8Xc">
+
+<header class="w-head" data-page-node-id="WXaVxGGaEZTLx4Myr9E7L5">
+  <div class="w-head-main" data-page-node-id="5NeKkb1JjSEGK9clhAu1pe">
+    <h1 class="w-title" data-page-node-id="TLPDC1JXaxrtL9sWRL7TkD">Scalar computation graph</h1>
+    <div class="w-formula" id="formula" data-page-node-id="8oey0l5Qn66QPeF39immg6">e = …</div>
+  </div>
+  <div class="seg" id="mode" data-page-node-id="3vo5NesEOgFW0qQgGzSRJ0">
+    <button class="seg-btn on" type="button" data-mode="chain" data-page-node-id="2YCrsQIhp0LhS4NkYmWk1O">Chain rule</button>
+    <button class="seg-btn" type="button" data-mode="local" data-page-node-id="WH9AK3QgIPqjrkwGToPYSP">Local gradient</button>
+  </div>
+  <div class="w-actions" data-page-node-id="xtWFXNAftMCWDt9cbXrdIl">
+    <button class="w-btn" id="btn-fwd" type="button" data-page-node-id="eLGbTdODUr9hjfKHMgOkmq">Forward pass</button>
+    <button class="w-btn w-btn-primary" id="btn-bwd" type="button" data-page-node-id="GS0OGB1dkhHeEgeBxckA2b">Backward pass</button>
+    <button class="w-btn" id="btn-reset" type="button" data-page-node-id="uf1RKBCZM9lTz6wUBgn1de">Reset</button>
+  </div>
+</header>
+
+<div class="ctl" data-page-node-id="vPdy6QE6mOv6m1nRZazEhg">
+  <div class="ctl-group" data-page-node-id="IRoREEsdmMRoSDMDLUcExa">
+    <span class="ctl-tag" data-page-node-id="tUzait4gxksPeXfAAhz2Wv">ADD NODE</span>
+    <select id="sel-op" title="operation" data-page-node-id="ngD9HAliG63XxS6wwXUv3W"></select>
+    <select id="sel-left" title="left operand" data-page-node-id="aCuDFhiReSQLURWDDHtdLi"></select>
+    <select id="sel-right" title="right operand" data-page-node-id="1zsrJI81tzJdHRi5yYkjHR"></select>
+    <button class="w-btn w-btn-sm" id="btn-add" type="button" data-page-node-id="mxPiBUVPEW9EX99MqJBcTW">Add</button>
+  </div>
+  <div class="ctl-sep" data-page-node-id="n5RM1D3bMTXGMjEOChe5it"></div>
+  <div class="ctl-group" data-page-node-id="mpc9S3uTE4l0LtSRGa9ufL">
+    <span class="ctl-tag" data-page-node-id="H6FUfNnKkm087BZo1ie0wH">PRESET</span>
+    <select id="sel-preset" data-page-node-id="P3hYW2Owqpbqmt4sIUeoAa"></select>
+  </div>
+  <div class="ctl-sep" data-page-node-id="IXbnv3LrNHHFMfoS3RhPHT"></div>
+  <div class="ctl-group" id="inputs" data-page-node-id="iSqhnubWwpBX4FT1dhHzKn"></div>
+  <div class="ctl-group">
+    <!-- One click, one step. The counter is the position in the whole walk:
+         the forward pass counts 1..M, the backward pass continues to 4M. -->
+    <button class="w-btn w-btn-sm" id="btn-step" type="button"
+            title="One click, one step: forward node by node, then backward three sub-steps per node">Step <b class="st-n">0/0</b></button>
+  </div>
+</div>
+
+<div class="stage" data-page-node-id="0wKFYCBO1mem3owZGu1Yt7">
+  <svg id="g" viewBox="0 0 1100 190" preserveAspectRatio="xMidYMid meet" role="img"
+       aria-label="Scalar computation graph: nodes, edges, values and gradients" data-page-node-id="7441JxSfsyXMu4dNrayPeS">
+    <defs data-page-node-id="E4xqdRmHty0j9YlfWg9B3x">
+      <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7"
+              orient="auto" data-page-node-id="Tax8sb8dpdwU6ddmKIJ89Z">
+        <path d="M1.5 1.5 L9 5 L1.5 8.5" fill="none" stroke="context-stroke"
+              stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="lSuZ54WCFp3Th1axijGYbW"/>
+      </marker>
+    </defs>
+    <g id="layer-edges" data-page-node-id="na4y5VwO4txLMmVaKtspWf"></g>
+    <g id="layer-nodes" data-page-node-id="xzeW8bwIr9d3RYbjxgtGUd"></g>
+  </svg>
+</div>
+
+<footer class="panel" data-page-node-id="72GPOkFvVJ2NQk2blqoKiR">
+  <div class="panel-body" id="panel-body" data-page-node-id="TPuHNF0UA1rE7NdFmyZOew"></div>
+  <div class="panel-side" id="panel-side" data-page-node-id="iaFnwq39287uhfLoX1SuDE"></div>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  var NS = "http://www.w3.org/2000/svg";
+  var MINUS = "\u2212";                 // U+2212, never a hyphen
+  var SUB = ["", "₁", "₂", "₃", "₄", "₅", "₆", "₇", "₈", "₉"];
+
+  /* Literal colour table. An SVG presentation attribute does not resolve var(),
+   * so these must be real colours. Values mirror the :root tokens one for one. */
+  var C = {
+    ink: "#30343a", muted: "#697078", line: "#d7dce0", paper: "#f7f8fa",
+    red: "#9a1921", redSoft: "#f7e9eb", blue: "#1f4e79", blueSoft: "#eaf2f8"
+  };
+
+  /* ------------------------------------------------------------ operations
+   * d(a, b)  ->  [d out / d a, d out / d b]   the node's own LOCAL gradient.
+   * rule(L, R) -> the same two derivatives written symbolically, with the
+   *               operand labels substituted in. This is the part that says
+   *               WHERE the local gradient comes from: for x and /, the answer
+   *               is "a value the forward pass had to save".
+   * saves     -> what the forward pass must keep for the backward pass. */
+  var OPS = {
+    add: {
+      sym: "+", label: "＋ add",
+      d: function (a, b) { return [1, 1]; },
+      rule: function (L, R) { return ["1", "1"]; },
+      saves: "nothing — both local gradients are constants",
+      why: "a constant, so forward saved nothing for it"
+    },
+    sub: {
+      sym: MINUS, label: MINUS + " sub",
+      d: function (a, b) { return [1, -1]; },
+      rule: function (L, R) { return ["1", MINUS + "1"]; },
+      saves: "nothing — both local gradients are constants",
+      why: "a constant, so forward saved nothing for it"
+    },
+    mul: {
+      sym: "×", label: "× mul",
+      d: function (a, b) { return [b, a]; },
+      rule: function (L, R) { return [R, L]; },
+      saves: "both input values",
+      why: "the other operand, which forward saved"
+    },
+    div: {
+      sym: "÷", label: "÷ div",
+      d: function (a, b) { return [1 / b, -a / (b * b)]; },
+      rule: function (L, R) { return ["1 / " + R, MINUS + L + " / " + R + "²"]; },
+      saves: "both input values",
+      why: "the two operands, which forward saved"
+    }
+  };
+  var OP_KEYS = ["add", "sub", "mul", "div"];
+
+  /* Presets: each step is [op, left ref, right ref]. "a"/"b"/"c" are inputs;
+   * "s1"/"s2" are the nth node created by the preset. */
+  var PRESETS = [
+    { key: "single", name: "Single node", hint: "e = a + b",
+      seq: [["add", "a", "b"]] },
+    { key: "share", name: "Shared input", hint: "e = (a + b) × (c − a)",
+      seq: [["add", "a", "b"], ["sub", "c", "a"], ["mul", "s1", "s2"]] },
+    { key: "divide", name: "With division", hint: "e = (a × b + c) ÷ b",
+      seq: [["mul", "a", "b"], ["add", "s1", "c"], ["div", "s2", "b"]] }
+  ];
+
+  var INPUT_KEYS = ["a", "b", "c"];
+  var MAX_OPS = 4;
+
+  /* Canvas coordinate system. Fixed VW x VH, scaled to the container by
+   * preserveAspectRatio. VH is deliberately short: the readout panel below
+   * needs real height, and a graph taller than this squeezes it out. */
+  var NODE_W = 148, NODE_H = 48;
+  var VW = 1100, VH = 190;
+  var X0 = 94, X1 = 1006;
+  var INPUT_Y = [33, 95, 157];
+  var EDGE_DY = 8;                      // backward curve sits this far below
+
+  /* Label position on an edge: a fixed horizontal distance past the PARENT's
+   * box (0 = parent, 1 = child). Two edges leaving the same parent share a
+   * start point, so their labels are staggered by rank. A fixed fraction does
+   * not work here: a two-layer edge would put its label in the middle of the
+   * picture, on top of whatever node happens to sit there. */
+  var LABEL_OFF = 42, LABEL_OFF_DT = 22;
+
+  var SUBSTEPS = ["receive", "local", "handoff"];
+
+  /* ------------------------------------------------------------ formatting */
+
+  function fmt(v, d) {
+    d = d === undefined ? 2 : d;
+    if (typeof v !== "number" || !isFinite(v)) return "—";
+    var r = Number(v.toFixed(d));
+    if (r === 0) r = 0;                 // kill "-0.00"
+    return r.toFixed(d).replace("-", MINUS);
+  }
+
+  function signClass(v) {
+    if (!isFinite(v)) return "zero";
+    if (v > 1e-4) return "pos";
+    if (v < -1e-4) return "neg";
+    return "zero";
+  }
+
+  function toneOf(v) {
+    var s = signClass(v);
+    return s === "neg" ? C.blue : (s === "pos" ? C.red : C.muted);
+  }
+
+  function paren(s) {
+    return s.charAt(0) === MINUS ? "(" + s + ")" : s;
+  }
+
+  /* ------------------------------------------------------------ SVG helpers */
+
+  function mk(tag, attrs) {
+    var e = document.createElementNS(NS, tag);
+    if (attrs) {
+      for (var k in attrs) {
+        if (Object.prototype.hasOwnProperty.call(attrs, k)) e.setAttribute(k, attrs[k]);
+      }
+    }
+    return e;
+  }
+
+  function mkText(attrs, content) {
+    var e = mk("text", attrs);
+    e.textContent = content;
+    return e;
+  }
+
+  /* white halo via paint-order, so a number sitting on a curve stays readable */
+  function halo(node, color) {
+    node.setAttribute("stroke", "#ffffff");
+    node.setAttribute("stroke-width", "3");
+    node.setAttribute("paint-order", "stroke");
+    node.setAttribute("fill", color);
+    return node;
+  }
+
+  /* ---------------------------------------------------------------- state */
+
+  var uid = 0;
+  var nodes = [];                       // creation order == topological order
+  var byId = {};
+  var out = null;
+  var inputValue = { a: 2.0, b: 1.5, c: -1.0 };
+  var presetKey = "share";
+
+  var mode = "chain";                   // "chain" | "local"
+  var fwdK = 0;                         // op nodes revealed by the forward pass
+  var bwdK = 0;                         // backward sub-steps completed (0..3M)
+  var sel = null;                       // clicked node id (chain mode)
+  var phase = null;                     // "fwd" | "bwd" | null
+  var stepper = null;
+
+  /* --------------------------------------------------------------- model */
+
+  function addInput(key) {
+    var n = { id: ++uid, op: "input", key: key, parents: [], value: 0, grad: 0,
+              x: 0, y: 0, layer: 0, idxInLayer: 0 };
+    nodes.push(n);
+    byId[n.id] = n;
+    return n;
+  }
+
+  function addOp(op, leftId, rightId) {
+    var n = { id: ++uid, op: op, parents: [leftId, rightId], value: 0, grad: 0,
+              x: 0, y: 0, layer: 0, idxInLayer: 0 };
+    nodes.push(n);
+    byId[n.id] = n;
+    return n;
+  }
+
+  function opNodes() {
+    return nodes.filter(function (n) { return n.op !== "input"; });
+  }
+
+  function childrenOf(id) {
+    return nodes.filter(function (n) {
+      return n.op !== "input" && n.parents.indexOf(id) >= 0;
+    });
+  }
+
+  function findByLabel(label) {
+    return nodes.filter(function (n) { return labelOf(n) === label; })[0] || null;
+  }
+
+  /* Labels are recomputed on every render: the last op node is always e, and
+   * the ones before it renumber to s₁ s₂ … So the picture stays honest when the
+   * graph grows — the old output becomes an intermediate, not a stale "e". */
+  function labelOf(n) {
+    if (n.op === "input") return n.key;
+    var ops = opNodes();
+    var i = ops.indexOf(n);
+    return i === ops.length - 1 ? "e" : "s" + SUB[i + 1];
+  }
+
+  function exprOf(n) {
+    if (n.op === "input") return n.key;
+    return "(" + exprOf(byId[n.parents[0]]) + " " + OPS[n.op].sym + " "
+               + exprOf(byId[n.parents[1]]) + ")";
+  }
+
+  function formulaText() {
+    var s = exprOf(out);
+    if (s.charAt(0) === "(") s = s.slice(1, -1);
+    return labelOf(out) + " = " + s;
+  }
+
+  /* ------------------------------------------------------- forward / backward */
+
+  function apply(op, a, b) {
+    if (op === "add") return a + b;
+    if (op === "sub") return a - b;
+    if (op === "mul") return a * b;
+    return a / b;
+  }
+
+  function runForward() {
+    nodes.forEach(function (n) {
+      if (n.op === "input") { n.value = inputValue[n.key]; return; }
+      n.value = apply(n.op, byId[n.parents[0]].value, byId[n.parents[1]].value);
+    });
+  }
+
+  /* Reverse walk. Creation order is a topological order, so walking the array
+   * backwards is a valid reverse-topological order.
+   *
+   * The += is the point: a node with two downstream users only reaches its
+   * final gradient after the LAST of them has handed back. That is why
+   * gradFinal() below asks about children rather than about position. */
+  function runBackward() {
+    nodes.forEach(function (n) { n.grad = 0; });
+    out.grad = 1;
+    for (var i = nodes.length - 1; i >= 0; i--) {
+      var n = nodes[i];
+      if (n.op === "input") continue;
+      var p0 = byId[n.parents[0]], p1 = byId[n.parents[1]];
+      var d = OPS[n.op].d(p0.value, p1.value);
+      p0.grad += n.grad * d[0];
+      p1.grad += n.grad * d[1];
+    }
+  }
+
+  function recompute() {
+    runForward();
+    runBackward();
+  }
+
+  /* The local gradient on the edge child -> parent. */
+  function localOf(child, parent) {
+    var p0 = byId[child.parents[0]], p1 = byId[child.parents[1]];
+    var d = OPS[child.op].d(p0.value, p1.value);
+    return child.parents[0] === parent.id ? d[0] : d[1];
+  }
+
+  /* The same derivative written symbolically, with the operand labels filled
+   * in — so the panel can print "∂s₁/∂a = b = 1.50" rather than just "1.50". */
+  function ruleOf(child, parent) {
+    var L = labelOf(byId[child.parents[0]]);
+    var R = labelOf(byId[child.parents[1]]);
+    var r = OPS[child.op].rule(L, R);
+    return child.parents[0] === parent.id ? r[0] : r[1];
+  }
+
+  /* Fill the operand labels into a symbolic rule, so "1 / b" becomes
+   * "1 / 1.50" — the middle step of the local gradient's computation.
+   * Longest label first, otherwise "s₁" would be clobbered by a shorter
+   * label that happens to be its prefix. A negative value goes in brackets,
+   * otherwise "−L / R²" would print the double sign "−−2.40". */
+  function substitute(ruleStr, L, vL, R, vR) {
+    function shown(v) {
+      var s = fmt(v);
+      return v < 0 ? "(" + s + ")" : s;
+    }
+    var pairs = [[L, shown(vL)], [R, shown(vR)]].sort(function (x, y) {
+      return y[0].length - x[0].length;
+    });
+    var s = ruleStr;
+    pairs.forEach(function (pr) { s = s.split(pr[0]).join(pr[1]); });
+    return s;
+  }
+
+  /* "rule = substituted = value", dropping any step that would just repeat
+   * the one before it. For + the rule is already the constant; for × the
+   * substituted form already equals the value; and a negative value is
+   * bracketed for substitution but bare as the answer, so the brackets have
+   * to come off before that comparison. */
+  function localTerm(ruleStr, subStr, val) {
+    var fv = fmt(val);
+    var bare = subStr.replace(/[()]/g, "");
+    var mid = (subStr === ruleStr || bare === fv) ? "" : " = " + subStr;
+    return ruleStr + mid + " = <b>" + fv + "</b>";
+  }
+
+  /* ------------------------------------------- every path from e to a target
+   * The chain rule on a DAG: sum the products over all paths.
+   *
+   * Direction matters and the failure is silent: walking through CHILDREN from
+   * the output finds nothing, because the output has no children. It has to
+   * walk through PARENTS. Returns paths like [e, s₁, a], adjacent entries
+   * being (child, parent). */
+  function pathsTo(targetId) {
+    var res = [];
+    (function walk(id, acc) {
+      if (id === targetId) { res.push(acc.slice()); return; }
+      byId[id].parents.forEach(function (pid) {
+        if (acc.indexOf(pid) >= 0) return;
+        acc.push(pid);
+        walk(pid, acc);
+        acc.pop();
+      });
+    })(out.id, [out.id]);
+    return res;
+  }
+
+  function chainEdgeSet() {
+    if (mode !== "chain" || sel === null) return null;
+    var set = {};
+    pathsTo(sel).forEach(function (path) {
+      for (var i = 0; i + 1 < path.length; i++) set[path[i] + ":" + path[i + 1]] = true;
+    });
+    return set;
+  }
+
+  /* Nodes reachable from e by walking parents; anything else is a dangling
+   * branch that backward never touches. */
+  function liveSet() {
+    var seen = {};
+    (function walk(id) {
+      if (seen[id]) return;
+      seen[id] = true;
+      byId[id].parents.forEach(walk);
+    })(out.id);
+    return seen;
+  }
+
+  /* --------------------------------------------------- backward sub-stepping
+   * In local mode the backward pass is 3 sub-steps per node:
+   *   0 receive  — the upstream gradient g_out has arrived
+   *   1 local    — evaluate ∂out/∂in from the values forward saved
+   *   2 handoff  — g_in += g_out · ∂out/∂in, once per parent
+   * `done` counts nodes whose handoff is complete, which is what decides when
+   * a downstream node's gradient stops changing. */
+  function bwdState() {
+    var ops = opNodes(), M = ops.length;
+    if (bwdK === 0 || M === 0) return { node: null, sub: -1, done: 0 };
+    var s = bwdK - 1;
+    var slot = Math.floor(s / 3);
+    var sub = s % 3;
+    if (slot >= M) return { node: ops[0], sub: 2, done: M };
+    return {
+      node: ops[M - 1 - slot],
+      sub: sub,
+      done: slot + (sub === 2 ? 1 : 0)
+    };
+  }
+
+  function procDone(n) {
+    var ops = opNodes(), M = ops.length;
+    return ops.indexOf(n) >= M - bwdState().done;
+  }
+
+  /* A node's gradient is final only once every child has handed back. An input
+   * feeding two places is the case worth watching: it settles last. */
+  function gradFinal(n) {
+    if (bwdK === 0) return false;
+    if (n === out) return true;
+    var kids = childrenOf(n.id);
+    if (!kids.length) return false;
+    return kids.every(procDone);
+  }
+
+  /* -------------------------------------------------------------- layout */
+
+  function layout() {
+    var maxLayer = 0;
+
+    nodes.forEach(function (n) {
+      if (n.op === "input") { n.layer = 0; return; }
+      var lp = n.parents.map(function (id) { return byId[id].layer; });
+      n.layer = Math.max(lp[0], lp[1]) + 1;
+      if (n.layer > maxLayer) maxLayer = n.layer;
+    });
+
+    nodes.forEach(function (n) {
+      n.x = maxLayer === 0 ? (X0 + X1) / 2 : X0 + (X1 - X0) * n.layer / maxLayer;
+    });
+
+    /* Inputs sit in fixed slots; op nodes land on the barycentre of their
+     * parents' y. Barycentre keeps the picture stable as the graph grows
+     * instead of reflowing it on every edit. */
+    var inputs = nodes.filter(function (n) { return n.op === "input"; });
+    inputs.forEach(function (n, i) { n.y = INPUT_Y[i]; n.idxInLayer = i; });
+
+    var byLayer = {};
+    opNodes().forEach(function (n) {
+      n.y = (byId[n.parents[0]].y + byId[n.parents[1]].y) / 2;
+      (byLayer[n.layer] = byLayer[n.layer] || []).push(n);
+    });
+
+    Object.keys(byLayer).forEach(function (L) {
+      var list = byLayer[L];
+      list.sort(function (a, b) { return a.y - b.y; });
+      var minGap = NODE_H + 10;
+      for (var i = 1; i < list.length; i++) {
+        if (list[i].y - list[i - 1].y < minGap) list[i].y = list[i - 1].y + minGap;
+      }
+      var hi = list[list.length - 1].y + NODE_H / 2;
+      var lo = list[0].y - NODE_H / 2;
+      var shift = 0;
+      if (hi > VH - 9) shift = VH - 9 - hi;
+      else if (lo < 9) shift = 9 - lo;
+      if (shift) list.forEach(function (n) { n.y += shift; });
+      list.forEach(function (n, i) { n.idxInLayer = i; });
+    });
+  }
+
+  /* ----------------------------------------------------------- render edges */
+
+  /* An edge that skips a layer is drawn straight across the picture and can
+   * pass behind a node it has nothing to do with. The wire is then occluded by
+   * that box (edges are painted under nodes), so the reader sees two loose
+   * segments and cannot tell which node the arrow came from.
+   *
+   * The fix is to route the control points through a horizontal LANE clear of
+   * every box the wire would cross. Candidates are the gaps between those
+   * boxes; the winner is the one whose curve actually spends the fewest
+   * samples inside a box — not the one nearest the straight line, because the
+   * closest lane can still cut a corner on its way in or out. Edges between
+   * adjacent columns are left alone: there is nothing between them to dodge. */
+  function laneFor(p, c, dy) {
+    if (c.layer - p.layer <= 1) return null;
+
+    var x1 = p.x + NODE_W / 2, x2 = c.x - NODE_W / 2;
+    var y1 = p.y + dy, y2 = c.y + dy;
+    var straight = (y1 + y2) / 2;
+    var dx = Math.max(26, (x2 - x1) * 0.45);     // must match edgeGeom
+    var PAD = 6;
+
+    /* Boxes between the two columns, as both a y-band and an x-range: the
+     * curve has to be clear of the band while it is inside the x-range. */
+    var blockers = [];
+    nodes.forEach(function (n) {
+      if (n === p || n === c) return;
+      var bx1 = n.x - NODE_W / 2, bx2 = n.x + NODE_W / 2;
+      if (bx2 < x1 + 6 || bx1 > x2 - 6) return;
+      blockers.push({ lo: n.y - NODE_H / 2 - PAD, hi: n.y + NODE_H / 2 + PAD,
+                      x1: bx1, x2: bx2 });
+    });
+    if (!blockers.length) return null;
+
+    function free(y) {
+      return blockers.every(function (b) { return y <= b.lo || y >= b.hi; });
+    }
+    if (free(straight)) return null;
+
+    /* How badly the curve trespasses: the count of samples inside a box, and
+     * how deep they are. Some layouts have no clean lane at all — every
+     * candidate clips something — and then the shallowest clip is the right
+     * answer, so depth has to be part of the score. */
+    function trespass(lane) {
+      var cx1 = x1 + dx, cx2 = x2 - dx;
+      var n = 0, depth = 0;
+      for (var i = 0; i <= 24; i++) {
+        var t = i / 24, u = 1 - t;
+        var a = u * u * u, b = 3 * u * u * t, cc = 3 * u * t * t, d = t * t * t;
+        var px = a * x1 + b * cx1 + cc * cx2 + d * x2;
+        var py = a * y1 + b * lane + cc * lane + d * y2;
+        for (var j = 0; j < blockers.length; j++) {
+          var bk = blockers[j];
+          if (px > bk.x1 && px < bk.x2 && py > bk.lo && py < bk.hi) {
+            n++;
+            depth += Math.min(py - bk.lo, bk.hi - py);
+            break;
+          }
+        }
+      }
+      return { n: n, depth: depth };
+    }
+
+    blockers.sort(function (a, b) { return a.lo - b.lo; });
+    var cands = [];
+    blockers.forEach(function (b) { cands.push(b.lo - PAD); });
+    /* Below the lowest box, at two depths: a shallow lane may still clip its
+     * bottom corner on the way back up to the child. */
+    var lowest = blockers[blockers.length - 1].hi;
+    cands.push(lowest + PAD, lowest + PAD + 18);
+
+    cands = cands.filter(function (y) { return y > 8 && y < VH - 8 && free(y); });
+    if (!cands.length) return null;
+
+    var scored = cands.map(function (y) {
+      var t = trespass(y);
+      return { y: y, n: t.n, depth: t.depth };
+    });
+    scored.sort(function (a, b) {
+      if (a.n !== b.n) return a.n - b.n;
+      if (Math.abs(a.depth - b.depth) > 1) return a.depth - b.depth;
+      return Math.abs(a.y - straight) - Math.abs(b.y - straight);
+    });
+    return scored[0].y;
+  }
+
+  function edgeGeom(p, c, dy, laneY) {
+    var x1 = p.x + NODE_W / 2, y1 = p.y + dy;
+    var x2 = c.x - NODE_W / 2, y2 = c.y + dy;
+    /* Control-point height: the lane when the edge has to dodge, otherwise the
+     * endpoints' own height, which gives the usual flat S. */
+    var k1 = laneY === undefined || laneY === null ? y1 : laneY;
+    var k2 = laneY === undefined || laneY === null ? y2 : laneY;
+    var dx = Math.max(26, (x2 - x1) * 0.45);
+    var cx1 = x1 + dx, cx2 = x2 - dx;
+    function pt(t) {
+      var u = 1 - t;
+      var a = u * u * u, b = 3 * u * u * t, cc = 3 * u * t * t, d = t * t * t;
+      return {
+        x: a * x1 + b * cx1 + cc * cx2 + d * x2,
+        y: a * y1 + b * k1 + cc * k2 + d * y2
+      };
+    }
+    return {
+      fwd: "M" + x1 + "," + y1
+         + " C" + cx1 + "," + k1 + " " + cx2 + "," + k2 + " " + x2 + "," + y2,
+      bwd: "M" + x2 + "," + y2
+         + " C" + cx2 + "," + k2 + " " + cx1 + "," + k1 + " " + x1 + "," + y1,
+      pt: pt,
+      /* A point a fixed HORIZONTAL DISTANCE past the parent end, rather than at
+       * a fixed fraction of the edge. A fraction breaks on edges that skip a
+       * layer: at t = 0.30 a two-layer edge puts its label 230 px from the
+       * parent, which is the middle of the picture where the node boxes are.
+       * A fixed distance always lands in the inter-layer gap, which is the one
+       * place on the canvas guaranteed to be empty. */
+      ptPx: function (px) {
+        var want = x1 + Math.min(px, (x2 - x1) * 0.44);
+        var lo = 0, hi = 1;
+        for (var i = 0; i < 18; i++) {
+          var mid = (lo + hi) / 2;
+          if (pt(mid).x < want) lo = mid; else hi = mid;
+        }
+        return pt((lo + hi) / 2);
+      }
+    };
+  }
+
+  /* Edge numbers do collide: two edges into the same child share a midpoint x
+   * whenever their parents share a column, and the layer-spacing pass can push
+   * their midpoints onto each other as well. Labels are a handful, so the
+   * cheapest correct thing is a sort and a push-down. */
+  function resolveLabels(list) {
+    list.sort(function (a, b) { return a.y - b.y || a.x - b.x; });
+    for (var i = 1; i < list.length; i++) {
+      for (var j = 0; j < i; j++) {
+        if (Math.abs(list[i].x - list[j].x) < 58 && list[i].y - list[j].y < 16) {
+          list[i].y = list[j].y + 16;
+        }
+      }
+    }
+    list.forEach(function (d) { d.el.setAttribute("y", d.y); });
+  }
+
+  function renderEdges() {
+    var layer = document.getElementById("layer-edges");
+    layer.textContent = "";
+
+    var ops = opNodes();
+    var M = ops.length;
+    var chain = chainEdgeSet();
+    var live = liveSet();
+    var st = bwdState();
+    var pending = [];
+    var picking = chain !== null;
+
+    /* Which edges are being worked on right now. During "receive" the active
+     * node is being handed its upstream gradient, so the hot edges are the ones
+     * arriving from its children; during "local" and "handoff" the hot edges
+     * are the ones leaving toward its parents. */
+    var hotEdges = {};
+    if (mode === "local" && st.node && st.sub >= 0) {
+      if (st.sub === 0) {
+        childrenOf(st.node.id).forEach(function (k) {
+          hotEdges[k.id + ":" + st.node.id] = true;
+        });
+      } else {
+        st.node.parents.forEach(function (pid) {
+          hotEdges[st.node.id + ":" + pid] = true;
+        });
+      }
+    }
+
+    nodes.forEach(function (c) {
+      if (c.op === "input") return;
+
+      c.parents.forEach(function (pid) {
+        var p = byId[pid];
+        var onChain = !!(chain && chain[c.id + ":" + p.id]);
+        var alive = !!live[c.id];
+        var cIdx = ops.indexOf(c);
+        var hot = !!hotEdges[c.id + ":" + p.id];
+        /* Stagger by this edge's rank among the parent's outgoing edges, not by
+         * the child's column index: two edges leaving the same parent start at
+         * the same point, so only their rank separates them. */
+        var sibIdx = childrenOf(p.id).indexOf(c);
+        var offPx = LABEL_OFF + LABEL_OFF_DT * (sibIdx < 0 ? 0 : sibIdx);
+
+        /* In local mode, edges of the node being walked win over everything. */
+        var localHot = mode === "local" && st.node && (st.node === c);
+        var dim = mode === "local" && st.node && !localHot &&
+                  !procDone(c) && c !== st.node;
+
+        function weight(base) {
+          if (picking) return onChain ? 2.2 : 1.2;
+          if (localHot) return hot ? 2.6 : 1.6;
+          return base;
+        }
+        function alpha(base) {
+          if (!alive) return 0.2;
+          if (picking) return onChain ? 1 : 0.22;
+          if (dim) return 0.3;
+          if (localHot) return hot ? 1 : 0.7;
+          return base;
+        }
+
+        /* ---- forward edge: parent -> child, arrow at the child ---- */
+        var laneY = laneFor(p, c, 0);
+        var gf = edgeGeom(p, c, 0, laneY);
+        var fwdDone = cIdx < fwdK;
+        var fwdHot = fwdK > 0 && cIdx === fwdK - 1;
+
+        layer.appendChild(mk("path", {
+          d: gf.fwd,
+          fill: "none",
+          "marker-end": "url(#ah)",
+          stroke: fwdDone ? C.ink : C.line,
+          "stroke-width": weight(fwdHot ? 2.2 : 1.4),
+          opacity: alpha(fwdDone ? 0.85 : 0.45),
+          /* Tagged so the probe can say which boxes this wire is allowed to
+           * touch: it may start at `from`, end at `to`, and nothing else.
+           * `data-span` is the layer gap — a wire between adjacent columns has
+           * nothing to dodge, so any box it crosses is avoidable and is a bug. */
+          "data-from": labelOf(p),
+          "data-to": labelOf(c),
+          "data-dir": "fwd",
+          "data-span": c.layer - p.layer
+        }));
+
+        /* The forward edge carries the parent's VALUE. It is dropped as soon as
+         * the backward pass starts, because from then on the edge carries a
+         * different number (the local gradient) and two labels on one wire
+         * always collide. The node boxes keep showing the values anyway. */
+        if (fwdDone && bwdK === 0) {
+          var pf = gf.ptPx(offPx);
+          var lf = halo(mkText({
+            x: pf.x, y: pf.y - 9,
+            "text-anchor": "middle", "font-size": "12"
+          }, fmt(p.value)), C.muted);
+          layer.appendChild(lf);
+          pending.push({ el: lf, x: pf.x, y: pf.y - 9 });
+        }
+
+        /* ---- backward edge: child -> parent, arrow at the parent */
+        if (bwdK > 0) {
+          var gb = edgeGeom(p, c, EDGE_DY, laneFor(p, c, EDGE_DY));
+          var cDone = procDone(c);
+          /* The local gradient only exists once it has been evaluated, which is
+           * sub-step 1. Before that the edge is drawn but unlabelled. */
+          var showLocal = cDone || (st.node === c && st.sub >= 1);
+
+          layer.appendChild(mk("path", {
+            d: gb.bwd,
+            fill: "none",
+            "marker-end": "url(#ah)",
+            stroke: cDone ? C.blue : C.line,
+            "stroke-width": weight(cDone ? 1.6 : 1.3),
+            "stroke-dasharray": cDone ? "none" : "5 4",
+            opacity: alpha(cDone ? 0.85 : 0.5),
+            "data-from": labelOf(c),
+            "data-to": labelOf(p),
+            "data-dir": "bwd",
+            "data-span": c.layer - p.layer
+          }));
+
+          if (showLocal) {
+            var pb = gf.ptPx(offPx);
+            var lb = halo(mkText({
+              x: pb.x, y: pb.y + EDGE_DY + 13,
+              "text-anchor": "middle", "font-size": "12"
+            }, "∂" + fmt(localOf(c, p))), C.blue);
+            layer.appendChild(lb);
+            pending.push({ el: lb, x: pb.x, y: pb.y + EDGE_DY + 13 });
+          }
+        }
+      });
+    });
+
+    resolveLabels(pending);
+  }
+
+  /* ----------------------------------------------------------- render nodes */
+
+  function renderNodes() {
+    var layer = document.getElementById("layer-nodes");
+    layer.textContent = "";
+
+    var ops = opNodes();
+    var live = liveSet();
+    var chain = chainEdgeSet();
+    var st = bwdState();
+
+    var chainNodes = {};
+    if (chain) {
+      Object.keys(chain).forEach(function (k) { chainNodes[k.split(":")[0]] = true; });
+    }
+
+    nodes.forEach(function (n) {
+      var onChain = n.id === sel || !!chainNodes[n.id];
+      var alive = !!live[n.id];
+      var isOut = n === out;
+      var active = mode === "local" && st.node === n;
+      var x = n.x - NODE_W / 2, y = n.y - NODE_H / 2;
+
+      var op = !alive ? 0.3
+             : (chain ? (onChain ? 1 : 0.32) : (active ? 1 : 1));
+
+      var g = mk("g", { "class": "nd", "data-id": n.id, "data-label": labelOf(n), opacity: op });
+
+      var stroke = onChain ? C.red : (active ? C.blue : (isOut ? C.ink : C.line));
+      var fill = onChain ? C.redSoft : (active ? C.blueSoft : "#ffffff");
+      g.appendChild(mk("rect", {
+        "class": "box",
+        x: x, y: y, width: NODE_W, height: NODE_H, rx: 9,
+        fill: fill, stroke: stroke,
+        "stroke-width": (onChain || active) ? 2.2 : (isOut ? 1.8 : 1.2)
+      }));
+
+      /* line 1: what this node is. "input a" or "s₁ = a + b". */
+      var def = n.op === "input"
+        ? "input " + n.key
+        : labelOf(n) + " = " + labelOf(byId[n.parents[0]]) + " " + OPS[n.op].sym + " "
+          + labelOf(byId[n.parents[1]]);
+      g.appendChild(mkText({
+        x: x + 11, y: y + 18, "font-size": "12.5", fill: C.muted
+      }, def));
+
+      /* line 2 left: the value. Inputs always show it; op nodes reveal it as
+       * the forward pass reaches them. */
+      var showVal = n.op === "input" || ops.indexOf(n) < fwdK;
+      g.appendChild(mkText({
+        x: x + 11, y: y + 39,
+        "font-size": "17", "font-weight": "700",
+        fill: showVal ? toneOf(n.value) : C.line
+      }, showVal ? fmt(n.value) : "—"));
+
+      /* line 2 right: the gradient. */
+      var showGrad = gradFinal(n);
+      g.appendChild(mkText({
+        x: x + NODE_W - 11, y: y + 39,
+        "text-anchor": "end", "font-size": "12.5",
+        fill: showGrad ? toneOf(n.grad) : C.line
+      }, showGrad ? "∂ " + fmt(n.grad) : "∂ —"));
+
+      g.addEventListener("click", function () { onPick(n.id); });
+      layer.appendChild(g);
+    });
+
+    /* legend, tucked into the free corner under the input column */
+    layer.appendChild(mkText({
+      x: 4, y: VH - 5, "font-size": "11.5", fill: C.muted
+    }, "→ forward: value      ← backward: local gradient ∂"));
+  }
+
+  /* ---------------------------------------------------------------- panel */
+
+  function row(key, val, pending) {
+    var d = document.createElement("div");
+    d.className = "p-row" + (pending ? " pending" : "");
+    var k = document.createElement("span");
+    k.className = "p-key";
+    k.textContent = key;
+    var v = document.createElement("span");
+    v.className = "p-val";
+    v.innerHTML = val;
+    d.appendChild(k);
+    d.appendChild(v);
+    return d;
+  }
+
+  function head(stepText, stepMuted, nodeText, phaseText) {
+    var d = document.createElement("div");
+    d.className = "p-head";
+    var s = document.createElement("span");
+    s.className = "p-step" + (stepMuted ? " muted" : "");
+    s.textContent = stepText;
+    var n = document.createElement("span");
+    n.className = "p-node";
+    n.textContent = nodeText;
+    var p = document.createElement("span");
+    p.className = "p-phase";
+    p.textContent = phaseText;
+    d.appendChild(s);
+    d.appendChild(n);
+    d.appendChild(p);
+    return d;
+  }
+
+  /* ---- local mode: the backward contract, one node at a time ---- */
+  function renderLocalPanel(body, side) {
+    var ops = opNodes();
+    var M = ops.length;
+    var st = bwdState();
+    var total = M * 3;
+
+    /* --- backward, three sub-steps per node --- */
+    if (bwdK > 0 && st.node) {
+      var n = st.node;
+      var p0 = byId[n.parents[0]], p1 = byId[n.parents[1]];
+      var L = labelOf(p0), R = labelOf(p1);
+      var nl = labelOf(n);
+      var rl = ruleOf(n, p0), rr = ruleOf(n, p1);
+      var dL = localOf(n, p0), dR = localOf(n, p1);
+
+      body.appendChild(head(
+        (bwdK) + " / " + total, false,
+        nl + " = " + L + " " + OPS[n.op].sym + " " + R,
+        "backward · " + SUBSTEPS[st.sub]
+      ));
+
+      body.appendChild(row("upstream",
+        "g<sub>" + nl + "</sub> = " + fmt(n.grad) +
+        (st.sub === 0 ? ' <em>← just received from the downstream node</em>' : ""),
+        false));
+
+      body.appendChild(row("local ∂",
+        "∂" + nl + "/∂" + L + " = "
+        + localTerm(rl, substitute(rl, L, p0.value, R, p1.value), dL) +
+        "   ·   ∂" + nl + "/∂" + R + " = "
+        + localTerm(rr, substitute(rr, L, p0.value, R, p1.value), dR),
+        st.sub < 1));
+
+      body.appendChild(row("handoff",
+        "g<sub>" + L + "</sub> += (" + fmt(n.grad) + ") × (" + fmt(dL) + ") = <b>"
+          + fmt(n.grad * dL) + "</b>" +
+        "   ·   g<sub>" + R + "</sub> += (" + fmt(n.grad) + ") × (" + fmt(dR) + ") = <b>"
+          + fmt(n.grad * dR) + "</b>",
+        st.sub < 2));
+
+      var sideNum = document.createElement("span");
+      sideNum.className = "co-num " + signClass(n.grad);
+      sideNum.textContent = fmt(n.grad);
+      var sideCap = document.createElement("span");
+      sideCap.className = "co-cap";
+      sideCap.textContent = "∂e/∂" + nl;
+      side.appendChild(sideCap);
+      side.appendChild(sideNum);
+      return;
+    }
+
+    /* --- forward: what the node computes, and what it must SAVE --- */
+    if (fwdK > 0) {
+      var m = ops[fwdK - 1];
+      var mL = labelOf(byId[m.parents[0]]), mR = labelOf(byId[m.parents[1]]);
+      var a = byId[m.parents[0]].value, b = byId[m.parents[1]].value;
+      var r = OPS[m.op].rule(mL, mR);
+
+      body.appendChild(head(
+        fwdK + " / " + M, false,
+        labelOf(m) + " = " + mL + " " + OPS[m.op].sym + " " + mR,
+        "forward · compute and save"
+      ));
+      body.appendChild(row("forward",
+        labelOf(m) + " = " + mL + " " + OPS[m.op].sym + " " + mR + " = "
+        + fmt(a) + " " + OPS[m.op].sym + " " + fmt(b) + " = <b>" + fmt(m.value) + "</b>",
+        false));
+      body.appendChild(row("saved",
+        OPS[m.op].saves === "nothing — both local gradients are constants"
+          ? '<em>' + OPS[m.op].saves + '</em>'
+          : OPS[m.op].saves + ": " + mL + " = <b>" + fmt(a) + "</b>, " + mR
+            + " = <b>" + fmt(b) + "</b>",
+        false));
+      var d = OPS[m.op].d(a, b);
+      body.appendChild(row("local ∂",
+        "∂" + labelOf(m) + "/∂" + mL + " = "
+        + localTerm(r[0], substitute(r[0], mL, a, mR, b), d[0]) +
+        "   ·   ∂" + labelOf(m) + "/∂" + mR + " = "
+        + localTerm(r[1], substitute(r[1], mL, a, mR, b), d[1]) +
+        '  <em>— ' + OPS[m.op].why + "</em>",
+        false));
+      return;
+    }
+
+    /* --- nothing has run yet --- */
+    body.appendChild(head("idle", true, "—", "local gradient"));
+    body.appendChild(row("forward",
+      '<em>Press Forward pass: each node computes its value and saves what the backward pass needs.</em>',
+      false));
+    body.appendChild(row("backward",
+      '<em>Press Backward pass: each node then runs three sub-steps — receive, local, handoff.</em>',
+      false));
+  }
+
+  /* ---- chain mode: the full derivative path from e down to the clicked node */
+  function renderChainPanel(body, side) {
+    if (sel === null) {
+      var h = document.createElement("div");
+      h.className = "p-hint";
+      h.textContent = "Click any node to expand the chain rule from " + labelOf(out)
+                    + " down to it, path by path.";
+      body.appendChild(h);
+      return;
+    }
+
+    var target = byId[sel];
+    var paths = pathsTo(sel);
+
+    if (!paths.length) {
+      var d = document.createElement("div");
+      d.className = "p-hint";
+      d.textContent = "\u201C" + labelOf(target) + "\u201D is not on any path from "
+                    + labelOf(out) + ", so backward never reaches it and its gradient stays 0.";
+      body.appendChild(d);
+      return;
+    }
+
+    var symParts = [], numParts = [];
+    paths.forEach(function (path) {
+      var s = [], v = [];
+      for (var i = 0; i + 1 < path.length; i++) {
+        var c = byId[path[i]], p = byId[path[i + 1]];
+        s.push("∂" + labelOf(c) + "/∂" + labelOf(p));
+        v.push(paren(fmt(localOf(c, p))));
+      }
+      symParts.push(s.join("·"));
+      numParts.push(v.length > 1 ? v.join("·") : v[0]);
+    });
+
+    var l1 = document.createElement("div");
+    l1.className = "p-chain-sym";
+    l1.textContent = "∂" + labelOf(out) + "/∂" + labelOf(target) + " = "
+                   + symParts.join("  +  ");
+    body.appendChild(l1);
+
+    var l2 = document.createElement("div");
+    l2.className = "p-chain-num";
+    l2.textContent = "= " + numParts.join("  +  ") + " = " + fmt(target.grad);
+    body.appendChild(l2);
+
+    var cap = document.createElement("span");
+    cap.className = "co-cap";
+    cap.textContent = "∂" + labelOf(out) + "/∂" + labelOf(target);
+    var num = document.createElement("span");
+    num.className = "co-num " + signClass(target.grad);
+    num.textContent = fmt(target.grad);
+    side.appendChild(cap);
+    side.appendChild(num);
+  }
+
+  function renderPanel() {
+    var body = document.getElementById("panel-body");
+    var side = document.getElementById("panel-side");
+    body.textContent = "";
+    side.textContent = "";
+    if (mode === "local") renderLocalPanel(body, side);
+    else renderChainPanel(body, side);
+  }
+
+  /* ------------------------------------------------------------- shell */
+
+  function renderInputs() {
+    var box = document.getElementById("inputs");
+    if (!box.dataset.built) {
+      INPUT_KEYS.forEach(function (k) {
+        var w = document.createElement("div");
+        w.className = "inp";
+        w.innerHTML = '<span class="inp-name">' + k + '</span>'
+          + '<input type="range" min="-3" max="3" step="0.1" data-k="' + k + '">'
+          + '<span class="inp-val" data-out="' + k + '"></span>';
+        box.appendChild(w);
+      });
+      box.dataset.built = "1";
+      box.addEventListener("input", function (e) {
+        var k = e.target.getAttribute("data-k");
+        if (!k) return;
+        inputValue[k] = Number(e.target.value);
+        recompute();
+        renderAll();
+      });
+    }
+    INPUT_KEYS.forEach(function (k) {
+      box.querySelector('input[data-k="' + k + '"]').value = inputValue[k].toFixed(1);
+      box.querySelector('[data-out="' + k + '"]').textContent = fmt(inputValue[k]);
+    });
+  }
+
+  function fillOperandSelects() {
+    var sels = [document.getElementById("sel-left"), document.getElementById("sel-right")];
+    var keep = sels.map(function (s) { return Number(s.value); });
+
+    sels.forEach(function (s) {
+      s.textContent = "";
+      nodes.forEach(function (n) {
+        var o = document.createElement("option");
+        o.value = String(n.id);
+        o.textContent = labelOf(n);
+        s.appendChild(o);
+      });
+    });
+
+    /* Default left operand is the current output and the right one is input a,
+     * so clicking Add twice in a row extends the chain by one layer — the most
+     * common thing to want. Keep an existing valid choice if there is one. */
+    sels[0].value = String(byId[keep[0]] ? keep[0] : out.id);
+    sels[1].value = String(byId[keep[1]] ? keep[1] : nodes[0].id);
+  }
+
+  function renderAll() {
+    layout();
+    renderEdges();
+    renderNodes();
+    renderPanel();
+    renderInputs();
+    document.getElementById("btn-add").disabled = opNodes().length >= MAX_OPS;
+    document.getElementById("formula").textContent = formulaText();
+    syncStepBtn();
+  }
+
+  /* -------------------------------------------------------- manual stepping
+   * The forward pass and the backward pass are one monotone walk: steps 1..M
+   * reveal the op nodes in topological order, then steps M+1..4M run the
+   * backward pass three sub-steps per node in reverse topological order. The
+   * position is DERIVED from fwdK/bwdK instead of being kept in a variable of
+   * its own, which is why the counter stays right through the auto-play, a node
+   * click and every probe hook without any of them knowing the button exists. */
+  function stepTotal() { return opNodes().length * 4; }
+  function stepPos() { return bwdK > 0 ? opNodes().length + bwdK : fwdK; }
+
+  /* What the walk is showing right now, by label. */
+  function stepState() {
+    var ops = opNodes();
+    var st = bwdState();
+    var pos = stepPos(), total = stepTotal();
+    var s = { pos: pos, total: total, done: total > 0 && pos >= total,
+              phase: null, node: null, sub: null, subName: null,
+              step: 0, passTotal: ops.length };
+    if (bwdK > 0 && st.node) {
+      s.phase = "bwd"; s.node = labelOf(st.node); s.sub = st.sub;
+      s.subName = SUBSTEPS[st.sub]; s.step = bwdK; s.passTotal = ops.length * 3;
+    } else if (fwdK > 0) {
+      s.phase = "fwd"; s.node = labelOf(ops[fwdK - 1]); s.step = fwdK;
+    }
+    return s;
+  }
+
+  function syncStepBtn() {
+    var b = document.getElementById("btn-step");
+    if (!b) return;
+    var pos = stepPos(), total = stepTotal();
+    b.querySelector(".st-n").textContent = pos + "/" + total;
+    b.classList.toggle("at-zero", pos === 0);
+    b.classList.toggle("done", total > 0 && pos >= total);
+  }
+
+  /* Set the mode and move the segmented control, without touching the walk.
+   * Split out of the two places that used to do this inline so that the step
+   * button can switch modes by exactly the path the toggle itself uses. */
+  function applyMode(m) {
+    if (m !== "chain" && m !== "local") return;
+    mode = m;
+    Array.prototype.forEach.call(document.getElementById("mode").children, function (b) {
+      b.classList.toggle("on", b.getAttribute("data-mode") === m);
+    });
+  }
+
+  /* One click, one step — all the way from an empty graph to the last handoff.
+   * Only the local panel narrates a walk (it is the mode that says what each
+   * step computes and what it saves), so stepping selects it. */
+  function stepOnce() {
+    var M = opNodes().length, T = M * 4;
+    applyMode("local");
+    if (stepper) stepper.stop();
+    phase = null;
+    sel = null;
+    var next = stepPos() + 1;
+    if (next > T) next = 1;               // past the last step: start over
+    if (next <= M) { fwdK = next; bwdK = 0; }
+    else { fwdK = M; bwdK = next - M; }
+    renderAll();
+    return stepState();
+  }
+
+  /* ---------------------------------------------------------- interaction */
+
+  function onPick(id) {
+    if (mode === "local") {
+      /* In local mode a click means "show me this node's contract", so jump
+       * the backward walk to that node's handoff sub-step. */
+      var ops = opNodes();
+      var i = ops.indexOf(byId[id]);
+      if (i < 0) return;
+      if (stepper) stepper.stop();
+      phase = null;
+      fwdK = ops.length;
+      bwdK = (ops.length - 1 - i) * 3 + 3;
+      renderAll();
+      return;
+    }
+    sel = id;
+    fwdK = opNodes().length;
+    bwdK = opNodes().length * 3;
+    renderAll();
+  }
+
+  function buildPreset(key) {
+    presetKey = key;
+    if (stepper) stepper.stop();
+    phase = null;
+    uid = 0; nodes = []; byId = {}; sel = null; fwdK = 0; bwdK = 0;
+
+    var ins = {};
+    INPUT_KEYS.forEach(function (k) { ins[k] = addInput(k); });
+
+    var made = [];
+    var preset = PRESETS.filter(function (p) { return p.key === key; })[0] || PRESETS[1];
+    preset.seq.forEach(function (step) {
+      function ref(name) {
+        if (ins[name]) return ins[name];
+        var m = /^s(\d+)$/.exec(name);
+        return made[Number(m[1]) - 1];
+      }
+      made.push(addOp(step[0], ref(step[1]).id, ref(step[2]).id));
+    });
+    out = made[made.length - 1];
+
+    recompute();
+    renderAll();
+    fillOperandSelects();
+  }
+
+  /* Same contract as _shared/widget-base.js createStepper: onStep is first
+   * called with a bare 0 to mean "reset", then once per 1-based step. */
+  function makeStepper(onStep) {
+    var timer = null;
+    return {
+      play: function (steps, ms) {
+        this.stop();
+        onStep(0);
+        var i = 0;
+        function tick() {
+          if (i >= steps.length) { timer = null; return; }
+          onStep(steps[i]);
+          i += 1;
+          timer = setTimeout(tick, ms);
+        }
+        timer = setTimeout(tick, 220);
+      },
+      stop: function () { if (timer) { clearTimeout(timer); timer = null; } },
+      isPlaying: function () { return timer !== null; }
+    };
+  }
+
+  function runSequence(which) {
+    var M = opNodes().length;
+    var steps = [];
+    var n = which === "fwd" ? M : M * 3;
+    for (var i = 1; i <= n; i++) steps.push(i);
+    phase = which;
+    sel = null;
+    stepper.play(steps, which === "fwd" ? 700 : 520);
+  }
+
+  stepper = makeStepper(function (s) {
+    var M = opNodes().length;
+    var k = (typeof s === "number" && s > 0) ? s : 0;
+    if (phase === "fwd") { fwdK = k; bwdK = 0; }
+    else if (phase === "bwd") { fwdK = M; bwdK = k; }
+    else { fwdK = 0; bwdK = 0; }
+    renderEdges();
+    renderNodes();
+    renderPanel();
+    /* The auto-play drives the same counter as the step button, so the readout
+     * tracks Forward pass and Backward pass too. */
+    syncStepBtn();
+  });
+
+  /* --------------------------------------------------------------- wiring */
+
+  (function bind() {
+    var selOp = document.getElementById("sel-op");
+    OP_KEYS.forEach(function (k) {
+      var o = document.createElement("option");
+      o.value = k;
+      o.textContent = OPS[k].label;
+      selOp.appendChild(o);
+    });
+
+    var selPre = document.getElementById("sel-preset");
+    PRESETS.forEach(function (p) {
+      var o = document.createElement("option");
+      o.value = p.key;
+      o.textContent = p.name;
+      o.title = p.hint;
+      selPre.appendChild(o);
+    });
+    selPre.value = presetKey;
+    selPre.title = (PRESETS.filter(function (p) { return p.key === presetKey; })[0] || {}).hint || "";
+    selPre.addEventListener("change", function () {
+      var hit = PRESETS.filter(function (p) { return p.key === selPre.value; })[0];
+      selPre.title = hit ? hit.hint : "";
+      buildPreset(selPre.value);
+    });
+
+    var modeBox = document.getElementById("mode");
+    modeBox.addEventListener("click", function (e) {
+      var btn = e.target.closest(".seg-btn");
+      if (!btn) return;
+      applyMode(btn.getAttribute("data-mode"));
+      if (stepper) stepper.stop();
+      phase = null;
+      sel = null;
+      fwdK = 0;
+      bwdK = 0;
+      renderAll();
+    });
+
+    document.getElementById("btn-add").addEventListener("click", function () {
+      if (opNodes().length >= MAX_OPS) return;
+      var fresh = addOp(
+        selOp.value,
+        Number(document.getElementById("sel-left").value),
+        Number(document.getElementById("sel-right").value)
+      );
+      out = fresh;
+      sel = null;
+      fwdK = 0;
+      bwdK = 0;
+      recompute();
+      renderAll();
+      fillOperandSelects();
+      document.getElementById("sel-left").value = String(fresh.id);
+    });
+
+    document.getElementById("btn-fwd").addEventListener("click", function () {
+      runSequence("fwd");
+    });
+    document.getElementById("btn-bwd").addEventListener("click", function () {
+      runSequence("bwd");
+    });
+    document.getElementById("btn-reset").addEventListener("click", function () {
+      buildPreset(presetKey);
+    });
+    document.getElementById("btn-step").addEventListener("click", function () {
+      stepOnce();
+    });
+  })();
+
+  /* ---------------------------------------------------------------- start */
+
+  buildPreset(presetKey);
+
+  /* Automation interface. Same convention as the other pages in widgets/: at
+   * least getStep() plus the current result. */
+  window.__widget = {
+    getStep: function () { return bwdK; },
+    getValue: function () { return out.value; },
+    getFormula: function () { return formulaText(); },
+    getMode: function () { return mode; },
+    setMode: function (m) {
+      if (m !== "chain" && m !== "local") return;
+      applyMode(m);
+      if (stepper) stepper.stop();
+      phase = null; sel = null; fwdK = 0; bwdK = 0;
+      renderAll();
+    },
+    getNodes: function () {
+      return nodes.map(function (n) {
+        return { label: labelOf(n), op: n.op, value: n.value, grad: n.grad };
+      });
+    },
+    getGrad: function (label) {
+      var n = findByLabel(label);
+      return n ? n.grad : null;
+    },
+    getLocal: function (childLabel, parentLabel) {
+      var c = findByLabel(childLabel), p = findByLabel(parentLabel);
+      return c && p ? localOf(c, p) : null;
+    },
+    getLocalRule: function (childLabel, parentLabel) {
+      var c = findByLabel(childLabel), p = findByLabel(parentLabel);
+      return c && p ? ruleOf(c, p) : null;
+    },
+    getGraph: function () {
+      return {
+        out: labelOf(out),
+        nodes: nodes.map(function (n) {
+          return {
+            label: labelOf(n),
+            op: n.op,
+            key: n.key || null,
+            parents: n.parents.map(function (id) { return labelOf(byId[id]); })
+          };
+        })
+      };
+    },
+    getPaths: function (label) {
+      var n = findByLabel(label);
+      return n ? pathsTo(n.id).map(function (path) {
+        return path.map(function (id) { return labelOf(byId[id]); });
+      }) : null;
+    },
+    /* Self-consistency assertion: the gradient printed on a node must equal the
+     * sum of the products over every path from e to it. If these ever differ,
+     * the picture and the arithmetic have come apart. */
+    getChainSum: function (label) {
+      var n = findByLabel(label);
+      if (!n) return null;
+      var total = 0;
+      pathsTo(n.id).forEach(function (path) {
+        var prod = 1;
+        for (var i = 0; i + 1 < path.length; i++) {
+          prod *= localOf(byId[path[i]], byId[path[i + 1]]);
+        }
+        total += prod;
+      });
+      return total;
+    },
+    /* The two lines the chain panel prints for the clicked node: the symbolic
+     * path expansion, and the same thing with numbers. */
+    getChainText: function () {
+      var s = document.querySelector("#panel-body .p-chain-sym");
+      var n = document.querySelector("#panel-body .p-chain-num");
+      return {
+        sym: s ? s.textContent : null,
+        num: n ? n.textContent : null
+      };
+    },
+    /* The backward contract, as text: upstream, local gradient, handoff. */
+    getContract: function (label) {
+      var n = findByLabel(label);
+      if (!n || n.op === "input") return null;
+      var p0 = byId[n.parents[0]], p1 = byId[n.parents[1]];
+      return {
+        node: labelOf(n),
+        op: n.op,
+        upstream: n.grad,
+        local: [
+          { to: labelOf(p0), rule: ruleOf(n, p0), value: localOf(n, p0) },
+          { to: labelOf(p1), rule: ruleOf(n, p1), value: localOf(n, p1) }
+        ],
+        handoff: [
+          { to: labelOf(p0), product: n.grad * localOf(n, p0) },
+          { to: labelOf(p1), product: n.grad * localOf(n, p1) }
+        ],
+        saves: OPS[n.op].saves
+      };
+    },
+    getPanelText: function () {
+      var b = document.getElementById("panel-body");
+      return b ? b.textContent : null;
+    },
+    getPanelRows: function () {
+      return Array.prototype.map.call(
+        document.querySelectorAll("#panel-body .p-row"),
+        function (r) {
+          return {
+            key: r.querySelector(".p-key").textContent,
+            value: r.querySelector(".p-val").textContent,
+            pending: r.classList.contains("pending")
+          };
+        }
+      );
+    },
+    getBackwardState: function () {
+      var st = bwdState();
+      return { node: st.node ? labelOf(st.node) : null, sub: st.sub,
+               subName: st.sub >= 0 ? SUBSTEPS[st.sub] : null, done: st.done };
+    },
+    setInput: function (k, v) { inputValue[k] = v; recompute(); renderAll(); },
+    addNode: function (op, leftLabel, rightLabel) {
+      var L = findByLabel(leftLabel), R = findByLabel(rightLabel);
+      if (!L || !R || opNodes().length >= MAX_OPS) return null;
+      var fresh = addOp(op, L.id, R.id);
+      out = fresh;
+      recompute();
+      renderAll();
+      fillOperandSelects();
+      return labelOf(fresh);
+    },
+    setPreset: function (k) { buildPreset(k); },
+    runForward: function () { fwdK = opNodes().length; bwdK = 0; renderAll(); },
+    runBackward: function () { fwdK = opNodes().length; bwdK = opNodes().length * 3; renderAll(); },
+    /* Park the forward walk on one node. The forward panel is per-node too
+     * (value, what got saved, the local derivative), so probing it needs the
+     * same kind of handle seekBackward() gives for the backward walk. */
+    seekForward: function (label) {
+      var ops = opNodes();
+      var i = ops.indexOf(findByLabel(label));
+      if (i < 0) return null;
+      fwdK = i + 1;
+      bwdK = 0;
+      renderAll();
+      return { node: labelOf(ops[i]), step: fwdK, total: ops.length };
+    },
+    /* Park the backward walk on one node's sub-step, for probing.
+     * Returns the same shape as getBackwardState(), so a caller can read the
+     * node by label instead of by the internal object. */
+    seekBackward: function (label, sub) {
+      var ops = opNodes();
+      var i = ops.indexOf(findByLabel(label));
+      if (i < 0) return null;
+      fwdK = ops.length;
+      bwdK = (ops.length - 1 - i) * 3 + Math.max(0, Math.min(2, sub === undefined ? 2 : sub)) + 1;
+      renderAll();
+      return window.__widget.getBackwardState();
+    },
+    select: function (label) { var n = findByLabel(label); if (n) onPick(n.id); },
+    isPlaying: function () { return stepper.isPlaying(); },
+    stop: function () { if (stepper) stepper.stop(); },
+
+    /* ---- the manual step control ---------------------------------------- */
+    /* Where the walk stands, in the same 1..4M numbering the button shows. */
+    getPos: function () { return stepPos(); },
+    getPosTotal: function () { return stepTotal(); },
+    /* Is the walk at its last step? The button's "done" style follows this. */
+    isWalkDone: function () { var t = stepTotal(); return t > 0 && stepPos() >= t; },
+    /* The exact string the button's counter is showing. */
+    getStepLabel: function () { return stepPos() + "/" + stepTotal(); },
+    /* What the button currently displays, read off the DOM rather than
+     * recomputed, so a counter that renders but never updates is caught. */
+    getStepText: function () {
+      var b = document.getElementById("btn-step");
+      return b ? b.textContent : null;
+    },
+    getStepDisabled: function () {
+      var b = document.getElementById("btn-step");
+      return b ? b.disabled : null;
+    },
+    isStepDone: function () {
+      var b = document.getElementById("btn-step");
+      return b ? b.classList.contains("done") : null;
+    },
+    /* What the current step displays: which pass, which node, which sub-step. */
+    getStepStatus: function () { return stepState(); },
+    /* One click of the button, in script. */
+    stepOnce: function () { return stepOnce(); },
+    /* Drive the button itself, so the wiring is exercised and not just the
+     * function behind it. */
+    clickStep: function () {
+      var b = document.getElementById("btn-step");
+      if (b) b.click();
+      return stepState();
+    }
+  };
+})();
+</script>
+</body>
+</html>

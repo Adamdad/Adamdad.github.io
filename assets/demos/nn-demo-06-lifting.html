@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A feature map makes XOR linear</title>
+<link rel="stylesheet" href="shared/widget-base.css">
+<style>
+  /* page-owned layout only; tokens and components come from widget-base.css */
+  .col-flat { flex: 1 1 auto; }
+  .col-lift { flex: 0 0 auto; }
+  .col-panel { flex: 0 0 250px; padding: 12px 14px; }
+
+  .w-grid { align-items: stretch; }
+  .col-panel { display: flex; flex-direction: column; }
+
+  /* The map itself, drawn in the slack the square canvases leave behind. The
+   * flat column is the only flexible one, so its leftover width would
+   * otherwise read as an accidental gap; naming the transformation there turns
+   * the two panels into a before/after rather than two unrelated pictures. */
+  .col-arrow {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    color: var(--red);
+  }
+  .col-arrow .a-glyph { font-size: 30px; line-height: 1; font-weight: 700; }
+  .col-arrow .a-arrow { font-size: 22px; line-height: 1; }
+  .col-arrow .a-cap {
+    font-size: var(--fs-micro);
+    color: var(--muted);
+    white-space: nowrap;
+    margin-top: 3px;
+  }
+
+  /* Size each canvas from its height. An auto-width flex item holding an SVG
+   * with width:100% is circular and collapses to the SVG's 300px default.
+   *
+   * The two canvases cannot share one rule, and the asymmetry is the point.
+   * A *growing* column (col-flat) takes its width from the row, so the square
+   * has to be declared on the SVG. A *content-sized* column (col-lift) has to
+   * take its width from its own height -- and that is exactly the case WebKit
+   * refuses to resolve while it measures intrinsic width. There the SVG is a
+   * flex item of a nested flex container (this .stage), its width is `auto`
+   * with `aspect-ratio`, and its height is a percentage: WebKit finds the
+   * cycle, contributes 0, and the column collapses to 0 px wide, so the 3D
+   * panel paints into nothing at all. Blink breaks the cycle the other way
+   * and gets 333.5 px. Measured 2026-09-16, same bytes, both engines:
+   *
+   *     Blink   #lift3d 333.5x333.5      WebKit  #lift3d 0x333.5
+   *
+   * Declaring the square on the column instead, and letting the SVG fill it,
+   * removes the cycle: the column's height is definite because the row
+   * stretches it, so aspect-ratio yields a definite width, and both engines
+   * then agree to the pixel. Dropping the percentage height is *not* an
+   * option -- measured, WebKit falls back to the SVG's 300 px default without
+   * it, and `align-self: stretch` does not substitute for it. */
+  .stage {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+  }
+  .stage svg { display: block; height: 100%; width: auto; touch-action: none; }
+  #flat { aspect-ratio: 1 / 1; }
+  /* Square, because the scene projects nearly square: the plane is a 1.6-unit
+   * square in XY and its own tilt supplies the vertical extent. Measured over
+   * the whole elevation range, the content is 2.23 wide by 2.69 tall, so a
+   * wider canvas would only add margin. */
+  .stage.col-lift { flex: 0 0 auto; height: 100%; aspect-ratio: 1 / 1; }
+  #lift3d { width: 100%; height: 100%; }
+
+  .stage-cap {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: var(--fs-micro);
+    color: var(--muted);
+  }
+
+  /* ------------------------------------------------------------ readout */
+  .x-title {
+    font-size: var(--fs-micro);
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 5px;
+  }
+  /* The one number the page is about: how many of the four points the current
+   * boundary gets right. It reads 3 before the lift and 4 after, and nothing
+   * about the classifier changes in between — which is the whole argument, so
+   * it gets the same big red numeral the XOR page gives its score. */
+  .x-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 2px;
+  }
+  .x-head .x-title { margin-bottom: 0; }
+  .x-score { display: flex; align-items: baseline; gap: 4px; }
+  .x-score b {
+    font-family: var(--mono);
+    font-size: 27px;
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: var(--red);
+  }
+  .x-score span {
+    font-family: var(--mono);
+    font-size: var(--fs-micro);
+    color: var(--muted);
+  }
+  .x-score b.flash { animation: score-flash 520ms var(--ease); }
+  @keyframes score-flash {
+    0%   { transform: scale(1); }
+    38%  { transform: scale(1.32); color: var(--ink); }
+    100% { transform: scale(1); }
+  }
+  .x-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 1.5px 0;
+    font-variant-numeric: tabular-nums;
+  }
+  .x-row span { color: var(--muted); }
+  .x-row b { font-weight: 700; }
+  .x-row.moved b { color: var(--red); }
+  .x-row .dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: baseline;
+  }
+  .x-row .dot-a { background: var(--red); }
+  .x-row .dot-b { background: var(--blue); }
+
+  .x-note {
+    margin: 9px 0 0;
+    padding-top: 8px;
+    border-top: 1px solid var(--line);
+    font-size: var(--fs-micro);
+    line-height: 1.5;
+    color: var(--ink);
+  }
+  .x-note em { font-style: normal; color: var(--muted); }
+
+  /* ------------------------------------------------------------- canvas */
+  /* Weights are quoted for a 340-unit viewBox drawn at ~344 px, so they are
+   * roughly the pixel widths you see. The flat panel's viewBox is 300 drawn at
+   * the same 344 px, i.e. about 15% denser, so its numbers below are set a
+   * little lower to land on the same optical weight. */
+  .floor { fill: none; stroke: var(--line); stroke-width: 1.3; }
+  .floor-fill { fill: var(--paper); }
+  /* A faint grid inside the floor. Without it the floor is just a quadrilateral
+   * and the panel reads as a flat diamond rather than as a ground plane seen
+   * from above — which matters because the whole page is about a height. */
+  .floor-grid { fill: none; stroke: #dfe4e8; stroke-width: 1; }
+  .zax { stroke: #c3cad0; stroke-width: 1.3; stroke-dasharray: 3 4; fill: none; }
+  .drop { stroke: #c3cad0; stroke-width: 1.4; stroke-dasharray: 2 4; fill: none; }
+
+  /* The signed margin from each lifted point to the separating plane. Solid and
+   * class-coloured so it reads as a measurement rather than as another guide
+   * line — the dashed greys above are scaffolding, this is the answer. */
+  .stem { stroke-width: 3; stroke-linecap: round; fill: none; }
+  .stem-a { stroke: var(--red); }
+  .stem-b { stroke: var(--blue); }
+
+  /* No opacity here: a CSS rule beats an SVG presentation attribute, so
+   * declaring opacity in this file would silently pin the plane at 1 and kill
+   * the fade. Opacity is driven from JS as an attribute instead.
+   *
+   * The fill is deliberately thin. At 14% the sheet is a solid pink field that
+   * the four points and their margin stems have to compete with, and the stems
+   * are the only thing on this page that says which side of the sheet a point
+   * is on — so the sheet gives way to them rather than the other way round. */
+  .plane { fill: rgba(154, 25, 33, 0.10); stroke: var(--red); stroke-width: 1.7; }
+
+  .pt { stroke: #fff; stroke-width: 1.6; }
+  .pt-a { fill: var(--red); }
+  .pt-b { fill: var(--blue); }
+  /* Hollow = the boundary puts this point on the wrong side. Filled versus
+   * hollow reads at a glance in a way that a ring-colour change does not, and
+   * it is what makes the score above verifiable by eye instead of trusted. */
+  .pt.wrong { fill: #fff; stroke-width: 2.8; }
+  .pt.wrong.pt-a { stroke: var(--red); }
+  .pt.wrong.pt-b { stroke: var(--blue); }
+  /* Points on the far side of the sheet are seen through it. The fill alone is
+   * too pale to carry that on its own — a 14% wash over the blue moves it by
+   * about twenty levels out of 255 — so the dimming states it outright. */
+  .pt-under { opacity: 0.72; }
+
+  .flat-tint-a { fill: var(--red-soft); }
+  .flat-tint-b { fill: var(--blue-soft); }
+  .flat-line { stroke: var(--ink); stroke-width: 1.8; stroke-dasharray: 6 5; fill: none; }
+  /* the at-rest boundary is a real boundary, not a guide line, so it is solid */
+  .flat-line-solid { stroke-dasharray: none; }
+
+  .tag {
+    font-family: var(--mono);
+    font-size: 12px;
+    fill: var(--muted);
+    dominant-baseline: central;
+  }
+  .tag-strong { fill: var(--ink); font-weight: 700; }
+</style>
+</head>
+<body>
+
+<header class="w-head">
+  <div class="w-head-main">
+    <h1 class="w-title">A feature map makes XOR linear</h1>
+    <span class="w-formula">&psi;(x) = [x&#8321;, x&#8322;, x&#8321;x&#8322;]<sup>T</sup></span>
+  </div>
+  <div class="w-actions">
+    <button class="w-btn w-btn-primary" id="lift" type="button">Lift</button>
+    <button class="w-btn" id="reset" type="button">Reset</button>
+  </div>
+</header>
+
+<div class="w-grid">
+
+  <section class="stage col-flat">
+    <span class="stage-cap" id="capFlat">Original space &mdash; the best a single line can do</span>
+    <svg id="flat" viewBox="0 0 300 300" preserveAspectRatio="xMidYMid meet"
+         role="img" aria-label="XOR points in the original two-dimensional space">
+      <g id="flatScene"></g>
+    </svg>
+  </section>
+
+  <div class="col-arrow" aria-hidden="true">
+    <span class="a-glyph">&psi;</span>
+    <span class="a-arrow">&rarr;</span>
+    <span class="a-cap">lift</span>
+  </div>
+
+  <section class="stage col-lift">
+    <span class="stage-cap">After &psi; &mdash; drag to rotate</span>
+    <svg id="lift3d" viewBox="0 0 340 340" preserveAspectRatio="xMidYMid meet"
+         role="img" aria-label="The lifted points in three dimensions with a separating plane">
+      <g id="scene3d"></g>
+    </svg>
+  </section>
+
+  <aside class="w-panel col-panel">
+    <div class="x-head">
+      <span class="x-title">Separated</span>
+      <span class="x-score"><b id="score">3</b><span>/ 4</span></span>
+    </div>
+    <div class="x-title">Lifted coordinates</div>
+    <div class="x-row"><span><i class="dot dot-a"></i>(0,0)</span><b>&#8594; (0, 0, 0)</b></div>
+    <div class="x-row"><span><i class="dot dot-b"></i>(0,1)</span><b>&#8594; (0, 1, 0)</b></div>
+    <div class="x-row"><span><i class="dot dot-b"></i>(1,0)</span><b>&#8594; (1, 0, 0)</b></div>
+    <div class="x-row moved"><span><i class="dot dot-a"></i>(1,1)</span><b>&#8594; (1, 1, 1)</b></div>
+
+    <p class="x-note" id="note">
+      The classifier is one expression, <b>4x&#8321;x&#8322; &minus; 2x&#8321;
+      &minus; 2x&#8322; + 1</b>, and the product term is not available yet, so it
+      collapses to a single line &mdash; good for <b>3 of the 4</b>. Press
+      <b>Lift</b>. <em>The coefficients will not change.</em>
+    </p>
+  </aside>
+
+</div>
+
+<script src="shared/widget-base.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  /* ------------------------------------------------------------- data */
+  var PTS = [
+    { p: [0, 0], cls: "a" },
+    { p: [0, 1], cls: "b" },
+    { p: [1, 0], cls: "b" },
+    { p: [1, 1], cls: "a" }
+  ];
+
+  /* The separating plane, in lifted coordinates (X, Y, Z) = (x1, x2, x1*x2):
+   *
+   *     4Z - 2X - 2Y + 1 = 0        i.e.  Z = (2X + 2Y - 1) / 4
+   *
+   * Substituting the lifted points gives +1 for both reds and -1 for both
+   * blues, so it separates them. Pulling it back through the surface Z = x1*x2
+   * gives  4*x1*x2 - 2*x1 - 2*x2 + 1 = 0,  which factors exactly as 4*u*v with
+   * u = x1 - 0.5 and v = x2 - 0.5. So the decision boundary in the original
+   * space is the pair of lines x1 = 0.5 and x2 = 0.5 — a cross, not a line.
+   * That is the whole point of the page, so the constants are derived rather
+   * than tuned by eye. */
+  function planeZ(X, Y) { return (2 * X + 2 * Y - 1) / 4; }
+
+  /* The plane is drawn as a square sheet in XY, deliberately larger than the
+   * unit square so it reads as continuing past the points rather than clipping
+   * them. Its overhang is a three-way trade and 0.35 is where it settles:
+   *   - 0.15 puts three of the four data points 2 px from the sheet's edge,
+   *     which reads as a rendering accident rather than a decision;
+   *   - every 0.05 of extra overhang costs scale, because the sheet's corners
+   *     set the projected bounding box (SCALE 169 at 0.15, 147 at 0.25, 129
+   *     at 0.35, 100 at 0.60);
+   *   - and past about 0.35 the sheet swallows the floor square, which is the
+   *     only thing giving the scene a z = 0 reference.
+   * At 0.35 the points sit 19/44/19/28 px clear of the boundary and the floor
+   * is still legible. */
+  var PLO = -0.35, PHI = 1.35;
+
+  /* Which side of the separating plane a point is on. This is the plane written
+   * as an implicit function rather than solved for Z — the same surface as
+   * planeZ, i.e. side([x, y, planeZ(x, y)]) === 0 by construction. That
+   * consistency is the point: if the two ever disagree, the depth sort below
+   * sorts against a surface the page is not drawing. Negative is the red side
+   * (above the plane), positive the blue side. */
+  function side(p) { return 2 * p[0] + 2 * p[1] - 4 * p[2] - 1; }
+
+  /* ------------------------------------------------------- 3D projection */
+  /* Hand-rolled orthographic projection: no CDN, and a camera this simple does
+   * not justify a library. Z maps to screen-up, so the lift reads as height. */
+  /* Camera fitted to the measured envelope rather than tuned by eye. Over the
+   * whole orbit below the scene projects to 2.4042 x 2.1640 world units; the
+   * fit box is 312 x 296 px (14 px side margins, 22 px top, 14 px bottom, plus
+   * 8 px reserved for the caption), giving
+   *     SCALE = floor(min(312 / 2.4042, 296 / 2.1640)) = 129 px per unit
+   * and a centre at (170, 154). Verified by sweeping 241 azimuths x 81
+   * elevations: the content stays inside x 15..325 and y 30..309, so nothing
+   * leaves the canvas and the caption never collides with the scene.
+   *
+   * The default azimuth is the one that matters most. The plane rises along
+   * (1,1), so a camera looking along that direction sees the slope foreshortened
+   * into nothing: at AZ0 = +0.62 the sheet's projected area is 11 100 px^2 and
+   * it reads as a flat diamond. Looking across the slope instead (AZ0 = -0.80,
+   * perpendicular to (1,1)) and raising the elevation gives 38 100 px^2 — 3.4x
+   * the area, at the same scale, for the same sheet. */
+  var CEN = [0.5, 0.5, 0.42];
+  var SCALE = 129;
+  var CX = 170, CY = 154;
+
+  var AZ0 = -0.80, EL0 = 0.90;
+  /* Bounded orbit, because the scale above is fitted to it. The azimuth span is
+   * kept narrow deliberately: the fitted scale survives any azimuth (the sheet
+   * is symmetric about the centre, so the projected width peaks at 45 degrees
+   * whatever the span), but the *view* does not — swing far from AZ0 and the
+   * plane flattens back into a line. */
+  var AZ_SPAN = 0.55;
+  var EL_MIN = 0.25, EL_MAX = 1.05;
+  var az = AZ0, el = EL0;
+
+  function project(p) {
+    var qx = p[0] - CEN[0], qy = p[1] - CEN[1], qz = p[2] - CEN[2];
+    var ca = Math.cos(az), sa = Math.sin(az);
+    var u = qx * ca + qy * sa;          // recedes into the screen
+    var v = -qx * sa + qy * ca;         // runs across the screen
+    var ce = Math.cos(el), se = Math.sin(el);
+    var up = qz * ce - u * se;          // screen-up, before the y flip
+    return [CX + v * SCALE, CY - up * SCALE];
+  }
+
+  /* ------------------------------------------------------------- state */
+  var lift = 0;        // 0 = flat on the floor, 1 = fully lifted
+  var planeOn = false;
+  var planeFade = 0;   // the plane and its 2D pullback fade in together
+  var raf = null;
+  var playing = false;
+
+  var svg3d = document.getElementById("lift3d");
+  var scene3d = document.getElementById("scene3d");
+  var flatScene = document.getElementById("flatScene");
+  var note = document.getElementById("note");
+  var outScore = document.getElementById("score");
+  var capFlat = document.getElementById("capFlat");
+  var lastScore = -1;   // so the score only flashes when it actually changes
+
+  function n2(v) { return v.toFixed(2); }
+  function seg(a, b) {
+    var q = project(a), r = project(b);
+    return "M" + n2(q[0]) + " " + n2(q[1]) + "L" + n2(r[0]) + " " + n2(r[1]);
+  }
+
+  function lifted(p) { return [p[0], p[1], lift * p[0] * p[1]]; }
+
+  /* ---------------------------------------------------------- the 3D view */
+  function draw3d() {
+    var o = "";
+    var i, L;
+
+    /* floor: the unit square the points sit on */
+    o += '<polygon class="floor-fill" points="' +
+         [[0, 0], [1, 0], [1, 1], [0, 1]].map(function (p) {
+           var q = project([p[0], p[1], 0]);
+           return n2(q[0]) + "," + n2(q[1]);
+         }).join(" ") + '"/>';
+    o += '<path class="floor" d="' + seg([0, 0, 0], [1, 0, 0]) +
+         seg([1, 0, 0], [1, 1, 0]) + seg([1, 1, 0], [0, 1, 0]) +
+         seg([0, 1, 0], [0, 0, 0]) + '"/>';
+    /* One line each way, so the floor reads as a plane receding rather than as
+     * a diamond. Orthographic projection gives no other depth cue, and without
+     * one the four points at rest look like a flat picture of themselves. */
+    o += '<path class="floor-grid" d="' + seg([0.5, 0, 0], [0.5, 1, 0]) +
+         seg([0, 0.5, 0], [1, 0.5, 0]) + '"/>';
+    o += '<path class="zax" d="' + seg([0, 0, 0], [0, 0, 1]) + '"/>';
+
+    /* drop lines: an orthographic projection gives no sense of how far a point
+     * has risen, so the height has to be drawn explicitly. Drawn before the
+     * plane so the sheet washes over the parts that pass behind it. */
+    for (i = 0; i < PTS.length; i += 1) {
+      L = lifted(PTS[i].p);
+      if (L[2] > 1e-3) o += '<path class="drop" d="' + seg([L[0], L[1], 0], L) + '"/>';
+    }
+
+    /* The plane and the points have to be depth-sorted, and from a high camera
+     * that is not optional: a point *under* the sheet still projects inside the
+     * sheet's outline, so drawing every point last would paint the blues on top
+     * of the plane and read as "on it" — the exact opposite of the page's
+     * claim. Drawing the below-points first and letting the translucent sheet
+     * wash over them puts them visually under the glass, which is where they
+     * are. Above-points go after, and stay crisp. */
+    var above = [], below = [];
+    for (i = 0; i < PTS.length; i += 1) {
+      (side(lifted(PTS[i].p)) < 0 ? above : below).push(PTS[i]);
+    }
+
+    function dot(pt, under) {
+      var q = project(lifted(pt.p));
+      return '<circle class="pt pt-' + pt.cls + (under ? " pt-under" : "") +
+             '" cx="' + n2(q[0]) + '" cy="' + n2(q[1]) + '" r="7.5"/>';
+    }
+
+    if (planeOn) {
+      for (i = 0; i < below.length; i += 1) o += dot(below[i], true);
+      var corners = [
+        [PLO, PLO], [PHI, PLO], [PHI, PHI], [PLO, PHI]
+      ].map(function (c) {
+        var q = project([c[0], c[1], planeZ(c[0], c[1])]);
+        return n2(q[0]) + "," + n2(q[1]);
+      });
+      o += '<polygon class="plane" opacity="' + planeFade.toFixed(3) +
+           '" points="' + corners.join(" ") + '"/>';
+
+      /* The signed margin, drawn. From any camera high enough to show the sheet
+       * as a sheet, the sheet's silhouette contains every point — that is
+       * geometry, not a bad camera: a plane seen from above covers whatever is
+       * beneath it. So the outline can never say which side a point is on, and
+       * the page has to state it some other way. The lifted points make that
+       * easy. Their vertical gap to the plane is +0.25 for both reds and -0.25
+       * for both blues — same magnitude, opposite sign — so one vertical
+       * hairline per point is a complete and honest account of the margin, and
+       * the sign is carried by which way the hairline runs. */
+      for (i = 0; i < PTS.length; i += 1) {
+        var P = lifted(PTS[i].p);
+        o += '<path class="stem stem-' + PTS[i].cls + '" d="' +
+             seg([P[0], P[1], planeZ(P[0], P[1])], P) + '"/>';
+      }
+
+      for (i = 0; i < above.length; i += 1) o += dot(above[i]);
+    } else {
+      for (i = 0; i < PTS.length; i += 1) o += dot(PTS[i]);
+    }
+
+    var zt = project([0, 0, 1]);
+    o += '<text class="tag tag-strong" x="' + n2(zt[0] - 9) + '" y="' + n2(zt[1] - 8) +
+         '" text-anchor="end">x&#8321;x&#8322;</text>';
+
+    scene3d.innerHTML = o;
+  }
+
+  /* -------------------------------------------------------- the 2D view */
+  /* A fixed window on the original space, same rule as every other page here. */
+  var FV = 300, FW0 = -0.28, FSPAN = 1.56, FS = FV / FSPAN;
+
+  function fx(x) { return (x - FW0) * FS; }
+  function fy(y) { return FV - (y - FW0) * FS; }
+  function fpt(p) { return [fx(p[0]), fy(p[1])]; }
+
+  /* ONE expression, evaluated twice.
+   *
+   * The separating plane is 4Z - 2X - 2Y + 1 = 0. Pulled back through the
+   * surface Z = x1*x2 it becomes 4*x1*x2 - 2*x1 - 2*x2 + 1, which factors
+   * exactly as 4*(x1 - 0.5)*(x2 - 0.5) — the cross. Before the lift the product
+   * term is simply not available, so Z is 0 and the SAME expression collapses to
+   * the line 2*x1 + 2*x2 = 1, which gets 3 of the 4 points right.
+   *
+   * That is the page's entire claim — the coefficients never change, only the
+   * coordinates they are handed — so the expression is written once and called
+   * with the product term switched on and off, rather than restated twice. If
+   * the two were written separately they could drift, and the claim would be a
+   * coincidence instead of a construction. */
+  function pullback(p, productOn) {
+    var Z = productOn ? p[0] * p[1] : 0;
+    return 4 * Z - 2 * p[0] - 2 * p[1] + 1;
+  }
+
+  /* A line is not directed, so score both labellings of the two half-planes and
+   * keep the better one — the same rule the XOR page uses, so the 3 this page
+   * starts on is the 3 that page proves is the ceiling. */
+  function pullbackScore(productOn) {
+    var plusA = 0, plusB = 0, i;
+    for (i = 0; i < PTS.length; i += 1) {
+      if ((pullback(PTS[i].p, productOn) > 0) === (PTS[i].cls === "a")) {
+        plusA += 1;
+      } else {
+        plusB += 1;
+      }
+    }
+    return plusA >= plusB
+      ? { n: plusA, plusIsA: true }
+      : { n: plusB, plusIsA: false };
+  }
+
+  function pullbackRight(pt, productOn) {
+    var sc = pullbackScore(productOn);
+    var plus = pullback(pt.p, productOn) > 0;
+    return sc.plusIsA ? plus === (pt.cls === "a") : plus === (pt.cls === "b");
+  }
+
+  /* Quadrant tints: the sign of (x1-0.5)*(x2-0.5). Positive quadrants are the
+   * two red corners, negative the two blue ones — which is exactly the
+   * checkerboard the cross has to produce to separate XOR. */
+  var QUADS = [
+    [0, 0, "a"], [0.5, 0.5, "a"], [0, 0.5, "b"], [0.5, 0, "b"]
+  ];
+
+  function drawFlat() {
+    var o = "";
+    var i;
+
+    /* ---- the line, which is the plane with the product term unavailable ----
+     * Faded out as the cross fades in, so the swap reads as one boundary
+     * becoming another rather than as two unrelated pictures. */
+    var lineOp = 1 - planeFade;
+    if (lineOp > 0.004) {
+      var lsc = pullbackScore(false);
+      var A = fpt([0.5, 0]), B = fpt([0, 0.5]);
+      var ux = B[0] - A[0], uy = B[1] - A[1];
+      var ul = Math.sqrt(ux * ux + uy * uy) || 1;
+      ux /= ul; uy /= ul;
+      var nx = -uy, ny = ux;
+      /* Orient the normal so it points at the half-plane pullback() calls +.
+       * Ask the FUNCTION which side the probe is on rather than assuming it.
+       * (1,1) reads like the obvious probe — it is the corner the lift moves —
+       * but pullback([1,1], false) is -3, so assuming it sat on the + side
+       * flipped the normal onto the - side and painted each half-plane with
+       * the other class's tint: red-soft over the blue side and blue-soft over
+       * the red one. (0,0) and (1,1) always land on opposite sides of this
+       * line, so probing whichever one pullback() calls + is enough. */
+      var probeP = pullback([0, 0], false) > 0 ? [0, 0] : [1, 1];
+      var probe = fpt(probeP);
+      if ((probe[0] - A[0]) * nx + (probe[1] - A[1]) * ny < 0) { nx = -nx; ny = -ny; }
+      var FAR = 900;
+      var e1 = [A[0] + ux * FAR, A[1] + uy * FAR];
+      var e2 = [A[0] - ux * FAR, A[1] - uy * FAR];
+      /* The "-" half fills the canvas and the "+" half is laid over it as a huge
+       * quad, which the viewBox clips — the same trick the XOR page uses. */
+      o += '<rect class="flat-tint-' + (lsc.plusIsA ? "b" : "a") + '" x="0" y="0" ' +
+           'width="' + FV + '" height="' + FV + '" opacity="' + lineOp.toFixed(3) + '"/>';
+      o += '<polygon class="flat-tint-' + (lsc.plusIsA ? "a" : "b") + '" opacity="' +
+           lineOp.toFixed(3) + '" points="' +
+           [e1, e2,
+            [e2[0] + nx * FAR, e2[1] + ny * FAR],
+            [e1[0] + nx * FAR, e1[1] + ny * FAR]].map(function (q) {
+              return n2(q[0]) + "," + n2(q[1]);
+            }).join(" ") + '"/>';
+      o += '<path class="flat-line flat-line-solid" opacity="' + lineOp.toFixed(3) +
+           '" d="M' + n2(e2[0]) + " " + n2(e2[1]) + "L" +
+           n2(e1[0]) + " " + n2(e1[1]) + '"/>';
+    }
+
+    /* ---- the cross, which is the same plane with the product term live ---- */
+    if (planeFade > 0.004) {
+      for (i = 0; i < QUADS.length; i += 1) {
+        var q = QUADS[i];
+        var a = fpt([q[0], q[1]]);
+        var b = fpt([q[0] + 0.5, q[1] + 0.5]);
+        o += '<rect class="flat-tint-' + q[2] + '" x="' + n2(a[0]) + '" y="' + n2(b[1]) +
+             '" width="' + n2(b[0] - a[0]) + '" height="' + n2(a[1] - b[1]) +
+             '" opacity="' + planeFade.toFixed(3) + '"/>';
+      }
+      o += '<g opacity="' + planeFade.toFixed(3) + '">';
+      o += '<path class="flat-line" d="M' + n2(fx(0.5)) + " " + n2(fy(-0.28)) +
+           "L" + n2(fx(0.5)) + " " + n2(fy(1.28)) + '"/>';
+      o += '<path class="flat-line" d="M' + n2(fx(-0.28)) + " " + n2(fy(0.5)) +
+           "L" + n2(fx(1.28)) + " " + n2(fy(0.5)) + '"/>';
+      o += "</g>";
+    }
+
+    /* ---- the points, hollow when the current boundary gets them wrong ---- */
+    for (i = 0; i < PTS.length; i += 1) {
+      var p = fpt(PTS[i].p);
+      o += '<circle class="pt pt-' + PTS[i].cls +
+           (pullbackRight(PTS[i], planeOn) ? "" : " wrong") +
+           '" cx="' + n2(p[0]) + '" cy="' + n2(p[1]) + '" r="7"/>';
+    }
+
+    var t0 = fpt([0, 0]), t1 = fpt([1, 1]);
+    o += '<text class="tag" x="' + n2(t0[0] - 8) + '" y="' + n2(t0[1] + 15) +
+         '" text-anchor="end">(0,0)</text>';
+    o += '<text class="tag" x="' + n2(t1[0] + 8) + '" y="' + n2(t1[1] - 10) +
+         '">(1,1)</text>';
+
+    flatScene.innerHTML = o;
+
+    /* ---- the score, which is the one thing the page asks you to watch ---- */
+    var now = pullbackScore(planeOn).n;
+    outScore.textContent = String(now);
+    if (now !== lastScore) {
+      /* Re-add the class from a clean slate: the animation has to restart on the
+       * next change, and re-adding a class that is already present does not do
+       * that. The reflow read in between is what makes it a new animation. */
+      outScore.classList.remove("flash");
+      void outScore.offsetWidth;
+      outScore.classList.add("flash");
+      lastScore = now;
+    }
+  }
+
+  function render() {
+    draw3d();
+    drawFlat();
+  }
+
+  /* --------------------------------------------------------- animation */
+  /* One generic tween, so the lift and the plane fade share a clock. Clamp k at
+   * both ends: the first rAF timestamp marks the start of the frame and can
+   * precede the performance.now() taken when the frame was requested, which
+   * would drive the ease-out factor negative and extrapolate past the start. */
+  function tween(dur, apply, done) {
+    if (raf) cancelAnimationFrame(raf);
+    var t0 = performance.now();
+    playing = true;
+    function frame(now) {
+      var k = Math.min(Math.max((now - t0) / dur, 0), 1);
+      var e = 1 - Math.pow(1 - k, 3);
+      apply(e);
+      render();
+      if (k < 1) {
+        raf = requestAnimationFrame(frame);
+      } else {
+        raf = null;
+        playing = false;
+        apply(1);
+        render();
+        if (done) done();
+      }
+    }
+    raf = requestAnimationFrame(frame);
+  }
+
+  function setNote(html) { note.innerHTML = html; }
+
+  /* The caption has to follow the state, not announce the conclusion. "a cross,
+   * not a line" is the page's punchline; printed from the start it tells the
+   * student the answer before the line has even been drawn. */
+  var CAP_START = "Original space \u2014 the best a single line can do";
+  var CAP_LIFTED = "Original space \u2014 a cross, not a line";
+  function setCap(t) { capFlat.textContent = t; }
+
+  var NOTE_START =
+    "The classifier is one expression, <b>4x&#8321;x&#8322; &minus; 2x&#8321; " +
+    "&minus; 2x&#8322; + 1</b>, and the product term is not available yet, so it " +
+    "collapses to a single line &mdash; good for <b>3 of the 4</b>. Press " +
+    "<b>Lift</b>. <em>The coefficients will not change.</em>";
+
+  var NOTE_LIFTED =
+    "The same four coefficients, now that <b>x&#8321;x&#8322;</b> is a " +
+    "coordinate. The expression factors as <b>4(x&#8321; &minus; &frac12;)" +
+    "(x&#8322; &minus; &frac12;)</b>, so its zero set is the <b>cross</b> on the " +
+    "left &mdash; and all four points fall on the right side. " +
+    "<em>Nothing was retrained.</em>";
+
+  document.getElementById("lift").addEventListener("click", function () {
+    planeOn = false;
+    planeFade = 0;
+    lift = 0;
+    render();
+    tween(760, function (e) { lift = e; }, function () {
+      planeOn = true;
+      tween(340, function (e) { planeFade = e; }, function () {
+        setNote(NOTE_LIFTED);
+        setCap(CAP_LIFTED);
+      });
+    });
+  });
+
+  document.getElementById("reset").addEventListener("click", function () {
+    if (raf) cancelAnimationFrame(raf);
+    raf = null;
+    playing = false;
+    lift = 0;
+    planeOn = false;
+    planeFade = 0;
+    az = AZ0;
+    el = EL0;
+    render();
+    setNote(NOTE_START);
+    setCap(CAP_START);
+  });
+
+  /* ------------------------------------------------------ rotate by drag */
+  var dragging = false;
+  var last = null;
+
+  svg3d.addEventListener("pointerdown", function (evt) {
+    dragging = true;
+    last = [evt.clientX, evt.clientY];
+    evt.preventDefault();
+    try { svg3d.setPointerCapture(evt.pointerId); } catch (e) { /* older engines */ }
+  });
+
+  svg3d.addEventListener("pointermove", function (evt) {
+    if (!dragging) return;
+    var dx = evt.clientX - last[0];
+    var dy = evt.clientY - last[1];
+    last = [evt.clientX, evt.clientY];
+    /* Both angles are clamped, and not only for the camera fit: an unclamped
+     * elevation lets the scene roll past horizontal, where "height" stops
+     * meaning anything and the lift animation reads as a sideways slide. */
+    az = Math.min(Math.max(az + dx * 0.01, AZ0 - AZ_SPAN), AZ0 + AZ_SPAN);
+    el = Math.min(Math.max(el - dy * 0.01, EL_MIN), EL_MAX);
+    render();
+  });
+
+  function endDrag(evt) {
+    if (!dragging) return;
+    dragging = false;
+    try { svg3d.releasePointerCapture(evt.pointerId); } catch (e) { /* ignore */ }
+  }
+  svg3d.addEventListener("pointerup", endDrag);
+  svg3d.addEventListener("pointercancel", endDrag);
+
+  render();
+
+  window.__widget = {
+    getLift: function () { return lift; },
+    getStage: function () { return planeOn ? 2 : (lift > 0.01 ? 1 : 0); },
+    getView: function () { return [az, el]; },
+    getPlaneFade: function () { return planeFade; },
+    /* Clamped exactly as the drag is, so a probe can sample the reachable
+     * envelope (and assert nothing leaves the canvas) without having to
+     * reproduce the pixel deltas a drag would need. */
+    setView: function (a, e) {
+      az = Math.min(Math.max(a, AZ0 - AZ_SPAN), AZ0 + AZ_SPAN);
+      el = Math.min(Math.max(e, EL_MIN), EL_MAX);
+      render();
+    },
+    getBounds: function () { return [AZ0 - AZ_SPAN, AZ0 + AZ_SPAN, EL_MIN, EL_MAX]; },
+    /* the constants the fit was derived from, so a probe can re-derive the
+     * expected geometry rather than hardcoding a second copy of it */
+    getCamera: function () {
+      return { scale: SCALE, cx: CX, cy: CY, cen: CEN, plo: PLO, phi: PHI };
+    },
+    /* The claim this page makes is that the boundary before and after the lift
+     * is the SAME expression evaluated twice, so the expression itself is
+     * exposed. A checker that only compared the two scores would pass on a page
+     * that happened to draw two different boundaries with the same verdict. */
+    getPullback: function (p, productOn) { return pullback(p, productOn); },
+    getScore: function () { return pullbackScore(planeOn).n; },
+    getScoreFor: function (productOn) { return pullbackScore(productOn).n; },
+    isProductOn: function () { return planeOn; },
+    /* what the panel prints, so the number and the picture can be compared */
+    getPrintedScore: function () { return outScore.textContent; },
+    /* the hollow markers read back out of the DOM, not recomputed */
+    getHollow: function () {
+      return Array.prototype.map.call(
+        document.querySelectorAll("#flatScene .pt"),
+        function (c) { return c.getAttribute("class").indexOf("wrong") >= 0; }
+      );
+    },
+    getFloorGrid: function () {
+      return document.querySelectorAll("#scene3d .floor-grid").length;
+    },
+    getNote: function () { return note.textContent.replace(/\s+/g, " ").trim(); },
+    liftNow: function () { document.getElementById("lift").click(); },
+    resetNow: function () { document.getElementById("reset").click(); },
+    isPlaying: function () { return playing; }
+  };
+})();
+</script>
+</body>
+</html>

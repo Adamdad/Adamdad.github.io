@@ -9,6 +9,9 @@ main:
   - title: "Experience"
     url: /experience/
 
+  - title: "Teaching"
+    url: /teaching/
+
   - title: "Team"
     url: https://lglabpolyu.github.io/
     

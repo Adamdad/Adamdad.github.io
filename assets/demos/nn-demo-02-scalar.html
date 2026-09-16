@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en" data-page-node-id="Ezy0iQP7yXkrfnTNb2c5qy">
+<head data-page-node-id="nl99VaVlQQGMkH31E02KDk">
+<meta charset="UTF-8" data-page-node-id="FSaPsQpHM09HhQIqJyMNBv">
+<meta name="viewport" content="width=device-width, initial-scale=1" data-page-node-id="3Ck5ChTVoscNB8lOVKR5aG">
+<title>Scalar accumulation · a = w1x1 + w2x2 + b</title>
+<link rel="stylesheet" href="shared/widget-base.css" data-page-node-id="WNPF5JgGBvYvkFsnV2dGi7">
+<style>
+  /* page-owned layout only; every token and component comes from widget-base.css */
+  .col-controls { flex: 0 0 292px; }
+  .col-bars { flex: 1 1 auto; min-width: 0; }
+  .col-geo { flex: 0 0 214px; }
+
+  /* ------------------------------------------------------------- presets */
+  .x-presets { display: grid; grid-template-columns: 1fr 1fr; gap: 5px;
+               margin-top: 10px; }
+  .x-preset {
+    font-family: var(--sans); font-size: var(--fs-micro); font-weight: 600;
+    color: var(--ink); background: #fff; cursor: pointer;
+    border: 1.5px solid var(--line); border-radius: var(--r-row);
+    padding: 6px 4px; text-align: center;
+    transition: all var(--dur) var(--ease);
+  }
+  .x-preset:hover { border-color: var(--muted); }
+  .x-preset.on { border-color: var(--red); background: var(--red-soft); color: var(--red); }
+
+  /* ------------------------------------------------- per-term contribution
+   * The slider row says what the weight IS; this line says what it BUYS.
+   * Putting it here rather than in a fourth column is what frees the vertical
+   * room the plot below needs. */
+  .x-term {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 8px; margin: -3px 0 7px; padding-left: 2px;
+    font-family: var(--mono); font-size: var(--fs-micro); color: var(--muted);
+  }
+  .x-term b { font-size: var(--fs-label); font-weight: 700; color: var(--ink); }
+  .x-term b.pos { color: var(--red); }
+  .x-term b.neg { color: var(--blue); }
+  .x-term b.zero { color: var(--muted); }
+
+  /* ------------------------------------------------------------- the walk
+   * Every row shares one ±6 axis, so a fill that runs from one running total
+   * to the next means the same thing in every row — including the total row,
+   * whose fill is the net displacement from zero. */
+  .x-row { height: 44px; }
+  .x-row .w-row-label { flex: 0 0 116px; }
+  .x-row .w-row-value { min-width: 54px; }
+
+  /* the running total carried down from the row above; the two rows touch, so
+   * 10px of row padding + 10px of the next row's padding = 20px exactly */
+  .x-carry {
+    position: absolute; bottom: 100%; height: 20px; width: 0;
+    border-left: 1.5px dashed var(--muted); opacity: 0.55;
+  }
+
+  /* where a row starts when its own contribution is zero — without it a zero
+   * term leaves no trace and the staircase loses a step */
+  .x-anchor {
+    position: absolute; top: -1px; bottom: -1px; width: 2px;
+    background: var(--ink); opacity: 0.35; border-radius: 1px;
+  }
+
+  .x-total { height: 52px; }
+  .x-total .w-row-label { font-size: var(--fs-label); }
+  .x-total .w-fill { box-shadow: inset 0 0 0 1.5px rgba(255,255,255,0.45); }
+
+  /* ---------------------------------------------------------------- chain */
+  .x-chain {
+    display: flex; align-items: center; justify-content: center;
+    flex-wrap: nowrap; gap: 7px; margin-top: 2px;
+    font-family: var(--mono); font-size: var(--fs-label); color: var(--ink);
+  }
+  .x-chain .arw { color: var(--line); font-weight: 400; }
+  .x-chain b { font-weight: 700; }
+  .x-chain b.pos { color: var(--red); }
+  .x-chain b.neg { color: var(--blue); }
+  .x-chain b.zero { color: var(--muted); }
+  .x-chain .start { color: var(--muted); }
+
+  /* ---------------------------------------------------------------- badge
+   * Shown when the contributions nearly cancel. This is the page's surprise:
+   * three healthy-looking terms, an output of almost nothing — and, in the
+   * geometry column, a weight vector standing at right angles to the input. */
+  .x-note {
+    display: flex; align-items: center; gap: 8px;
+    margin-top: 0; padding: 0 11px; max-height: 0;
+    border-width: 0; overflow: hidden;
+    border-radius: var(--r-row); background: var(--blue-soft);
+    border-style: solid; border-color: #cfe0ee;
+    font-size: var(--fs-micro); color: var(--blue);
+    opacity: 0; transform: translateY(-3px);
+    transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease),
+                max-height var(--dur) var(--ease), margin-top var(--dur) var(--ease),
+                padding var(--dur) var(--ease);
+  }
+  .x-note.on {
+    opacity: 1; transform: none;
+    max-height: 44px; margin-top: 7px; padding: 6px 11px;
+    border-width: 1.5px;
+  }
+  .x-note b { font-family: var(--mono); font-weight: 700; white-space: nowrap; }
+
+  /* ------------------------------------------------------------ geometry */
+  .x-geo { display: block; width: 100%; height: auto; margin-top: 2px; }
+  .x-geo .g-axis { stroke: var(--line); stroke-width: 1.2; }
+  .x-geo .g-lab { font-family: var(--mono); font-size: 12px; font-weight: 700; }
+  .x-geo .g-proj { stroke: var(--red); stroke-width: 7; stroke-linecap: butt; opacity: 0.55; }
+  .x-geo .g-cap { stroke: var(--red); stroke-width: 2; opacity: 0.75; }
+  .x-geo .g-drop { stroke: var(--muted); stroke-width: 1.2; stroke-dasharray: 3 2.5; }
+  .x-geo .g-dot { fill: var(--red); }
+  .x-geo .g-hint { font-family: var(--sans); font-size: 11.5px; fill: var(--muted); }
+  .x-geo .g-right { fill: none; stroke: var(--red); stroke-width: 1.6; }
+
+  .x-geo-w {
+    margin-top: 5px; text-align: center;
+    font-family: var(--mono); font-size: var(--fs-micro); color: var(--muted);
+  }
+  .x-geo-out {
+    margin-top: 1px; text-align: center;
+    font-family: var(--mono); font-size: var(--fs-micro); color: var(--ink);
+  }
+  .x-geo-out .dot, .x-geo-w .dot { color: var(--red); font-weight: 700; }
+</style>
+</head>
+<body data-page-node-id="3fhA433ZBr0y2u5wh4hiEk">
+
+<header class="w-head" data-page-node-id="G3v8KqaGDCxupDUNuUvJD6">
+  <div class="w-head-main" data-page-node-id="V02H2XKJD1AnmDfrfK5J6N">
+    <h1 class="w-title" data-page-node-id="Xp5ByBGXBCSJmHIPJOB4aQ">Scalar accumulation</h1>
+    <span class="w-formula" data-page-node-id="MRg90nP5CcoJ298IWiBIYZ">a = w&#8321;x&#8321; + w&#8322;x&#8322; + b</span>
+  </div>
+  <div class="w-actions" data-page-node-id="tqUqfkaeJX6uiGorzVpnml">
+    <button class="w-btn w-btn-primary" id="play" type="button" data-page-node-id="4exsyLrbubeBjfuls7gb5g">Step through</button>
+    <button class="w-btn" id="reset" type="button" data-page-node-id="tCBG2qApvyTMVbBulTuidf">Reset</button>
+  </div>
+</header>
+
+<div class="w-grid" data-page-node-id="Qjs2mAzrFNxI3PiYxi6htc">
+
+  <section class="w-col col-controls" data-page-node-id="SpQpebM1BhiGcyHuXCn4CE">
+    <div class="w-caption" data-page-node-id="FKKJCihx58IrOBDKYuazKJ">Weights and bias</div>
+    <div class="w-fixed" data-page-node-id="cnLoRo4ffimaFDydxzqJA6">
+      <span class="w-fixed-tag" data-page-node-id="FOybif6DC9SEeB0zXe6MfN">Input</span>
+      <b data-page-node-id="dRSlzfAZfnXlsBbjNUjqXC">x&#8321; = 2</b>
+      <b data-page-node-id="urEV3FzTfup1H5vDuqYmxq">x&#8322; = &#8722;1</b>
+    </div>
+
+    <div class="w-field" data-page-node-id="C4FSrQhTUdjEhcEq6CWfjM">
+      <span class="w-field-name" data-page-node-id="8ndIHge32QBhLepnRBZkPq">w&#8321;</span>
+      <input id="w1" type="range" min="-1.5" max="1.5" step="0.1" value="1.5" data-page-node-id="qmlnVSJTLrkc3BBRmBltcM">
+      <span class="w-field-value" id="w1v" data-page-node-id="E2evOvBcdXeKNzN4TSLzCv">1.5</span>
+    </div>
+    <div class="x-term" data-page-node-id="OqaH2dJdXrKpyTiUcTKDt6"><span id="e1" data-page-node-id="BXKFpiv3EVCxvjA3lgqnjn">w&#8321;x&#8321; = 1.5 &#215; 2</span><b id="c1" data-page-node-id="WRNSav880BzaVcYfIDiiVs">3.0</b></div>
+
+    <div class="w-field" data-page-node-id="LSo0VxyyrL6w0KY9uqQMRo">
+      <span class="w-field-name" data-page-node-id="ODBniUYRJ8ArKTBb3LawAp">w&#8322;</span>
+      <input id="w2" type="range" min="-1.5" max="1.5" step="0.1" value="0.5" data-page-node-id="uRlqQ9CpYDmGCB0KTvjFyv">
+      <span class="w-field-value" id="w2v" data-page-node-id="Pt0XzCd7ACVPFqnnjPfFjt">0.5</span>
+    </div>
+    <div class="x-term" data-page-node-id="OPjVHPXk3CMOauctzNsB71"><span id="e2" data-page-node-id="GwfU7G2YQzqqWXuzBvWA4q">w&#8322;x&#8322; = 0.5 &#215; (&#8722;1)</span><b id="c2" data-page-node-id="JlbVX65qFS9YTDnRdqeE0v">&#8722;0.5</b></div>
+
+    <div class="w-field" data-page-node-id="ipwjYBISf2HOGexiD5VjFe">
+      <span class="w-field-name" data-page-node-id="y3CMeJkGEzfNhkC7T01z0j">b<small data-page-node-id="tr5Ilk5aZASkNpto7KbJGp"> bias</small></span>
+      <input id="b" type="range" min="-1.5" max="1.5" step="0.1" value="-0.5" data-page-node-id="82BdyHzt2kPrtopIME1b6F">
+      <span class="w-field-value" id="bv" data-page-node-id="LyMhCBMvWMrCwoFB8nEP3F">&#8722;0.5</span>
+    </div>
+    <div class="x-term" data-page-node-id="BDlWjS3JF9Hi0vek5vn8i3"><span data-page-node-id="GH5DghRFCt4J2a7zHbk2C7">offset, independent of x</span><b id="c3" data-page-node-id="1ovbPGahPWdEWkYQnp07yE">&#8722;0.5</b></div>
+
+    <div class="x-presets" data-page-node-id="k13AUWQRA8mVky9dUT56VN">
+      <button class="x-preset" id="p-default" type="button" data-page-node-id="HJcHbxpXbGOe2zdMJF148u">Default</button>
+      <button class="x-preset" id="p-cancel" type="button" data-page-node-id="06J63PDtlZ57DjsuW8XYpj">Cancel</button>
+      <button class="x-preset" id="p-bias" type="button" data-page-node-id="cpHtnUwG4jg2kGigMtvkon">Bias only</button>
+      <button class="x-preset" id="p-all" type="button" data-page-node-id="44tkmgPal9mJgZm7XwESJL">All push</button>
+    </div>
+  </section>
+
+  <section class="w-col col-bars" data-page-node-id="HzqEzHyEg4StkO3uJtXIsj">
+    <div class="w-caption" data-page-node-id="22HL6UopuKQsDupEHffMYr">
+      Each term shifts the running total. Red moves it right, blue moves it left.
+    </div>
+
+    <div class="w-row x-row" id="r1" data-page-node-id="XEoCt1Ze5XNhxc1xzqaMxo">
+      <span class="w-row-label" data-page-node-id="BgoimO73Jba1CCe2KS2DMv">w&#8321;x&#8321;</span>
+      <span class="w-track" data-page-node-id="gHBIbJLUO90hS0LSUbzHGA">
+        <span class="w-fill" id="f1" data-page-node-id="TOMHZywSe3Jfe7Y9xwiVE9"></span>
+        <span class="x-anchor" id="a1" data-page-node-id="KSaqtXd3uvtFnJbsCwEwAg"></span>
+      </span>
+      <span class="w-row-value" id="v1" data-page-node-id="Nd2QPElJkTzxCKVTfwnCrM">3.0</span>
+    </div>
+
+    <div class="w-row x-row" id="r2" data-page-node-id="eqnFFrvEaLAFxkNLNx1PCE">
+      <span class="w-row-label" data-page-node-id="eHI8kPK9m7b5r1ChAbeP5v">w&#8322;x&#8322;</span>
+      <span class="w-track" data-page-node-id="MCjzkiT1LhiNnGWDeOA0Ww">
+        <span class="w-fill" id="f2" data-page-node-id="SGe35FJVbHYUpwHPvevUdJ"></span>
+        <span class="x-anchor" id="a2" data-page-node-id="Fvi7LGFDukuA3W68OW6WM2"></span>
+        <span class="x-carry" id="k2" data-page-node-id="I0QnZo6EdgFa37VnbnnGXM"></span>
+      </span>
+      <span class="w-row-value" id="v2" data-page-node-id="cNvoTky3xSJEwkqCoFVJaW">&#8722;0.5</span>
+    </div>
+
+    <div class="w-row x-row" id="r3" data-page-node-id="T9Ft9uHGBsaG1tujgeUIh4">
+      <span class="w-row-label" data-page-node-id="Tmz6e0sklChkDmInD27t0i">b <em data-page-node-id="wZVf74WSLt460TbKJC3YFx">bias</em></span>
+      <span class="w-track" data-page-node-id="oMpoXW1r3cqpKsDSCTXJa9">
+        <span class="w-fill" id="f3" data-page-node-id="Swq6X95TRT5H0DtnlW5wuE"></span>
+        <span class="x-anchor" id="a3" data-page-node-id="4ptdGdgnaxIevMDuTwX7UH"></span>
+        <span class="x-carry" id="k3" data-page-node-id="Iv93sCHA0Gadrf8DRvuvWj"></span>
+      </span>
+      <span class="w-row-value" id="v3" data-page-node-id="1djKEfdP9Z8C2usFMqVF5J">&#8722;0.5</span>
+    </div>
+
+    <div class="w-row x-row x-total is-total" id="r4" data-page-node-id="CANQ1jTALE3SEGDsfsdc6X">
+      <span class="w-row-label" data-page-node-id="WIu6t9MIXB9jaRoPP3mGw8">a = &#8721;</span>
+      <span class="w-track" data-page-node-id="8jr7HTRQOGBVSX311wYmX3">
+        <span class="w-fill" id="f4" data-page-node-id="gFmtDvpjKKKc9CtTNykLKe"></span>
+        <span class="x-carry" id="k4" data-page-node-id="AMidZ2vXbGR9uPTJTApG0T"></span>
+      </span>
+      <span class="w-row-value" id="v4" data-page-node-id="pshVP5ElSBhRJp10ppy2bl">2.0</span>
+    </div>
+
+    <div class="x-chain" id="chain" data-page-node-id="LD7tQOETio6OYB76rWAFqH"></div>
+
+    <div class="x-note" id="note" data-page-node-id="Gn6dTSrSwNaNxq5XztwHrD">
+      <b data-page-node-id="lgg0jJBjXnDxHug475B6Sn">&#8721; = 0</b>
+      <span id="note-text" data-page-node-id="pLlhB0QowkFBEP0jbyNE3H">the contributions cancel</span>
+    </div>
+  </section>
+
+  <aside class="w-col col-geo" data-page-node-id="hDMNEbfjFijqLQxNJfizyG">
+    <div class="w-caption" data-page-node-id="KZlw0u0dkxQI8an2yukPWW">Why &mdash; in the input plane</div>
+    <svg class="x-geo" id="geo" viewBox="0 0 200 176" role="img"
+         aria-label="The input vector x and the weight vector w; a is the projection of w onto x, plus the bias" data-page-node-id="lEzmfFv1wNqBLx41zuPtwV"></svg>
+    <div class="x-geo-w" id="geo-w" data-page-node-id="b1hPJFcohM1i1CouKvOAOY"></div>
+    <div class="x-geo-out" id="geo-out" data-page-node-id="b1hPJFcohM1i1CouKvOAOYx"></div>
+  </aside>
+
+</div>
+
+<script src="shared/widget-base.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  var X1 = 2, X2 = -1;
+  var W = window.WidgetBase;
+  var SCALE = W.VMAX;              // every row shares one ±6 axis
+
+  /* ------------------------------------------------------------ geometry
+   * Drawn in its own little plane: the origin, the fixed input vector x, the
+   * weight vector w the student controls, and the foot of the perpendicular
+   * from w's tip onto x. That foot is w·x̂, and a = |x|·(w·x̂) + b.
+   *
+   * The point of showing it: the Cancel preset puts w exactly at right angles
+   * to x, the foot collapses onto the origin, and the whole accumulation
+   * disappears. A student who has only seen bars has no idea why. */
+  var G_OX = 80, G_OY = 88, G_S = 44;
+
+  function gx(v) { return G_OX + v * G_S; }
+  function gy(v) { return G_OY - v * G_S; }
+
+  var el = {
+    w1: document.getElementById("w1"),
+    w2: document.getElementById("w2"),
+    b: document.getElementById("b")
+  };
+
+  var out = {
+    w1v: document.getElementById("w1v"),
+    w2v: document.getElementById("w2v"),
+    bv: document.getElementById("bv"),
+    e1: document.getElementById("e1"),
+    e2: document.getElementById("e2"),
+    c1: document.getElementById("c1"),
+    c2: document.getElementById("c2"),
+    c3: document.getElementById("c3"),
+    f1: document.getElementById("f1"),
+    f2: document.getElementById("f2"),
+    f3: document.getElementById("f3"),
+    f4: document.getElementById("f4"),
+    a1: document.getElementById("a1"),
+    a2: document.getElementById("a2"),
+    a3: document.getElementById("a3"),
+    k2: document.getElementById("k2"),
+    k3: document.getElementById("k3"),
+    k4: document.getElementById("k4"),
+    v1: document.getElementById("v1"),
+    v2: document.getElementById("v2"),
+    v3: document.getElementById("v3"),
+    v4: document.getElementById("v4"),
+    geo: document.getElementById("geo"),
+    geoOut: document.getElementById("geo-out"),
+    geoW: document.getElementById("geo-w"),
+    chain: document.getElementById("chain"),
+    note: document.getElementById("note"),
+    noteText: document.getElementById("note-text")
+  };
+
+  var rows = [
+    document.getElementById("r1"),
+    document.getElementById("r2"),
+    document.getElementById("r3"),
+    document.getElementById("r4")
+  ];
+
+  var PRESETS = {
+    "p-default": { w1: 1.5, w2: 0.5, b: -0.5 },
+    /* w1x1 = +1 and w2x2 = -1. Two live terms, an output of exactly zero —
+     * because w = (0.5, 1) is perpendicular to x = (2, -1). */
+    "p-cancel": { w1: 0.5, w2: 1.0, b: 0.0 },
+    /* Nothing but the offset: w = 0, so every projection is zero. */
+    "p-bias": { w1: 0.0, w2: 0.0, b: 1.0 },
+    /* Every term pushes the same way: the largest output the sliders allow. */
+    "p-all": { w1: 1.5, w2: -1.5, b: 1.5 }
+  };
+  var presetKeys = Object.keys(PRESETS);
+
+  /* step 1: w1x1   2: + w2x2   3: + b   4: the total row lights up
+   * step 4 carries no new value; it exists to draw the eye to the result. */
+  var LAST = 4;
+  var state = LAST;
+
+  function compute() {
+    var w1 = parseFloat(el.w1.value);
+    var w2 = parseFloat(el.w2.value);
+    var bias = parseFloat(el.b.value);
+    var t1 = w1 * X1, t2 = w2 * X2;
+    return {
+      w1: w1, w2: w2, b: bias,
+      t1: t1, t2: t2, t3: bias,
+      a: t1 + t2 + bias,
+      dot: t1 + t2,                        // w·x, the part the plane explains
+      runs: [0, t1, t1 + t2, t1 + t2 + bias]
+    };
+  }
+
+  function n1(v) { return (Math.round(v * 10) / 10).toFixed(1); }
+  function signOf(v) { return W.signClass(v); }
+  function pct(v) { return 50 + (v / (2 * SCALE)) * 100; }
+
+  /* A fill that runs from one running total to the next, rather than from
+   * zero. paintBar cannot express this: it always anchors at the centre. */
+  function paintSpan(fill, from, to) {
+    var lo = Math.min(from, to), hi = Math.max(from, to);
+    fill.style.left = pct(lo) + "%";
+    fill.style.width = (pct(hi) - pct(lo)) + "%";
+    fill.classList.toggle("neg", to < from);
+  }
+
+  /* 0 -> 3.0 -> 2.5 -> 2.0, each value coloured by its own sign. The chain
+   * only grows as far as the step-through has reached. */
+  function drawChain(c) {
+    var o = '<span class="start">0</span>';
+    var i;
+    for (i = 1; i < c.runs.length; i += 1) {
+      if (state < i) break;
+      o += '<span class="arw">\u2192</span>';
+      o += '<b class="' + signOf(c.runs[i]) + '">' + W.fmt(c.runs[i]) + '</b>';
+    }
+    out.chain.innerHTML = o;
+  }
+
+  /* ------------------------------------------------------------- the plane */
+  function drawGeo(c) {
+    var o = "";
+    var wx = c.w1, wy = c.w2;
+    var nw = Math.sqrt(wx * wx + wy * wy);
+    var nx2 = X1 * X1 + X2 * X2;                 // |x|² = 5
+    var f = (wx * X1 + wy * X2) / nx2;           // the scalar along x
+    var px = f * X1, py = f * X2;                // the foot of the perpendicular
+
+    o += '<defs>' +
+         '<marker id="ah-b" viewBox="0 0 10 10" refX="8" refY="5" ' +
+         'markerWidth="3.6" markerHeight="3.6" orient="auto-start-reverse">' +
+         '<path d="M0,0 L10,5 L0,10 z" fill="var(--blue)"/></marker>' +
+         '<marker id="ah-r" viewBox="0 0 10 10" refX="8" refY="5" ' +
+         'markerWidth="3.6" markerHeight="3.6" orient="auto-start-reverse">' +
+         '<path d="M0,0 L10,5 L0,10 z" fill="var(--red)"/></marker>' +
+         '</defs>';
+
+    /* axes */
+    o += '<line class="g-axis" x1="6" y1="' + G_OY + '" x2="196" y2="' + G_OY + '"/>';
+    o += '<line class="g-axis" x1="' + G_OX + '" y1="6" x2="' + G_OX + '" y2="170"/>';
+    o += '<text class="g-lab" x="192" y="' + (G_OY - 6) + '" fill="var(--muted)" ' +
+         'text-anchor="end">x\u2081</text>';
+    o += '<text class="g-lab" x="' + (G_OX + 6) + '" y="18" fill="var(--muted)">x\u2082</text>';
+
+    /* The projection, drawn as a ruler along x rather than as an arrow: w and
+     * the projection are both red, and at this size two red arrows lying on
+     * the same ray are unreadable. End ticks say "measured length". */
+    if (Math.abs(f) > 0.02) {
+      var ex = gx(px), ey = gy(py);
+      var nxu = -X2 / Math.sqrt(nx2), nyu = X1 / Math.sqrt(nx2);
+      var T = 5;
+      o += '<line class="g-proj" x1="' + G_OX + '" y1="' + G_OY + '" x2="' +
+           n2(ex) + '" y2="' + n2(ey) + '"/>';
+      o += '<line class="g-cap" x1="' + n2(G_OX - nxu * T) + '" y1="' +
+           n2(G_OY + nyu * T) + '" x2="' + n2(G_OX + nxu * T) + '" y2="' +
+           n2(G_OY - nyu * T) + '"/>';
+      o += '<line class="g-cap" x1="' + n2(ex - nxu * T) + '" y1="' +
+           n2(ey + nyu * T) + '" x2="' + n2(ex + nxu * T) + '" y2="' +
+           n2(ey - nyu * T) + '"/>';
+    }
+
+    /* x, the fixed input */
+    o += '<line x1="' + G_OX + '" y1="' + G_OY + '" x2="' + n2(gx(X1)) + '" y2="' +
+         n2(gy(X2)) + '" stroke="var(--blue)" stroke-width="3.2" ' +
+         'marker-end="url(#ah-b)"/>';
+    o += '<text class="g-lab" x="' + n2(gx(X1) - 2) + '" y="' + n2(gy(X2) + 14) +
+         '" fill="var(--blue)">x</text>';
+
+    /* w, the vector the sliders steer */
+    if (nw > 0.05) {
+      o += '<line x1="' + G_OX + '" y1="' + G_OY + '" x2="' + n2(gx(wx)) + '" y2="' +
+           n2(gy(wy)) + '" stroke="var(--red)" stroke-width="3.2" ' +
+           'marker-end="url(#ah-r)"/>';
+      var lx = clamp(gx(wx) + (wx >= 0 ? 7 : -18), 4, 180);
+      var ly = clamp(gy(wy) + (wy >= 0 ? -5 : 15), 14, 168);
+      o += '<text class="g-lab" x="' + n2(lx) + '" y="' + n2(ly) +
+           '" fill="var(--red)">w</text>';
+      /* the perpendicular that defines the foot */
+      if (Math.abs(f) > 0.02 && Math.abs(f - 1) > 1e-6) {
+        o += '<line class="g-drop" x1="' + n2(gx(wx)) + '" y1="' + n2(gy(wy)) +
+             '" x2="' + n2(gx(px)) + '" y2="' + n2(gy(py)) + '"/>';
+      }
+    } else {
+      o += '<text class="g-hint" x="' + G_OX + '" y="' + (G_OY + 24) +
+           '" text-anchor="middle">w = 0</text>';
+    }
+
+    /* the foot itself */
+    o += '<circle class="g-dot" cx="' + n2(gx(px)) + '" cy="' + n2(gy(py)) +
+         '" r="' + (Math.abs(f) > 0.02 ? 4.5 : 3) + '"/>';
+
+    /* The payoff: at right angles the foot collapses onto the origin, and the
+     * whole accumulation with it. A square marker at the origin says
+     * "perpendicular" faster than the words do. */
+    if (nw > 0.05 && Math.abs(f) < 0.06) {
+      var ux = X1 / Math.sqrt(nx2), uy = X2 / Math.sqrt(nx2);
+      var vx = wx / nw, vy = wy / nw, k = 9 / G_S;
+      o += '<polyline class="g-right" points="' +
+           n2(gx(ux * k)) + ',' + n2(gy(uy * k)) + ' ' +
+           n2(gx((ux + vx) * k)) + ',' + n2(gy((uy + vy) * k)) + ' ' +
+           n2(gx(vx * k)) + ',' + n2(gy(vy * k)) + '"/>';
+      o += '<text class="g-hint" x="' + (G_OX - 14) + '" y="' + (G_OY + 36) +
+           '" text-anchor="end">w \u22a5 x</text>';
+    }
+
+    out.geo.innerHTML = o;
+
+    /* Both vectors stated numerically, so the right-angle claim is checkable
+     * by hand: (0.5)(2) + (1.0)(-1) = 0. */
+    out.geoW.innerHTML =
+      'w = (<span class="dot">' + W.fmt(c.w1) + '</span>, <span class="dot">' +
+      W.fmt(c.w2) + '</span>)';
+    out.geoOut.innerHTML =
+      'w\u00b7x + b = <span class="dot">' + W.fmt(c.dot) + '</span> ' +
+      (c.b < 0 ? '\u2212' : '+') + ' <span class="dot">' + W.fmt(Math.abs(c.b)) +
+      '</span> = <span class="dot">' + W.fmt(c.a) + '</span>';
+  }
+
+  function n2(v) { return (Math.round(v * 100) / 100).toFixed(2); }
+  function clamp(v, lo, hi) { return v < lo ? lo : (v > hi ? hi : v); }
+
+  /* ---------------------------------------------------------------- render */
+
+  function render() {
+    var c = compute();
+
+    out.w1v.textContent = W.fmt(c.w1);
+    out.w2v.textContent = W.fmt(c.w2);
+    out.bv.textContent = W.fmt(c.b);
+
+    out.e1.textContent = "w\u2081x\u2081 = " + W.fmt(c.w1) + " \u00d7 2";
+    out.e2.textContent = "w\u2082x\u2082 = " + W.fmt(c.w2) + " \u00d7 (\u22121)";
+    W.paintValue(out.c1, c.t1);
+    W.paintValue(out.c2, c.t2);
+    W.paintValue(out.c3, c.t3);
+
+    /* the walk: each row's bar spans from the total before it to the total
+     * after it, so the staircase of row starts IS the accumulation */
+    paintSpan(out.f1, c.runs[0], c.runs[1]);
+    paintSpan(out.f2, c.runs[1], c.runs[2]);
+    paintSpan(out.f3, c.runs[2], c.runs[3]);
+    paintSpan(out.f4, 0, c.a);
+
+    /* a zero term still gets a mark, so the staircase never loses a step */
+    out.a1.style.left = pct(c.runs[0]) + "%";
+    out.a2.style.left = pct(c.runs[1]) + "%";
+    out.a3.style.left = pct(c.runs[2]) + "%";
+    out.a1.style.display = Math.abs(c.t1) < 0.05 ? "" : "none";
+    out.a2.style.display = Math.abs(c.t2) < 0.05 ? "" : "none";
+    out.a3.style.display = Math.abs(c.t3) < 0.05 ? "" : "none";
+
+    /* the carry drops from where the previous row ended */
+    out.k2.style.left = pct(c.runs[1]) + "%";
+    out.k3.style.left = pct(c.runs[2]) + "%";
+    out.k4.style.left = pct(c.runs[3]) + "%";
+
+    W.paintValue(out.v1, c.t1);
+    W.paintValue(out.v2, c.t2);
+    W.paintValue(out.v3, c.t3);
+    W.paintValue(out.v4, c.a, 1);
+
+    W.setHidden(rows[0], state < 1);
+    W.setHidden(rows[1], state < 2);
+    W.setHidden(rows[2], state < 3);
+    W.setHidden(rows[3], state < 4);
+
+    drawGeo(c);
+    drawChain(c);
+
+    /* The surprise: healthy-looking terms, an output of nothing. */
+    var cancelled = Math.abs(c.a) < 0.05 && (Math.abs(c.t1) + Math.abs(c.t2)) > 0.5;
+    out.note.classList.toggle("on", cancelled);
+    if (cancelled) {
+      out.noteText.textContent = Math.abs(c.a) < 1e-9
+        ? "w stands at right angles to x \u2014 nothing is left"
+        : "the terms almost cancel \u2014 almost nothing is left";
+    }
+
+    presetKeys.forEach(function (k) {
+      var p = PRESETS[k];
+      document.getElementById(k).classList.toggle("on",
+        Math.abs(p.w1 - c.w1) < 1e-9 &&
+        Math.abs(p.w2 - c.w2) < 1e-9 &&
+        Math.abs(p.b - c.b) < 1e-9);
+    });
+  }
+
+  function setState(next) {
+    state = next;
+    render();
+  }
+
+  var stepper = W.createStepper({
+    steps: [1, 2, 3, 4],
+    stepMs: 620,
+    onStep: function (i) {
+      setState(i);
+      if (i > 0 && i <= 4) W.pulse(rows[i - 1]);
+    }
+  });
+
+  Object.keys(el).forEach(function (key) {
+    el[key].addEventListener("input", function () {
+      stepper.stop();
+      setState(LAST);
+    });
+  });
+
+  presetKeys.forEach(function (k) {
+    document.getElementById(k).addEventListener("click", function () {
+      var p = PRESETS[k];
+      stepper.stop();
+      el.w1.value = String(p.w1);
+      el.w2.value = String(p.w2);
+      el.b.value = String(p.b);
+      setState(LAST);
+      /* Replay the build so the walk visibly re-forms for the new numbers. */
+      stepper.play();
+    });
+  });
+
+  document.getElementById("play").addEventListener("click", function () {
+    stepper.play();
+  });
+
+  document.getElementById("reset").addEventListener("click", function () {
+    stepper.stop();
+    el.w1.value = "1.5";
+    el.w2.value = "0.5";
+    el.b.value = "-0.5";
+    setState(LAST);
+  });
+
+  render();
+
+  window.__widget = {
+    getStep: function () { return state; },
+    getA: function () { return compute().a; },
+    getTerms: function () { var c = compute(); return [c.t1, c.t2, c.t3]; },
+    isPlaying: function () { return stepper.isPlaying(); },
+    /* the running totals the walk claims, so a checker can compare them with
+     * an independent partial sum rather than with the labels */
+    getRuns: function () { return compute().runs.slice(); },
+    getMarks: function () {
+      var ids = ["f1", "f2", "f3", "f4"];
+      return ids.map(function (id) {
+        var f = out[id];
+        return {
+          left: parseFloat(f.style.left) / 100,
+          width: parseFloat(f.style.width) / 100,
+          neg: f.classList.contains("neg"),
+          hidden: f.closest(".w-row").classList.contains("is-hidden")
+        };
+      });
+    },
+    getDot: function () { return compute().dot; },
+    getProjection: function () {
+      var c = compute();
+      var nx2 = X1 * X1 + X2 * X2;
+      var f = (c.w1 * X1 + c.w2 * X2) / nx2;
+      return { f: f, px: f * X1, py: f * X2, nw: Math.sqrt(c.w1 * c.w1 + c.w2 * c.w2) };
+    },
+    isCancelled: function () { return out.note.classList.contains("on"); },
+    getPresets: function () { return presetKeys.slice(); },
+    setPreset: function (k) { document.getElementById(k).click(); },
+    stop: function () { stepper.stop(); setState(LAST); }
+  };
+})();
+</script>
+</body>
+</html>

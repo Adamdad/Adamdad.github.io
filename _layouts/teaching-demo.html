@@ -1,0 +1,51 @@
+---
+layout: default
+---
+
+<article class="page demo-page">
+  <div class="page-content">
+
+    <p class="demo-page__back"><a href="{{ '/teaching/' | relative_url }}">&larr; Back to Teaching</a></p>
+
+    <header class="demo-page__header">
+      <span class="demo-page__badge">{{ page.demo_badge }}</span>
+      <h1>{{ page.title }}</h1>
+      <p class="demo-page__concept"><strong>Key concept:</strong> {{ page.key_concept }}</p>
+    </header>
+
+    {{ content }}
+
+    <div class="demo-frame-card">
+      <div class="demo-frame-wrap" data-demo-frame>
+        <iframe src="{{ page.demo_src | relative_url }}" title="{{ page.title }} interactive demo" loading="lazy"></iframe>
+      </div>
+    </div>
+
+    <p class="demo-page__actions">
+      Interaction is easiest on a laptop/desktop screen. On a small screen, you can also
+      <a href="{{ page.demo_src | relative_url }}" target="_blank" rel="noopener">open the demo in its own tab</a>
+      at full size.
+    </p>
+
+  </div>
+</article>
+
+<script>
+  (function () {
+    function fit(wrap) {
+      var iframe = wrap.querySelector("iframe");
+      if (!iframe) return;
+      var scale = wrap.clientWidth / 1160;
+      if (!isFinite(scale) || scale <= 0) scale = 1;
+      scale = Math.min(scale, 1);
+      iframe.style.transform = "scale(" + scale + ")";
+      wrap.style.height = Math.round(430 * scale) + "px";
+    }
+    function fitAll() {
+      document.querySelectorAll("[data-demo-frame]").forEach(fit);
+    }
+    window.addEventListener("resize", fitAll);
+    document.addEventListener("DOMContentLoaded", fitAll);
+    fitAll();
+  })();
+</script>

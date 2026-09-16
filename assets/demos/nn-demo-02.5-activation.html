@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scalar activation · a = phi(z), z = w1x1 + w2x2 + b</title>
+<link rel="stylesheet" href="shared/widget-base.css">
+<style>
+  /* page-owned layout only; every token and component comes from widget-base.css.
+   * Four columns instead of V02's three: the page has one more thing to show
+   * (the activation map) and both geometry figures have to stay legible, which
+   * they cannot do stacked in a single 200px column. */
+  .col-controls { flex: 0 0 232px; }
+  .col-walk { flex: 1 1 auto; min-width: 0; }
+  .col-act { flex: 0 0 200px; }
+  .col-geo { flex: 0 0 214px; }
+
+  /* ------------------------------------------------------- the selector
+   * Lives in the header because it is a page-level mode, not a value: it must
+   * stay visible and reachable while the weights are being dragged. */
+  .act-seg { display: flex; gap: 4px; flex: 0 0 auto; }
+  .act-btn {
+    font-family: var(--sans); font-size: var(--fs-micro); font-weight: 600;
+    color: var(--ink); background: #fff; cursor: pointer;
+    border: 1.5px solid var(--line); border-radius: var(--r-row);
+    padding: 5px 7px; white-space: nowrap;
+    transition: all var(--dur) var(--ease);
+  }
+  .act-btn:hover { border-color: var(--muted); }
+  .act-btn.on { border-color: var(--red); background: var(--red-soft); color: var(--red); }
+
+  /* ------------------------------------------------------------- presets */
+  .x-presets { display: grid; grid-template-columns: 1fr 1fr; gap: 5px;
+               margin-top: 10px; }
+  .x-preset {
+    font-family: var(--sans); font-size: var(--fs-micro); font-weight: 600;
+    color: var(--ink); background: #fff; cursor: pointer;
+    border: 1.5px solid var(--line); border-radius: var(--r-row);
+    padding: 6px 4px; text-align: center;
+    transition: all var(--dur) var(--ease);
+  }
+  .x-preset:hover { border-color: var(--muted); }
+  .x-preset.on { border-color: var(--red); background: var(--red-soft); color: var(--red); }
+
+  /* ------------------------------------------------- per-term contribution */
+  .x-term {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 8px; margin: -3px 0 7px; padding-left: 2px;
+    font-family: var(--mono); font-size: var(--fs-micro); color: var(--muted);
+  }
+  .x-term b { font-size: var(--fs-label); font-weight: 700; color: var(--ink); }
+  .x-term b.pos { color: var(--red); }
+  .x-term b.neg { color: var(--blue); }
+  .x-term b.zero { color: var(--muted); }
+
+  /* ------------------------------------------------------------- the walk
+   * Same component as V02: one row per atomic contribution, one total row, all
+   * on the shared +-6 axis. Row heights are 42/50 rather than V02's 44/52
+   * because this page carries a fifth row. */
+  .x-row { height: 42px; }
+  .x-row .w-row-label { flex: 0 0 116px; }
+  .x-row .w-row-value { min-width: 54px; }
+
+  .x-carry {
+    position: absolute; bottom: 100%; height: 20px; width: 0;
+    border-left: 1.5px dashed var(--muted); opacity: 0.55;
+  }
+  .x-anchor {
+    position: absolute; top: -1px; bottom: -1px; width: 2px;
+    background: var(--ink); opacity: 0.35; border-radius: 1px;
+  }
+
+  .x-total { height: 50px; }
+  .x-total .w-row-label { font-size: var(--fs-label); }
+  .x-total .w-fill { box-shadow: inset 0 0 0 1.5px rgba(255,255,255,0.45); }
+
+  /* ------------------------------------------------------- the output row
+   * Marked off with a red rule rather than grey: this is the row the whole
+   * page is about, and the one V02 does not have. */
+  .x-act { height: 50px; margin-top: 4px; border-top: 2px solid var(--red);
+           padding-top: 3px; }
+  .x-act .w-row-label { font-weight: 700; }
+  .x-act .w-row-label em { color: var(--red); }
+  .x-act .w-fill { box-shadow: inset 0 0 0 1.5px rgba(255,255,255,0.45); }
+
+  /* The displacement the activation produced, drawn on the same track as the
+   * output bar: a hairline from where z was to where a is. Same idiom as the
+   * geometry page's per-point displacement lines. Thin and grey so it reads as
+   * a measurement laid over the fill, not as a second bar. */
+  .x-shift {
+    position: absolute; top: 50%; height: 3px; margin-top: -1.5px;
+    background: #a3aeb7; border-radius: 2px; opacity: 0.9;
+  }
+
+  /* ---------------------------------------------------------------- chain */
+  .x-chain {
+    display: flex; align-items: center; justify-content: center;
+    flex-wrap: nowrap; gap: 7px; margin-top: 2px;
+    font-family: var(--mono); font-size: var(--fs-label); color: var(--ink);
+  }
+  .x-chain .arw { color: var(--line); font-weight: 400; }
+  .x-chain b { font-weight: 700; }
+  .x-chain b.pos { color: var(--red); }
+  .x-chain b.neg { color: var(--blue); }
+  .x-chain b.zero { color: var(--muted); }
+  .x-chain .start { color: var(--muted); }
+
+  /* ---------------------------------------------------------------- badge */
+  .x-note {
+    display: flex; align-items: center; gap: 8px;
+    margin-top: 5px; padding: 5px 10px;
+    border-radius: var(--r-row); background: var(--blue-soft);
+    border: 1.5px solid #cfe0ee;
+    font-size: var(--fs-micro); color: var(--blue);
+    opacity: 0; transform: translateY(-3px);
+    transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
+  }
+  .x-note.on { opacity: 1; transform: none; }
+  .x-note b { font-family: var(--mono); font-weight: 700; white-space: nowrap; }
+
+  /* ------------------------------------------------------------ the plot
+   * Grey is the reference (no activation), ink is the map, red/blue is the
+   * value — the same three-family split the geometry page uses. */
+  .x-plot { display: block; width: 100%; height: auto; margin-top: 2px; }
+  .p-frame { fill: none; stroke: var(--line); stroke-width: 1; }
+  .p-grid { stroke: var(--line-soft); stroke-width: 1; }
+  .p-ax { stroke: #c3cad0; stroke-width: 1.2; }
+  .p-diag { fill: none; stroke: var(--muted); stroke-width: 1.4;
+            stroke-dasharray: 5 4; opacity: 0.75; }
+  .p-curve { fill: none; stroke: var(--ink); stroke-width: 2.6;
+             stroke-linecap: round; stroke-linejoin: round; }
+  .p-drop { stroke: var(--muted); stroke-width: 1.4; stroke-dasharray: 3 3; }
+  .p-dot { stroke: #fff; stroke-width: 1.4; }
+  .p-dot.pos { fill: var(--red); }
+  .p-dot.neg { fill: var(--blue); }
+  .p-dot.zero { fill: var(--muted); }
+  .p-lab { font-family: var(--mono); font-size: 10px; fill: var(--muted); }
+
+  /* -------------------------------------------------------------- readout */
+  .x-read { margin-top: 6px; font-family: var(--mono); font-size: var(--fs-micro); }
+  .x-read .rr { display: flex; align-items: baseline; justify-content: space-between;
+                gap: 6px; line-height: 1.2; padding: 1px 0; }
+  .x-read .rr span { color: var(--muted); }
+  .x-read .rr b { font-weight: 700; font-variant-numeric: tabular-nums;
+                  color: var(--ink); }
+  .x-read .rr b.pos { color: var(--red); }
+  .x-read .rr b.neg { color: var(--blue); }
+  .x-read .rr b.zero { color: var(--muted); }
+
+  /* One word, computed from the numbers rather than declared per activation:
+   * it states which of the four geometric outcomes the current z is in. */
+  .x-badge {
+    margin-top: 4px; padding: 3px 8px; border-radius: var(--r-row);
+    font-size: var(--fs-micro); text-align: center; font-weight: 600;
+    background: var(--paper); color: var(--muted);
+    border: 1.5px solid var(--line);
+    transition: all var(--dur) var(--ease);
+  }
+  .x-badge.pos { background: var(--red-soft); color: var(--red); border-color: #eccfd2; }
+  .x-badge.neg { background: var(--blue-soft); color: var(--blue); border-color: #cfe0ee; }
+
+  /* ------------------------------------------------------------ geometry */
+  .x-geo { display: block; width: 100%; height: auto; margin-top: 2px; }
+  .x-geo .g-axis { stroke: var(--line); stroke-width: 1.2; }
+  .x-geo .g-tick { stroke: var(--line); stroke-width: 1.2; }
+  .x-geo .g-lab { font-family: var(--mono); font-size: 11px; font-weight: 700; }
+  .x-geo .g-tnum { font-family: var(--mono); font-size: 10px; fill: var(--muted); }
+  .x-geo .g-proj { stroke: var(--red); stroke-width: 4; stroke-linecap: round; }
+  .x-geo .g-drop { stroke: var(--muted); stroke-width: 1.2; stroke-dasharray: 3 2.5; }
+  .x-geo .g-dot { fill: var(--red); }
+  .x-geo .g-hint { font-family: var(--sans); font-size: 11.5px; fill: var(--muted); }
+  /* The zero-output line w.x + b = 0. Dashed and muted: it is a reference, not
+   * a result, and it must not compete with the red w arrow. */
+  .x-geo .g-zero { stroke: var(--muted); stroke-width: 1.3;
+                   stroke-dasharray: 5 4; opacity: 0.75; }
+  /* Where the input would have to sit for the ACTIVATED output to be right.
+   * Hollow, because it is a counterfactual position, not a place x ever is. */
+  .x-geo .g-ghost { fill: none; stroke: var(--blue); stroke-width: 2; }
+  .x-geo .g-slide { stroke: var(--red); stroke-width: 2.6; stroke-linecap: round; }
+</style>
+</head>
+<body>
+
+<header class="w-head">
+  <div class="w-head-main">
+    <h1 class="w-title">Scalar activation</h1>
+    <span class="w-formula" id="formula">a = tanh(z)</span>
+  </div>
+  <div class="act-seg" id="acts"></div>
+  <div class="w-actions">
+    <button class="w-btn w-btn-primary" id="play" type="button">Step through</button>
+    <button class="w-btn" id="reset" type="button">Reset</button>
+  </div>
+</header>
+
+<div class="w-grid">
+
+  <section class="w-col col-controls">
+    <div class="w-caption">Weights and bias</div>
+    <div class="w-fixed">
+      <span class="w-fixed-tag">Input</span>
+      <b>x&#8321; = 2</b>
+      <b>x&#8322; = &#8722;1</b>
+    </div>
+
+    <div class="w-field">
+      <span class="w-field-name">w&#8321;</span>
+      <input id="w1" type="range" min="-1.5" max="1.5" step="0.1" value="1.5">
+      <span class="w-field-value" id="w1v">1.5</span>
+    </div>
+    <div class="x-term"><span id="e1">w&#8321;x&#8321; = 1.5 &#215; 2</span><b id="c1">3.0</b></div>
+
+    <div class="w-field">
+      <span class="w-field-name">w&#8322;</span>
+      <input id="w2" type="range" min="-1.5" max="1.5" step="0.1" value="0.5">
+      <span class="w-field-value" id="w2v">0.5</span>
+    </div>
+    <div class="x-term"><span id="e2">w&#8322;x&#8322; = 0.5 &#215; (&#8722;1)</span><b id="c2">&#8722;0.5</b></div>
+
+    <div class="w-field">
+      <span class="w-field-name">b<small> bias</small></span>
+      <input id="b" type="range" min="-1.5" max="1.5" step="0.1" value="-0.5">
+      <span class="w-field-value" id="bv">&#8722;0.5</span>
+    </div>
+    <div class="x-term"><span>offset, independent of x</span><b id="c3">&#8722;0.5</b></div>
+
+    <div class="x-presets">
+      <button class="x-preset" id="p-default" type="button">Default</button>
+      <button class="x-preset" id="p-cancel" type="button">Cancel</button>
+      <button class="x-preset" id="p-bias" type="button">Bias only</button>
+      <button class="x-preset" id="p-all" type="button">All push</button>
+    </div>
+  </section>
+
+  <section class="w-col col-walk">
+    <div class="w-caption">
+      z = w&#8321;x&#8321; + w&#8322;x&#8322; + b. Each term shifts the running total.
+    </div>
+
+    <div class="w-row x-row" id="r1">
+      <span class="w-row-label">w&#8321;x&#8321;</span>
+      <span class="w-track">
+        <span class="w-fill" id="f1"></span>
+        <span class="x-anchor" id="a1"></span>
+      </span>
+      <span class="w-row-value" id="v1">3.0</span>
+    </div>
+
+    <div class="w-row x-row" id="r2">
+      <span class="w-row-label">w&#8322;x&#8322;</span>
+      <span class="w-track">
+        <span class="w-fill" id="f2"></span>
+        <span class="x-anchor" id="a2"></span>
+        <span class="x-carry" id="k2"></span>
+      </span>
+      <span class="w-row-value" id="v2">&#8722;0.5</span>
+    </div>
+
+    <div class="w-row x-row" id="r3">
+      <span class="w-row-label">b <em>bias</em></span>
+      <span class="w-track">
+        <span class="w-fill" id="f3"></span>
+        <span class="x-anchor" id="a3"></span>
+        <span class="x-carry" id="k3"></span>
+      </span>
+      <span class="w-row-value" id="v3">&#8722;0.5</span>
+    </div>
+
+    <div class="w-row x-row x-total is-total" id="r4">
+      <span class="w-row-label">z = &#8721;</span>
+      <span class="w-track">
+        <span class="w-fill" id="f4"></span>
+        <span class="x-carry" id="k4"></span>
+      </span>
+      <span class="w-row-value" id="v4">2.0</span>
+    </div>
+
+    <div class="w-row x-row x-act" id="r5">
+      <span class="w-row-label">a = &#966;(z) <em id="fn5">tanh</em></span>
+      <span class="w-track">
+        <span class="w-fill" id="f5"></span>
+        <span class="x-shift" id="s5"></span>
+        <span class="x-anchor" id="a5"></span>
+      </span>
+      <span class="w-row-value" id="v5">0.96</span>
+    </div>
+
+    <div class="x-chain" id="chain"></div>
+
+    <div class="x-note" id="note">
+      <b>z = 0</b>
+      <span id="note-text">the contributions cancel</span>
+    </div>
+  </section>
+
+  <aside class="w-col col-act">
+    <div class="w-caption">Activation map &mdash; z in, a out</div>
+    <svg class="x-plot" id="plot" viewBox="0 0 200 190" role="img"
+         aria-label="The activation curve with the identity diagonal as reference, and the current z mapped to a"></svg>
+    <div class="x-read">
+      <div class="rr"><span>z</span><b id="ro-z">2.00</b></div>
+      <div class="rr"><span>a = &#966;(z)</span><b id="ro-a">0.96</b></div>
+      <div class="rr"><span>&#916; = a &#8722; z</span><b id="ro-d">&#8722;1.04</b></div>
+      <div class="rr"><span>gain &#966;&#8242;(z)</span><b id="ro-g">0.07</b></div>
+    </div>
+    <div class="x-badge" id="badge">compressed</div>
+  </aside>
+
+  <aside class="w-col col-geo">
+    <div class="w-caption">Why &mdash; in the input plane</div>
+    <svg class="x-geo" id="geo" viewBox="0 0 200 214" role="img"
+         aria-label="The input plane: the input x, the weight direction w, the zero-output line w.x + b = 0, and the slide the activation applies to the output along w"></svg>
+    <div class="x-read">
+      <div class="rr"><span>w&#183;x</span><b id="g-dot">2.50</b></div>
+      <div class="rr"><span>+ b</span><b id="g-b">&#8722;0.50</b></div>
+      <div class="rr"><span>z</span><b id="g-z">2.00</b></div>
+      <div class="rr"><span>&#966;(z)</span><b id="g-a">0.96</b></div>
+    </div>
+  </aside>
+
+</div>
+
+<script src="shared/widget-base.js"></script>
+<script src="shared/nn-math.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  var W = window.WidgetBase;
+  var NN = window.NNMath;
+
+  var X1 = 2, X2 = -1;
+  var SCALE = W.VMAX;              // every row shares the +-6 axis V02 uses
+
+  var REDUCED = !!(window.matchMedia &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  function dur(ms) { return REDUCED ? 1 : ms; }
+
+  /* -------------------------------------------------------- activations
+   * The functions come from shared/nn-math.js, so this page and the training
+   * pages cannot disagree about what tanh is. Page-owned: the short labels and
+   * the plot window.
+   *
+   * The window is per activation, and that is the honest choice. A shared +-6
+   * axis would render tanh and sigmoid as flat lines pinned to the middle of
+   * the frame, which hides the very thing the page is about; a shared +-1.2
+   * axis would push identity and ReLU off the canvas entirely. So the y window
+   * follows the function, the z window never moves, and the range is printed
+   * on the axis so the compression is stated rather than implied. The row-5
+   * bar carries the fixed-scale comparison instead: it is on the same +-6 axis
+   * as every other row, so a squashed output really does look small. */
+  var ACTS = [
+    { key: "linear", name: "linear",
+      f: NN.ACT.identity.f, df: NN.ACT.identity.df, kink: false,
+      yLo: -6, yHi: 6 },
+    { key: "relu", name: "ReLU",
+      f: NN.ACT.relu.f, df: NN.ACT.relu.df, kink: true,
+      yLo: -6, yHi: 6 },
+    { key: "leaky", name: "leaky",
+      f: NN.ACT.leaky.f, df: NN.ACT.leaky.df, kink: true,
+      yLo: -6, yHi: 6 },
+    { key: "gelu", name: "GELU",
+      f: NN.ACT.gelu.f, df: NN.ACT.gelu.df, kink: false,
+      yLo: -1.5, yHi: 6 },
+    { key: "tanh", name: "tanh",
+      f: NN.ACT.tanh.f, df: NN.ACT.tanh.df, kink: false,
+      yLo: -1.2, yHi: 1.2 },
+    { key: "sigmoid", name: "sigmoid",
+      f: NN.sigmoid,
+      df: function (x) { var s = NN.sigmoid(x); return s * (1 - s); },
+      kink: false,
+      yLo: -0.15, yHi: 1.15 }
+  ];
+  /* tanh opens the page: on the shipped preset z = 2.0 lands at a = 0.96, so
+   * the very first frame already shows the output moved. ReLU on the same
+   * preset would show no change at all and the thesis would be invisible. */
+  var START_ACT = 4;
+
+  var actIdx = START_ACT;
+
+  /* The morph is expressed as a blend between two whole functions, not as an
+   * index pair, so an interrupted morph can be snapshotted and used as the new
+   * "from". Switching tanh -> sigmoid -> ReLU mid-flight therefore has no jump:
+   * each switch starts from the exact curve currently on screen. */
+  var M = { from: ACTS[START_ACT], to: ACTS[START_ACT] };
+  var morphE = 1;
+  var raf = null;
+
+  function mixF(z) { return M.from.f(z) + (M.to.f(z) - M.from.f(z)) * morphE; }
+  function mixDF(z) { return M.from.df(z) + (M.to.df(z) - M.from.df(z)) * morphE; }
+  function mixLo() { return M.from.yLo + (M.to.yLo - M.from.yLo) * morphE; }
+  function mixHi() { return M.from.yHi + (M.to.yHi - M.from.yHi) * morphE; }
+
+  function snapshotMix() {
+    var fr = M.from, to = M.to, e = morphE;
+    return {
+      f: function (z) { return fr.f(z) + (to.f(z) - fr.f(z)) * e; },
+      df: function (z) { return fr.df(z) + (to.df(z) - fr.df(z)) * e; },
+      yLo: fr.yLo + (to.yLo - fr.yLo) * e,
+      yHi: fr.yHi + (to.yHi - fr.yHi) * e
+    };
+  }
+
+  function tween(ms, apply, done) {
+    if (raf) { cancelAnimationFrame(raf); raf = null; }
+    var t0 = performance.now();
+    function frame(now) {
+      /* Clamp at both ends: a rAF timestamp marks the start of the frame and
+       * can precede the performance.now() taken when the frame was requested,
+       * which would drive the ease-out factor negative and extrapolate the
+       * blend past its start. */
+      var k = Math.min(Math.max((now - t0) / ms, 0), 1);
+      var e = 1 - Math.pow(1 - k, 3);
+      apply(e);
+      render();
+      if (k < 1) {
+        raf = requestAnimationFrame(frame);
+      } else {
+        raf = null;
+        morphE = 1;
+        render();
+        if (done) done();
+      }
+    }
+    raf = requestAnimationFrame(frame);
+  }
+
+  /* ---------------------------------------------------------------- dom */
+
+  var el = {
+    w1: document.getElementById("w1"),
+    w2: document.getElementById("w2"),
+    b: document.getElementById("b")
+  };
+
+  var out = {};
+  ["w1v", "w2v", "bv", "e1", "e2", "c1", "c2", "c3",
+   "f1", "f2", "f3", "f4", "f5", "s5",
+   "a1", "a2", "a3", "a5", "k2", "k3", "k4",
+   "v1", "v2", "v3", "v4", "v5",
+   "g-dot", "g-b", "g-z", "g-a",
+   "ro-z", "ro-a", "ro-d", "ro-g", "badge",
+   "plot", "geo", "chain", "note", "note-text", "fn5", "formula"].forEach(function (id) {
+    out[id] = document.getElementById(id);
+  });
+
+  var rows = ["r1", "r2", "r3", "r4", "r5"].map(function (id) {
+    return document.getElementById(id);
+  });
+
+  var PRESETS = {
+    "p-default": { w1: 1.5, w2: 0.5, b: -0.5 },
+    /* w1x1 = +1 and w2x2 = -1. Two live terms, z exactly zero — because
+     * w = (0.5, 1) is perpendicular to x = (2, -1). The activation then decides
+     * what "nothing" means: 0 for tanh, 0.5 for sigmoid, 0 for ReLU. */
+    "p-cancel": { w1: 0.5, w2: 1.0, b: 0.0 },
+    /* Nothing but the offset: w = 0, so every projection is zero. */
+    "p-bias": { w1: 0.0, w2: 0.0, b: 1.0 },
+    /* Every term pushes the same way: z at its largest, where the squashing
+     * functions are flattest and ReLU has long since left the frame. */
+    "p-all": { w1: 1.5, w2: -1.5, b: 1.5 }
+  };
+  var presetKeys = Object.keys(PRESETS);
+
+  /* step 1: w1x1  2: + w2x2  3: + b  4: the total row lights up  5: phi acts
+   * on it. Step 4 carries no new value; step 5 is the page's own beat. */
+  var LAST = 5;
+  var state = LAST;
+
+  /* -------------------------------------------------------------- maths */
+
+  function compute() {
+    var w1 = parseFloat(el.w1.value);
+    var w2 = parseFloat(el.w2.value);
+    var bias = parseFloat(el.b.value);
+    var t1 = w1 * X1, t2 = w2 * X2;
+    var dot = t1 + t2;
+    var z = dot + bias;
+    var act = ACTS[actIdx];
+    return {
+      w1: w1, w2: w2, b: bias,
+      t1: t1, t2: t2, t3: bias,
+      dot: dot, z: z,
+      a: act.f(z), gain: act.df(z),
+      act: act,
+      runs: [0, t1, t1 + t2, z]
+    };
+  }
+
+  function signOf(v) { return W.signClass(v); }
+  function pct(v) { return 50 + (v / (2 * SCALE)) * 100; }
+
+  /* A fill that runs from one running total to the next, rather than from zero.
+   * paintBar cannot express this: it always anchors at the centre. */
+  function paintSpan(fill, from, to) {
+    var lo = Math.min(from, to), hi = Math.max(from, to);
+    fill.style.left = pct(lo) + "%";
+    fill.style.width = (pct(hi) - pct(lo)) + "%";
+    fill.classList.toggle("neg", to < from);
+  }
+
+  /* The displacement segment, on the same track and the same +-6 axis. */
+  function paintShift(elm, from, to) {
+    var lo = Math.min(from, to), hi = Math.max(from, to);
+    elm.style.left = pct(lo) + "%";
+    elm.style.width = (pct(hi) - pct(lo)) + "%";
+  }
+
+  function paintRead(elm, value, digits) {
+    W.paintValue(elm, value, digits);
+  }
+
+  /* 0 -> 3.0 -> 2.5 -> 2.0, each value coloured by its own sign. The chain
+   * only grows as far as the step-through has reached. */
+  function drawChain(c) {
+    var o = '<span class="start">0</span>';
+    var i;
+    for (i = 1; i < c.runs.length; i += 1) {
+      if (state < i) break;
+      o += '<span class="arw">\u2192</span>';
+      o += '<b class="' + signOf(c.runs[i]) + '">' + W.fmt(c.runs[i]) + '</b>';
+    }
+    out.chain.innerHTML = o;
+  }
+
+  /* ------------------------------------------------------------- the plot
+   *
+   * The mapping diagram, and the page's answer to "what does the activation do
+   * to the output". Three things are drawn in a fixed frame:
+   *   - the identity diagonal, dashed: where the output would land untouched.
+   *     It is the reference, and it is the reason the plot is a map and not a
+   *     function sketch.
+   *   - the activation curve, ink: the map itself.
+   *   - the current z as a dashed drop from the z axis to the point (z, a).
+   * The z window is fixed at +-6 for every activation, so switching phi never
+   * moves the input; the y window follows phi and is printed on the axis. */
+  var PV = { w: 200, h: 190, x0: 30, x1: 186, y0: 16, y1: 158, zLo: -6, zHi: 6 };
+  var NSAMP = 121;
+
+  function zAt(i) { return PV.zLo + (PV.zHi - PV.zLo) * i / (NSAMP - 1); }
+  function plotX(z) { return PV.x0 + (z - PV.zLo) / (PV.zHi - PV.zLo) * (PV.x1 - PV.x0); }
+  function plotY(a, lo, hi) { return PV.y1 - (a - lo) / (hi - lo) * (PV.y1 - PV.y0); }
+
+  function niceStep(span) {
+    var raw = span / 6;
+    var cand = [0.05, 0.1, 0.2, 0.25, 0.5, 1, 2, 5];
+    var i;
+    for (i = 0; i < cand.length; i += 1) if (cand[i] >= raw) return cand[i];
+    return 5;
+  }
+
+  function fmtRange(v) {
+    return W.fmt(v, Math.abs(v) < 1 ? 2 : 1);
+  }
+
+  function gridY(act, opacity) {
+    if (opacity <= 0.01) return "";
+    var step = niceStep(act.yHi - act.yLo);
+    var k0 = Math.ceil(act.yLo / step), k1 = Math.floor(act.yHi / step);
+    var o = '<g opacity="' + opacity.toFixed(3) + '">';
+    var k, v;
+    for (k = k0; k <= k1; k += 1) {
+      v = k * step;
+      if (Math.abs(v) < 1e-9) continue;      // the zero line is drawn separately
+      o += '<line class="p-grid" x1="' + PV.x0 + '" y1="' + plotY(v, act.yLo, act.yHi).toFixed(2) +
+           '" x2="' + PV.x1 + '" y2="' + plotY(v, act.yLo, act.yHi).toFixed(2) + '"/>';
+    }
+    return o + "</g>";
+  }
+
+  function n2(v) { return v.toFixed(2); }
+
+  function drawPlot(c) {
+    var lo = mixLo(), hi = mixHi();
+    var pa = M.from, pb = M.to;
+    var e = morphE;
+    var i, z, v, d;
+
+    var o = "";
+    o += '<defs><clipPath id="plotClip"><rect x="' + PV.x0 + '" y="' + PV.y0 +
+         '" width="' + (PV.x1 - PV.x0) + '" height="' + (PV.y1 - PV.y0) + '"/></clipPath></defs>';
+    o += '<rect class="p-frame" x="' + PV.x0 + '" y="' + PV.y0 +
+         '" width="' + (PV.x1 - PV.x0) + '" height="' + (PV.y1 - PV.y0) + '" rx="4"/>';
+
+    o += '<g clip-path="url(#plotClip)">';
+    /* z gridlines: fixed, because the z window is fixed */
+    for (v = PV.zLo; v <= PV.zHi; v += 2) {
+      if (Math.abs(v) < 1e-9) continue;
+      o += '<line class="p-grid" x1="' + n2(plotX(v)) + '" y1="' + PV.y0 +
+           '" x2="' + n2(plotX(v)) + '" y2="' + PV.y1 + '"/>';
+    }
+    /* the outgoing window fades out while the incoming one fades in, so the
+     * rescale reads as a zoom instead of a jump */
+    o += gridY(pa, 1 - e);
+    o += gridY(pb, e);
+    o += '<line class="p-ax" x1="' + PV.x0 + '" y1="' + n2(plotY(0, lo, hi)) +
+         '" x2="' + PV.x1 + '" y2="' + n2(plotY(0, lo, hi)) + '"/>';
+    o += '<line class="p-ax" x1="' + n2(plotX(0)) + '" y1="' + PV.y0 +
+         '" x2="' + n2(plotX(0)) + '" y2="' + PV.y1 + '"/>';
+    /* the reference: no activation at all */
+    o += '<line class="p-diag" x1="' + n2(plotX(PV.zLo)) + '" y1="' + n2(plotY(PV.zLo, lo, hi)) +
+         '" x2="' + n2(plotX(PV.zHi)) + '" y2="' + n2(plotY(PV.zHi, lo, hi)) + '"/>';
+    /* Name it. An unlabelled dashed diagonal is a puzzle, and for `linear` the
+     * curve lies exactly on top of it, so the label is the only thing that
+     * says the two are the same line. Offset up-left of the diagonal by more
+     * than half the curve's stroke so neither can ever cover the other. */
+    var dLo = Math.max(PV.zLo, lo), dHi = Math.min(PV.zHi, hi);
+    if (dHi - dLo > 0.4) {
+      var dz = dLo + (dHi - dLo) * 0.62;
+      o += '<text class="p-lab" x="' + n2(plotX(dz) - 5) + '" y="' +
+           n2(plotY(dz, lo, hi) - 5) + '" text-anchor="end">a = z</text>';
+    }
+    /* the map */
+    d = "";
+    for (i = 0; i < NSAMP; i += 1) {
+      z = zAt(i);
+      v = pa.f(z) + (pb.f(z) - pa.f(z)) * e;
+      d += (i ? "L" : "M") + n2(plotX(z)) + " " + n2(plotY(v, lo, hi));
+    }
+    o += '<path class="p-curve" d="' + d + '"/>';
+    /* the current z, read off the map */
+    o += '<line class="p-drop" x1="' + n2(plotX(c.z)) + '" y1="' + n2(plotY(0, lo, hi)) +
+         '" x2="' + n2(plotX(c.z)) + '" y2="' + n2(plotY(mixF(c.z), lo, hi)) + '"/>';
+    o += '<circle class="p-dot ' + signOf(mixF(c.z)) + '" cx="' + n2(plotX(c.z)) +
+         '" cy="' + n2(plotY(mixF(c.z), lo, hi)) + '" r="4.5"/>';
+    o += "</g>";
+
+    /* Axis windows. The y window is the target's, not the mid-morph one, so the
+     * printed range does not flicker while the frame is rescaling. */
+    o += '<text class="p-lab" x="' + PV.x0 + '" y="10">a \u2208 [' +
+         fmtRange(M.to.yLo) + ', ' + fmtRange(M.to.yHi) + ']</text>';
+    o += '<text class="p-lab" x="' + PV.x1 + '" y="' + (PV.y1 + 14) +
+         '" text-anchor="end">z \u2208 [\u22126, 6]</text>';
+
+    out.plot.innerHTML = o;
+  }
+
+  /* ------------------------------------------------------------ geometry
+   * Two constructions share this plane, and they answer different questions.
+   *
+   * (a) V02's, unchanged in meaning: the fixed input x, the weight vector w the
+   *     sliders steer, and the foot of the perpendicular from w's tip onto x.
+   *     That foot is w·x — the part of the linear form the plane explains — and
+   *     z is the foot's length plus the bias. This is what the readout quotes.
+   *
+   * (b) The activation's own geometry, which is the reason this page exists.
+   *     z is |w| times the SIGNED DISTANCE from x to the line w·x + b = 0, so
+   *     that line is the natural zero of the output. phi does not move the line
+   *     and does not move x: it changes how far from the line the output is
+   *     taken to be, from z/|w| to phi(z)/|w|. In the plane that is a slide of
+   *     the output position along w by
+   *         (phi(z) - z) / |w|^2 * w
+   *     drawn parallel to the red w arrow, so "compressed" and "expanded" stop
+   *     being adjectives about a number and become a direction you can see.
+   *
+   * The origin sits left of centre and the scale is modest on purpose: the
+   * ghost is the only element whose position depends on the sliders, and a
+   * short w with a large bias can throw it several units out. Centring the
+   * axes would put the reachable range off the right edge. Even so, extreme
+   * settings do clip — the outermost svg hides the overflow, so the layout
+   * cannot break, but the ghost and its label can leave the window. */
+  var G = { ox: 76, oy: 122, s: 46 };
+
+  function gx(v) { return G.ox + v * G.s; }
+  function gy(v) { return G.oy - v * G.s; }
+
+  function drawGeo(c) {
+    var o = "";
+    var wx = c.w1, wy = c.w2;
+    var nw = Math.sqrt(wx * wx + wy * wy);
+    var nx2 = X1 * X1 + X2 * X2;                 // |x|^2 = 5
+    var f = (wx * X1 + wy * X2) / nx2;           // the scalar along x
+    var fx = f * X1, fy = f * X2;                // the foot of the perpendicular
+    var live = nw > 0.05;                        // is there a direction at all?
+    var i, tv;
+
+    o += '<defs>' +
+         '<marker id="ah-b" viewBox="0 0 10 10" refX="8" refY="5" ' +
+         'markerWidth="6" markerHeight="6" orient="auto-start-reverse">' +
+         '<path d="M0,0 L10,5 L0,10 z" fill="var(--blue)"/></marker>' +
+         '<marker id="ah-r" viewBox="0 0 10 10" refX="8" refY="5" ' +
+         'markerWidth="6" markerHeight="6" orient="auto-start-reverse">' +
+         '<path d="M0,0 L10,5 L0,10 z" fill="var(--red)"/></marker>' +
+         '</defs>';
+
+    o += '<line class="g-axis" x1="6" y1="' + G.oy + '" x2="194" y2="' + G.oy + '"/>';
+    o += '<line class="g-axis" x1="' + G.ox + '" y1="6" x2="' + G.ox + '" y2="208"/>';
+    o += '<text class="g-lab" x="194" y="' + (G.oy - 7) + '" fill="var(--muted)" ' +
+         'text-anchor="end">x\u2081</text>';
+    o += '<text class="g-lab" x="' + (G.ox + 8) + '" y="18" fill="var(--muted)">x\u2082</text>';
+
+    /* integer ticks, so the foot's position can be read as a number */
+    for (i = -1; i <= 2; i += 1) {
+      if (i === 0) continue;
+      tv = gx(i);
+      o += '<line class="g-tick" x1="' + tv + '" y1="' + (G.oy - 3) + '" x2="' + tv +
+           '" y2="' + (G.oy + 3) + '"/>';
+      o += '<text class="g-tnum" x="' + tv + '" y="' + (G.oy + 14) +
+           '" text-anchor="middle">' + i + '</text>';
+    }
+
+    /* ---- (b) the zero-output line -------------------------------------
+     * Drawn first so everything else sits on top of it. Long enough that the
+     * viewBox does the clipping, which is exact and free. */
+    if (live) {
+      var unx = -wy / nw, uny = wx / nw;                     // unit normal
+      var qx = -c.b * wx / (nw * nw), qy = -c.b * wy / (nw * nw);
+      o += '<line class="g-zero" x1="' + n2(gx(qx - unx * 8)) + '" y1="' +
+           n2(gy(qy - uny * 8)) + '" x2="' + n2(gx(qx + unx * 8)) + '" y2="' +
+           n2(gy(qy + uny * 8)) + '"/>';
+      /* label it where it is still inside the frame and clear of the x2 axis
+       * label. Solve the line for a fixed coordinate rather than a fixed
+       * parameter: the normal can be vertical (wx = 0), and then y is the
+       * coordinate that cannot be solved for. */
+      var lx3, ly3;
+      if (Math.abs(uny) > 0.15) { ly3 = 1.55; lx3 = qx + unx * (ly3 - qy) / uny; }
+      else { lx3 = -1.25; ly3 = qy + uny * (lx3 - qx) / unx; }
+      o += '<text class="g-tnum" x="' + n2(gx(lx3) - 5) + '" y="' + n2(gy(ly3) + 3) +
+           '" text-anchor="end">z = 0</text>';
+    }
+
+    /* the projection, drawn as a thick segment of the x line: this is w·x, and
+     * it is the only part of w that survives the dot product */
+    if (Math.abs(f) > 0.02) {
+      o += '<line class="g-proj" x1="' + G.ox + '" y1="' + G.oy + '" x2="' +
+           n2(gx(fx)) + '" y2="' + n2(gy(fy)) + '"/>';
+    }
+
+    /* x, the fixed input */
+    o += '<line x1="' + G.ox + '" y1="' + G.oy + '" x2="' + n2(gx(X1)) + '" y2="' +
+         n2(gy(X2)) + '" stroke="var(--blue)" stroke-width="2.8" ' +
+         'marker-end="url(#ah-b)"/>';
+    o += '<text class="g-lab" x="' + (G.ox + X1 * G.s) + '" y="' +
+         (gy(X2) + 20) + '" fill="var(--blue)" text-anchor="end">x</text>';
+
+    /* w, the vector the sliders steer */
+    if (live) {
+      o += '<line x1="' + G.ox + '" y1="' + G.oy + '" x2="' + n2(gx(wx)) + '" y2="' +
+           n2(gy(wy)) + '" stroke="var(--red)" stroke-width="2.8" ' +
+           'marker-end="url(#ah-r)"/>';
+      var lx2 = gx(wx) + (wx >= 0 ? 7 : -18), ly2 = gy(wy) + (wy >= 0 ? -6 : 15);
+      o += '<text class="g-lab" x="' + n2(lx2) + '" y="' + n2(ly2) +
+           '" fill="var(--red)">w</text>';
+      /* the perpendicular that defines the foot */
+      if (Math.abs(f) > 0.02 && Math.abs(f - 1) > 1e-6) {
+        o += '<line class="g-drop" x1="' + n2(gx(wx)) + '" y1="' + n2(gy(wy)) +
+             '" x2="' + n2(gx(fx)) + '" y2="' + n2(gy(fy)) + '"/>';
+      }
+    } else {
+      o += '<text class="g-hint" x="' + G.ox + '" y="' + (G.oy + 26) +
+           '" text-anchor="middle">w = 0</text>';
+    }
+
+    /* the foot itself */
+    o += '<circle class="g-dot" cx="' + n2(gx(fx)) + '" cy="' + n2(gy(fy)) +
+         '" r="' + (Math.abs(f) > 0.02 ? 4.5 : 3) + '"/>';
+
+    /* ---- (b) the slide the activation produces ------------------------
+     * The ghost is where the input would have to sit for phi(z) to be the
+     * plain dot product. The arrow from x to the ghost is the activation's
+     * whole geometric effect, and it is parallel to the red w arrow by
+     * construction, which is what makes the picture readable. A zero-length
+     * arrow is suppressed rather than drawn as a dot: "nothing moved" should
+     * look like nothing, with the badge carrying the explanation. */
+    if (live) {
+      var av = mixF(c.z);
+      var sl = (av - c.z) / (nw * nw);
+      var ex = X1 + sl * wx, ey = X2 + sl * wy;
+      if (Math.abs(sl) * nw > 0.02) {
+        o += '<line class="g-slide" x1="' + n2(gx(X1)) + '" y1="' + n2(gy(X2)) +
+             '" x2="' + n2(gx(ex)) + '" y2="' + n2(gy(ey)) +
+             '" marker-end="url(#ah-r)"/>';
+        /* Keep the label inside the frame even when the ghost has left it: an
+         * arrow with no caption is worse than a caption pinned to the edge. */
+        o += '<text class="g-lab" x="' + n2(Math.max(16, Math.min(192, gx(ex) - 7))) +
+             '" y="' + n2(Math.min(205, gy(ey) + 15)) +
+             '" fill="var(--red)" text-anchor="end">\u03c6</text>';
+      }
+      o += '<circle class="g-ghost" cx="' + n2(gx(ex)) + '" cy="' + n2(gy(ey)) +
+           '" r="5"/>';
+    }
+
+    /* the payoff annotation */
+    if (live && Math.abs(f) < 0.06) {
+      o += '<text class="g-hint" x="' + G.ox + '" y="' + (G.oy - 16) +
+           '" text-anchor="middle">w \u22a5 x</text>';
+    }
+
+    out.geo.innerHTML = o;
+
+    paintRead(out["g-dot"], c.dot, 2);
+    paintRead(out["g-b"], c.b, 2);
+    paintRead(out["g-z"], c.z, 2);
+    paintRead(out["g-a"], mixF(c.z), 2);
+  }
+
+  /* --------------------------------------------------------- the readout */
+
+  function drawReadout(c) {
+    var a = mixF(c.z), g = mixDF(c.z);
+    var kinkNow = M.to.kink && Math.abs(c.z) < 1e-9 && morphE >= 1;
+
+    paintRead(out["ro-z"], c.z, 2);
+    paintRead(out["ro-a"], a, 2);
+    paintRead(out["ro-d"], a - c.z, 2);
+    if (kinkNow) {
+      out["ro-g"].textContent = "kink";
+      out["ro-g"].className = "zero";
+    } else {
+      paintRead(out["ro-g"], g, 2);
+    }
+
+    /* Which of the four geometric outcomes is this z in? Computed from the
+     * numbers, not declared per activation, so it cannot drift out of step
+     * with the curve. */
+    var label, cls;
+    if (kinkNow) {
+      label = "kink \u2014 no slope here"; cls = "";
+    } else if (Math.abs(g) < 0.005 && Math.abs(a) < 0.005) {
+      label = "clamped to 0"; cls = "neg";
+    } else if (Math.abs(a) > Math.abs(c.z) + 1e-6) {
+      label = "expanded"; cls = "pos";
+    } else if (Math.abs(a) < Math.abs(c.z) - 1e-6) {
+      label = "compressed"; cls = "neg";
+    } else {
+      label = "pass-through"; cls = "";
+    }
+    out.badge.textContent = label;
+    out.badge.className = "x-badge" + (cls ? " " + cls : "");
+
+    out.fn5.textContent = M.to.name;
+    out.formula.textContent = "a = " + M.to.name + "(z)";
+  }
+
+  /* -------------------------------------------------------------- render */
+
+  function render() {
+    var c = compute();
+    var a = mixF(c.z);
+
+    out.w1v.textContent = W.fmt(c.w1);
+    out.w2v.textContent = W.fmt(c.w2);
+    out.bv.textContent = W.fmt(c.b);
+
+    out.e1.textContent = "w\u2081x\u2081 = " + W.fmt(c.w1) + " \u00d7 2";
+    out.e2.textContent = "w\u2082x\u2082 = " + W.fmt(c.w2) + " \u00d7 (\u22121)";
+    W.paintValue(out.c1, c.t1);
+    W.paintValue(out.c2, c.t2);
+    W.paintValue(out.c3, c.t3);
+
+    /* the walk: each row's bar spans from the total before it to the total
+     * after it, so the staircase of row starts IS the accumulation */
+    paintSpan(out.f1, c.runs[0], c.runs[1]);
+    paintSpan(out.f2, c.runs[1], c.runs[2]);
+    paintSpan(out.f3, c.runs[2], c.runs[3]);
+    paintSpan(out.f4, 0, c.z);
+
+    out.a1.style.left = pct(c.runs[0]) + "%";
+    out.a2.style.left = pct(c.runs[1]) + "%";
+    out.a3.style.left = pct(c.runs[2]) + "%";
+    out.a1.style.display = Math.abs(c.t1) < 0.05 ? "" : "none";
+    out.a2.style.display = Math.abs(c.t2) < 0.05 ? "" : "none";
+    out.a3.style.display = Math.abs(c.t3) < 0.05 ? "" : "none";
+
+    out.k2.style.left = pct(c.runs[1]) + "%";
+    out.k3.style.left = pct(c.runs[2]) + "%";
+    out.k4.style.left = pct(c.runs[3]) + "%";
+
+    W.paintValue(out.v1, c.t1);
+    W.paintValue(out.v2, c.t2);
+    W.paintValue(out.v3, c.t3);
+    W.paintValue(out.v4, c.z, 1);
+
+    /* The output row. The bar is the activated value on the shared +-6 axis,
+     * the tick is where z was, and the hairline between them is the change the
+     * activation made — drawn, not described. */
+    W.paintBar(out.f5, a);
+    W.paintValue(out.v5, a);
+    out.a5.style.left = pct(c.z) + "%";
+    out.a5.style.display = Math.abs(a - c.z) > 0.02 ? "" : "none";
+    paintShift(out.s5, c.z, a);
+
+    W.setHidden(rows[0], state < 1);
+    W.setHidden(rows[1], state < 2);
+    W.setHidden(rows[2], state < 3);
+    W.setHidden(rows[3], state < 4);
+    W.setHidden(rows[4], state < 5);
+
+    drawChain(c);
+    drawPlot(c);
+    drawGeo(c);
+    drawReadout(c);
+
+    /* The surprise, carried over from V02 and sharpened: three healthy-looking
+     * terms, z = 0 — and then phi decides what zero means. */
+    var cancelled = Math.abs(c.z) < 0.05 && (Math.abs(c.t1) + Math.abs(c.t2)) > 0.5;
+    out.note.classList.toggle("on", cancelled);
+    if (cancelled) {
+      var txt = Math.abs(c.z) < 1e-9
+        ? "w stands at right angles to x \u2014 nothing is left"
+        : "the terms almost cancel \u2014 almost nothing is left";
+      if (Math.abs(a) > 0.1) {
+        txt += " \u00b7 but " + M.to.name + "(0) = " + W.fmt(a);
+      }
+      out["note-text"].textContent = txt;
+    }
+
+    presetKeys.forEach(function (k) {
+      var p = PRESETS[k];
+      document.getElementById(k).classList.toggle("on",
+        Math.abs(p.w1 - c.w1) < 1e-9 &&
+        Math.abs(p.w2 - c.w2) < 1e-9 &&
+        Math.abs(p.b - c.b) < 1e-9);
+    });
+  }
+
+  function setState(next) {
+    state = next;
+    render();
+  }
+
+  /* ------------------------------------------------------------ controls */
+
+  var stepper = W.createStepper({
+    steps: [1, 2, 3, 4, 5],
+    stepMs: 620,
+    onStep: function (i) {
+      setState(i);
+      if (i > 0 && i <= LAST) W.pulse(rows[i - 1]);
+    }
+  });
+
+  Object.keys(el).forEach(function (key) {
+    el[key].addEventListener("input", function () {
+      stepper.stop();
+      if (raf) { cancelAnimationFrame(raf); raf = null; }
+      morphE = 1;                     // the sliders are the authority: settle
+      setState(LAST);
+    });
+  });
+
+  presetKeys.forEach(function (k) {
+    document.getElementById(k).addEventListener("click", function () {
+      var p = PRESETS[k];
+      stepper.stop();
+      el.w1.value = String(p.w1);
+      el.w2.value = String(p.w2);
+      el.b.value = String(p.b);
+      setState(LAST);
+      /* Replay the build so the walk visibly re-forms for the new numbers. */
+      stepper.play();
+    });
+  });
+
+  document.getElementById("play").addEventListener("click", function () {
+    stepper.play();
+  });
+
+  document.getElementById("reset").addEventListener("click", function () {
+    stepper.stop();
+    if (raf) { cancelAnimationFrame(raf); raf = null; }
+    el.w1.value = "1.5";
+    el.w2.value = "0.5";
+    el.b.value = "-0.5";
+    setActivation(START_ACT, true);
+    setState(LAST);
+  });
+
+  /* --------------------------------------------------------- the selector */
+
+  function setActivation(k, instant) {
+    if (k === actIdx && morphE >= 1) return;
+    M.from = snapshotMix();
+    M.to = ACTS[k];
+    actIdx = k;
+    morphE = 0;
+    Array.prototype.forEach.call(document.querySelectorAll(".act-btn"), function (b) {
+      b.classList.toggle("on", Number(b.getAttribute("data-k")) === k);
+    });
+    if (instant) {
+      if (raf) { cancelAnimationFrame(raf); raf = null; }
+      morphE = 1;
+      render();
+      return;
+    }
+    /* One tween drives the curve, the y window, the dot and the readout,
+     * because they all read the same blend. Nothing can fall out of step. */
+    tween(dur(460), function (e) { morphE = e; }, function () {
+      W.pulse(rows[4]);
+    });
+  }
+
+  ACTS.forEach(function (a, k) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.className = "act-btn" + (k === START_ACT ? " on" : "");
+    b.setAttribute("data-k", String(k));
+    b.textContent = a.name;
+    b.addEventListener("click", function () { setActivation(k, false); });
+    document.getElementById("acts").appendChild(b);
+  });
+
+  render();
+
+  /* ---------------------------------------------------------- test hook
+   * The exact values are what a checker compares against; the displayed ones
+   * are what is mid-morph on screen. Keeping both means a checker never has to
+   * race the animation to get a trustworthy number. */
+  window.__widget = {
+    getStep: function () { return state; },
+    getZ: function () { return compute().z; },
+    getA: function () { return compute().a; },
+    getGain: function () { return compute().gain; },
+    getDelta: function () { return compute().a - compute().z; },
+    getWx: function () { return compute().dot; },
+    getTerms: function () { var c = compute(); return [c.t1, c.t2, c.t3]; },
+    getRuns: function () { return compute().runs.slice(); },
+    getActivation: function () { return ACTS[actIdx].key; },
+    getActivations: function () {
+      return ACTS.map(function (a) { return a.key; });
+    },
+    /* the window the plot is drawing on, and the blend, so a checker can
+     * re-derive the drawn geometry instead of hardcoding a second copy */
+    getPlotFrame: function () {
+      return { x0: PV.x0, x1: PV.x1, y0: PV.y0, y1: PV.y1,
+               zLo: PV.zLo, zHi: PV.zHi, n: NSAMP };
+    },
+    /* The window the plot is actually drawing on — mixLo/mixHi, the same pair
+     * drawPlot() reads at the top of its body, NOT M.to's window. During a
+     * morph the two differ, and reporting the target's window while the plot
+     * cross-fades between two others would make this hook lie exactly when a
+     * checker is most likely to be reading it. Settled, they agree. */
+    getRange: function () { return [mixLo(), mixHi()]; },
+    getDisplayed: function () {
+      var c = compute();
+      return { a: mixF(c.z), gain: mixDF(c.z), lo: mixLo(), hi: mixHi(), e: morphE };
+    },
+    getBadge: function () { return out.badge.textContent; },
+    getPoint: function () {
+      var c = compute();
+      return { z: c.z, a: mixF(c.z) };
+    },
+    getMarks: function () {
+      var ids = ["f1", "f2", "f3", "f4", "f5"];
+      return ids.map(function (id) {
+        var f = out[id];
+        return {
+          left: parseFloat(f.style.left) / 100,
+          width: parseFloat(f.style.width) / 100,
+          neg: f.classList.contains("neg"),
+          hidden: f.closest(".w-row").classList.contains("is-hidden")
+        };
+      });
+    },
+    getProjection: function () {
+      var c = compute();
+      var nx2 = X1 * X1 + X2 * X2;
+      var f = (c.w1 * X1 + c.w2 * X2) / nx2;
+      return { f: f, px: f * X1, py: f * X2, nw: Math.sqrt(c.w1 * c.w1 + c.w2 * c.w2) };
+    },
+    /* The geometry the panel actually draws, in the panel's own data units:
+     * the zero-output line's anchor and unit normal, and the slide that takes
+     * x to the ghost. A checker can re-derive every one of these from w, b and
+     * phi, so a mis-placed arrow cannot hide behind the drawing. */
+    getPlane: function () {
+      var c = compute();
+      var nw = Math.sqrt(c.w1 * c.w1 + c.w2 * c.w2);
+      var a = mixF(c.z);
+      var sl = nw > 0 ? (a - c.z) / (nw * nw) : 0;
+      return {
+        nw: nw,
+        zeroX: nw > 0 ? -c.b * c.w1 / (nw * nw) : 0,
+        zeroY: nw > 0 ? -c.b * c.w2 / (nw * nw) : 0,
+        nx: nw > 0 ? -c.w2 / nw : 0,
+        ny: nw > 0 ? c.w1 / nw : 0,
+        slide: sl,
+        ghostX: X1 + sl * c.w1,
+        ghostY: X2 + sl * c.w2
+      };
+    },
+    isCancelled: function () { return out.note.classList.contains("on"); },
+    isMorphing: function () { return morphE < 1; },
+    isPlaying: function () { return stepper.isPlaying(); },
+    getPresets: function () { return presetKeys.slice(); },
+    setPreset: function (k) { document.getElementById(k).click(); },
+    /* Takes the activation's string key, not its index, so a checker never has
+     * to know the order of the table. Pass `instant` to settle without the
+     * 460ms morph, which is what a sweep wants; omit it to animate, which is
+     * what a click does. */
+    setActivation: function (k, instant) {
+      var i = ACTS.map(function (a) { return a.key; }).indexOf(k);
+      if (i >= 0) setActivation(i, !!instant);
+      return i >= 0;
+    },
+    stop: function () {
+      if (raf) { cancelAnimationFrame(raf); raf = null; }
+      morphE = 1;
+      stepper.stop();
+      setState(LAST);
+    }
+  };
+})();
+</script>
+</body>
+</html>
