@@ -1,0 +1,1304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Absolute Position Encoding · Interactive Explainer</title>
+<style>
+  :root{
+    --paper:#F7F6F1;
+    --paper-line: rgba(28,35,51,.055);
+    --ink:#1C2333;
+    --ink-soft:#5B6478;
+    --panel:#FFFFFF;
+    --line:#E1DFD6;
+    --accent:#2F6FED;
+    --accent-soft:#E3EBFC;
+    --warn:#D14343;
+    --warn-soft:#FBE7E6;
+    --ok:#1F9E6B;
+    --pos-c:#E2725B;
+    --i-c:#1F9E89;
+    --d-c:#6C4AB6;
+    --base-c:#C9971D;
+    --mono:'IBM Plex Mono','JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --serif:'Iowan Old Style','Palatino Linotype',Georgia,'Noto Serif',serif;
+    --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background-color:var(--paper);
+    background-image:
+      linear-gradient(var(--paper-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--paper-line) 1px, transparent 1px);
+    background-size:28px 28px;
+    color:var(--ink);
+    font-family:var(--sans);
+    line-height:1.6;
+  }
+  .wrap{max-width:1180px;margin:0 auto;padding:40px 24px 140px;}
+  header{max-width:100%;margin-bottom:8px;display:flex;flex-wrap:wrap;gap:20px;justify-content:space-between;align-items:flex-end;}
+  header .htext{max-width:600px;}
+  header h1{font-family:var(--serif);font-size:clamp(30px,4.2vw,44px);margin:0 0 4px;}
+  header .sub{font-size:17px;color:var(--ink-soft);margin:0 0 10px;}
+  header p{font-size:16px;color:var(--ink-soft);max-width:64ch;margin:0;}
+  h2{font-family:var(--serif);font-size:25px;margin:0 0 4px;}
+  h3{font-size:17px;margin:0 0 4px;font-weight:700;}
+  .lead{color:var(--ink-soft);font-size:15.5px;max-width:70ch;margin:0 0 14px;}
+  section.block{margin:52px 0;scroll-margin-top:96px;transition:opacity .4s ease,filter .4s ease;}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px 22px;transition:opacity .4s ease,filter .4s ease;scroll-margin-top:96px;}
+  .spotlightable.dim{opacity:.32;filter:saturate(.55);}
+  code{font-family:var(--mono);background:var(--accent-soft);padding:1px 5px;border-radius:4px;font-size:.9em;}
+
+  /* mode toggle */
+  .segmented{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff;}
+  .segmented button{border:none;background:#fff;padding:8px 14px;font-size:14px;cursor:pointer;color:var(--ink-soft);border-right:1px solid var(--line);}
+  .segmented button:last-child{border-right:none;}
+  .segmented button[aria-pressed="true"]{background:var(--accent);color:#fff;font-weight:600;}
+  .segmented button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;}
+
+  /* problem */
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 18px;}
+  .chip{font-family:var(--mono);font-size:15.5px;padding:6px 12px;background:#fff;border:1px solid var(--line);border-radius:6px;color:var(--ink-soft);will-change:transform;}
+  .chip .idx{display:block;font-size:11.5px;opacity:.7;}
+  .chip-hot{border-color:var(--pos-c);color:var(--pos-c);background:#FDF1EE;font-weight:700;}
+  .prob-row{display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start;margin-top:6px;}
+  .prob-col{flex:1;min-width:220px;}
+  .prob-col h4{margin:0 0 6px;font-size:15px;font-weight:700;}
+  canvas.mini{width:100%;height:108px;display:block;border:1px solid var(--line);border-radius:6px;background:#fff;}
+  .prob-actions{display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin:16px 0 10px;}
+  .toggle-row{display:flex;align-items:center;gap:9px;cursor:pointer;user-select:none;}
+  .switch{position:relative;width:42px;height:23px;flex:none;}
+  .switch input{opacity:0;width:0;height:0;}
+  .slider-pill{position:absolute;inset:0;background:#D7D4C8;border-radius:999px;cursor:pointer;transition:background .2s;}
+  .slider-pill::before{content:"";position:absolute;width:17px;height:17px;left:3px;top:3px;background:#fff;border-radius:50%;transition:transform .2s;box-shadow:0 1px 2px rgba(0,0,0,.25);}
+  .switch input:checked + .slider-pill{background:var(--accent);}
+  .switch input:checked + .slider-pill::before{transform:translateX(19px);}
+  .prob-note{font-size:15px;padding:9px 13px;border-radius:8px;background:var(--warn-soft);border:1px solid #F1C9C6;color:#8a2f2f;min-height:18px;}
+  .prob-note.ok{background:#E7F6EF;border-color:#BFE6D2;color:#1c6b4a;}
+
+  /* controls */
+  .controls-bar{display:flex;flex-wrap:wrap;gap:24px;align-items:flex-end;padding:16px 20px;background:#fff;border:1px solid var(--line);border-radius:10px;margin-bottom:24px;position:sticky;top:12px;z-index:20;}
+  .slider-group{display:flex;flex-direction:column;gap:5px;min-width:170px;}
+  .slider-group label{font-size:13.5px;color:var(--ink-soft);display:flex;justify-content:space-between;gap:8px;}
+  .slider-group label b{color:var(--ink);font-family:var(--mono);font-weight:600;}
+  input[type=range]{width:100%;accent-color:var(--accent);}
+  .btn{border:1px solid var(--line);background:#fff;color:var(--ink);padding:7px 13px;border-radius:7px;font-size:14.5px;cursor:pointer;}
+  .btn:hover{border-color:var(--accent);color:var(--accent);}
+  .btn:disabled{opacity:.4;cursor:default;}
+  .btn:focus-visible,input:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+  .btn-primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;}
+  .btn-primary:hover{opacity:.9;color:#fff;}
+
+  /* lab grid */
+  .lab-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:20px;margin-bottom:22px;}
+  @media (max-width:920px){.lab-grid{grid-template-columns:1fr;}}
+  .heatmap-wrap{position:relative;border-radius:7px;}
+  canvas#heatmapCanvas{width:100%;height:450px;display:block;border-radius:7px;cursor:crosshair;border:1px solid var(--line);}
+  .legend-row{display:flex;gap:24px;flex-wrap:wrap;margin-top:11px;font-size:13px;color:var(--ink-soft);}
+  .legend-block{flex:1;min-width:190px;}
+  .legend-grad{height:9px;border-radius:5px;background:linear-gradient(90deg,#2F6FED,#ffffff,#D14343);margin-bottom:3px;}
+  .legend-labels{display:flex;justify-content:space-between;font-family:var(--mono);font-size:12px;}
+  .freq-bar{height:9px;border-radius:5px;margin-bottom:3px;}
+  .readout{margin-top:12px;font-size:15px;font-family:var(--mono);background:var(--paper);border:1px dashed var(--line);border-radius:8px;padding:9px 13px;min-height:44px;color:var(--ink-soft);line-height:1.6;}
+  .readout b{color:var(--ink);}
+  .hint{font-size:13px;color:var(--ink-soft);margin-top:5px;}
+
+  .formula-panel .formula-box{border:1px solid var(--line);border-left:4px solid var(--line);border-radius:8px;padding:12px 15px;margin-bottom:12px;transition:background .2s,border-color .2s;}
+  .formula-box.active{background:var(--accent-soft);border-left-color:var(--accent);}
+  .formula-box p{margin:0;font-size:14px;color:var(--ink-soft);}
+  /* self-contained formula rendering (no external library, works offline) */
+  .tf{display:block;font-family:var(--serif);font-size:23px;line-height:1.25;padding:8px 0 6px;letter-spacing:.2px;}
+  .tf .var{font-style:italic;}
+  .tf sub{font-size:.62em;}
+  .tf sup{font-size:.62em;}
+  .tf .v-pos{color:var(--pos-c);}
+  .tf .v-i{color:var(--i-c);}
+  .tf .v-d{color:var(--d-c);}
+  .tf .v-base{color:var(--base-c);}
+  .tf .func{font-style:normal;}
+  .tf .bp{display:inline-block;transform:scaleY(1.55) translateY(-1px);}
+  .frac{display:inline-flex;flex-direction:column;vertical-align:middle;text-align:center;padding:0 3px;}
+  .frac .fd{border-top:1.2px solid currentColor;padding-top:1px;}
+  .tf .hlbox{background:rgba(47,111,237,.15);border-radius:3px;box-shadow:0 0 0 1px rgba(47,111,237,.45);padding:0 2px;}
+  details.formula-more{margin-top:4px;font-size:13.5px;color:var(--ink-soft);}
+  details.formula-more summary{cursor:pointer;color:var(--accent);font-weight:600;list-style:none;}
+  details.formula-more summary::-webkit-details-marker{display:none;}
+  details.formula-more summary::marker{display:none;content:"";}
+  details.formula-more[open] summary{margin-bottom:4px;}
+
+  /* clock */
+  .clock-wrap{position:relative;}
+  canvas#clockCanvas{width:100%;height:260px;display:block;cursor:pointer;}
+  .clock-back-btn{position:absolute;top:0;left:0;font-size:14px;padding:5px 11px;display:none;z-index:2;}
+  .clock-back-btn.show{display:inline-block;}
+
+  /* similarity */
+  canvas#simCanvas{width:100%;height:200px;display:block;cursor:crosshair;}
+  .sim-ref{font-family:var(--mono);font-size:14px;color:var(--ink-soft);margin-bottom:6px;}
+
+  /* compose */
+  .compose-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:16px;margin-bottom:14px;}
+  .compose-label{font-family:var(--mono);font-size:15px;color:var(--ink-soft);}
+  .compose-row{display:flex;align-items:stretch;gap:8px;overflow-x:auto;padding-bottom:4px;}
+  .compose-cell{flex:1;min-width:170px;}
+  .compose-cell h4{font-size:14.5px;margin:0 0 5px;font-weight:700;}
+  canvas.compose-canvas{width:100%;height:190px;display:block;border:1px solid var(--line);border-radius:7px;background:#fff;}
+  .op-symbol{display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--ink-soft);width:24px;flex:none;padding-top:18px;}
+
+  footer{margin-top:60px;font-size:13.5px;color:var(--ink-soft);border-top:1px solid var(--line);padding-top:16px;max-width:72ch;}
+
+  /* guided tour bar */
+  .guided-bar{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 10px 28px rgba(28,35,51,.16);padding:14px 20px;max-width:600px;width:calc(100% - 36px);z-index:60;display:flex;flex-direction:column;gap:8px;}
+  .guided-bar.hidden{display:none;}
+  .guided-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;}
+  .guided-title{font-weight:700;font-size:15.5px;}
+  .guided-close{background:none;border:none;color:var(--ink-soft);font-size:18px;cursor:pointer;line-height:1;padding:2px 4px;}
+  .guided-text{font-size:14.5px;color:var(--ink-soft);min-height:32px;}
+  .guided-nav{display:flex;justify-content:space-between;align-items:center;}
+  .guided-dots{display:flex;gap:5px;align-items:center;}
+  .guided-dot{width:6px;height:6px;border-radius:50%;background:var(--line);transition:all .25s;}
+  .guided-dot.active{background:var(--accent);width:15px;border-radius:4px;}
+  .guided-btns{display:flex;gap:8px;}
+
+  @media (prefers-reduced-motion: reduce){
+    *{transition-duration:.01ms !important;animation-duration:.01ms !important;}
+    html{scroll-behavior:auto;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="htext">
+      <h1>Absolute Position Encoding</h1>
+      <p class="sub">How a Transformer learns which word came first</p>
+      <p>A Transformer reads the whole sequence at once, so order is lost. Position encoding puts a
+      unique, smooth signal into every slot.</p>
+      <p class="hint"><b>←</b> <b>→</b> step position · <b>space</b> play/pause · <b>Esc</b> leave tour</p>
+    </div>
+    <div class="segmented" role="group" aria-label="Mode">
+      <button id="modeExplore" aria-pressed="true">Explore</button>
+      <button id="modeGuided" aria-pressed="false">Guided tour</button>
+    </div>
+  </header>
+
+  <!-- ============ problem ============ -->
+  <section class="block spotlightable" id="sec-problem">
+    <h2>The problem</h2>
+    <p class="lead">"dog" appears twice. The embedding knows the word, not the slot — so both copies start identical.</p>
+    <div class="panel">
+      <div class="chips" id="probChips"></div>
+      <div class="prob-row">
+        <div class="prob-col"><h4 id="probALabel">"dog" · slot 0</h4><canvas class="mini" id="probA"></canvas></div>
+        <div class="prob-col"><h4 id="probBLabel">"dog" · slot 6</h4><canvas class="mini" id="probB"></canvas></div>
+      </div>
+      <div class="prob-actions">
+        <label class="toggle-row">
+          <span class="switch"><input type="checkbox" id="probToggle"><span class="slider-pill"></span></span>
+          <span>Add position encoding</span>
+        </label>
+        <button class="btn" id="shuffleBtn">🔀 Shuffle word order</button>
+      </div>
+      <div class="prob-note" id="probNote" role="status"></div>
+    </div>
+  </section>
+
+  <!-- ============ controls ============ -->
+  <div class="controls-bar" id="sec-controls">
+    <div class="slider-group">
+      <label for="nSlider">Sequence length <b id="nVal">16</b></label>
+      <input type="range" id="nSlider" min="4" max="48" step="1" value="16">
+    </div>
+    <div class="slider-group">
+      <label for="dSlider">Embedding dim d<sub>model</sub> <b id="dVal">16</b></label>
+      <input type="range" id="dSlider" min="4" max="32" step="2" value="16">
+    </div>
+    <div class="slider-group">
+      <label for="baseSlider">Frequency base <b id="baseVal">10,000</b></label>
+      <input type="range" id="baseSlider" min="301" max="5000" step="1" value="4000">
+    </div>
+    <div class="slider-group" style="min-width:210px;">
+      <label>Show</label>
+      <div class="segmented" role="group" aria-label="Sine/cosine filter">
+        <button data-filter="all" aria-pressed="true">All</button>
+        <button data-filter="sin" aria-pressed="false">Sine</button>
+        <button data-filter="cos" aria-pressed="false">Cosine</button>
+      </div>
+    </div>
+    <button class="btn" id="resetBtn">Reset</button>
+  </div>
+
+  <!-- ============ heatmap + formula ============ -->
+  <div class="lab-grid">
+    <div class="panel spotlightable" id="sec-heatmap">
+      <h3>Position × dimension</h3>
+      <p class="lead">Rows = positions, columns = dimensions, colour = value. Hover to read a cell; click a row to jump there.</p>
+      <div class="heatmap-wrap"><canvas id="heatmapCanvas" role="img" aria-label="Heatmap of position encoding values, rows are positions and columns are dimensions"></canvas></div>
+      <div class="legend-row">
+        <div class="legend-block">
+          <div class="legend-grad"></div>
+          <div class="legend-labels"><span>−1</span><span>0</span><span>+1</span></div>
+          <div class="hint">colour = value</div>
+        </div>
+        <div class="legend-block">
+          <div class="freq-bar" id="freqLegend"></div>
+          <div class="legend-labels"><span>i=0 · fast</span><span>i max · slow</span></div>
+          <div class="hint">dimension colour (clocks &amp; bars)</div>
+        </div>
+      </div>
+      <div class="readout" id="heatmapReadout" role="status" aria-live="polite">Hover a cell for its value.</div>
+    </div>
+
+    <div class="panel formula-panel spotlightable" id="sec-formula">
+      <h3>The formula</h3>
+      <p class="lead">Even dims use sine, the paired odd dim uses cosine — same frequency, quarter-turn apart.</p>
+      <div class="formula-box" id="sinBox">
+        <div id="formulaSin"></div>
+        <p>Even dims (0, 2, 4, …) use sine.</p>
+      </div>
+      <div class="formula-box" id="cosBox">
+        <div id="formulaCos"></div>
+        <p>Odd dims (1, 3, 5, …) use cosine — same frequency.</p>
+      </div>
+      <details class="formula-more">
+        <summary>Why base = 10,000?</summary>
+        <p>A large base spreads the frequencies from fast to nearly constant, so every position stays unique — even in long sequences. Drag the base slider.</p>
+      </details>
+    </div>
+  </div>
+
+  <!-- ============ clock ============ -->
+  <div class="panel spotlightable" id="sec-clock" style="margin-bottom:22px;">
+    <h3>Frequency clocks</h3>
+    <p class="lead">Each dimension pair is a clock hand with its own speed. Click one to spin the sequence; drag to set it yourself. The pale arc = angle swept so far.</p>
+    <div class="compose-toolbar">
+      <button class="btn btn-primary" id="clockSweep">▶ Sweep positions</button>
+      <button class="btn" id="clockSpinBtn">↻ Spin once</button>
+      <span class="compose-label" id="clockPos">pos=0</span>
+    </div>
+    <div class="clock-wrap">
+      <button class="btn clock-back-btn" id="clockBack">← back</button>
+      <canvas id="clockCanvas" role="img" aria-label="One rotating clock hand per dimension pair, each rotating at its own frequency"></canvas>
+    </div>
+  </div>
+
+  <!-- ============ similarity ============ -->
+  <div class="panel spotlightable" id="sec-sim" style="margin-bottom:22px;">
+    <h3>Position similarity</h3>
+    <p class="lead">How similar the current position is to every other one — neighbours look alike, distant positions drift to zero. Axis: Δ = distance from the reference (grey = absolute position). Hover to read, click to move.</p>
+    <div class="sim-ref" id="simRef">Reference: pos=0</div>
+    <canvas id="simCanvas" role="img" aria-label="Cosine similarity between the current position encoding and every other position"></canvas>
+  </div>
+
+  <!-- ============ compose ============ -->
+  <div class="panel spotlightable" id="sec-compose">
+    <h3>Putting it together</h3>
+    <p class="lead">Token embedding + position encoding = what the model actually sees.</p>
+    <div class="compose-toolbar">
+      <button class="btn btn-primary" id="playBtn">▶ Auto-sweep</button>
+      <button class="btn" id="buildBtn">↻ Replay build</button>
+      <div class="slider-group" style="min-width:150px;">
+        <label for="posScrub">Position <b id="posVal">0</b></label>
+        <input type="range" id="posScrub" min="0" max="15" step="1" value="0">
+      </div>
+      <div class="slider-group" style="min-width:120px;">
+        <label for="speedSlider">Speed</label>
+        <input type="range" id="speedSlider" min="0.3" max="5" step="0.1" value="1.5">
+      </div>
+      <span class="compose-label" id="composeLabel">pos=0</span>
+    </div>
+    <div class="compose-row">
+      <div class="compose-cell"><h4>Token embedding</h4><canvas class="compose-canvas" id="composeTok" role="img" aria-label="Token embedding bars"></canvas></div>
+      <div class="op-symbol">+</div>
+      <div class="compose-cell"><h4>Position encoding</h4><canvas class="compose-canvas" id="composePE" role="img" aria-label="Position encoding bars"></canvas></div>
+      <div class="op-symbol">=</div>
+      <div class="compose-cell"><h4>Final input vector</h4><canvas class="compose-canvas" id="composeSum" role="img" aria-label="Sum of token embedding and position encoding"></canvas></div>
+    </div>
+    <p class="hint">Bar height = value (above/below the line = positive/negative), bar colour = dimension (same scale as the clocks). The heatmap uses colour for <em>value</em> instead.</p>
+  </div>
+
+  <footer>
+    Formula: Vaswani et al., 2017, <i>Attention Is All You Need</i>. Token vectors are demo placeholders.
+    Runs fully offline in your browser.
+  </footer>
+</div>
+
+<div class="guided-bar hidden" id="guidedBar">
+  <div class="guided-top">
+    <span class="guided-title" id="guidedTitle">Title</span>
+    <button class="guided-close" id="guidedExit" aria-label="Exit tour">✕</button>
+  </div>
+  <div class="guided-text" id="guidedText">Text</div>
+  <div class="guided-nav">
+    <div class="guided-dots" id="guidedDots"></div>
+    <div class="guided-btns">
+      <button class="btn" id="guidedPrev">← Prev</button>
+      <button class="btn btn-primary" id="guidedNext">Next →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ================= utils ================= */
+  function clamp(v,min,max){return Math.max(min,Math.min(max,v));}
+  function lerp(a,b,t){return Math.round(a+(b-a)*t);}
+  function easeOutCubic(t){return 1-Math.pow(1-t,3);}
+  function formatNum(n){ return n>=1000 ? Math.round(n).toLocaleString('en-US') : n.toFixed(1); }
+
+  function hashStr(s){
+    let h=1779033703;
+    for(let i=0;i<s.length;i++){h=Math.imul(h^s.charCodeAt(i),3432918353);h=(h<<13)|(h>>>19);}
+    return h>>>0;
+  }
+  function mulberry32(seed){
+    let a=seed>>>0;
+    return function(){
+      a=(a+0x6D2B79F5)|0;
+      let t=Math.imul(a^(a>>>15),1|a);
+      t=(t+Math.imul(t^(t>>>7),61|t))^t;
+      return ((t^(t>>>14))>>>0)/4294967296;
+    };
+  }
+
+  const BODY_FONT = getComputedStyle(document.body).fontFamily;
+  const REDUCED = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+
+  /* ================= state ================= */
+  const OPENING_TOKENS=["dog","bites","man","not","man","bites","dog"];
+  const DOG_A=0, DOG_B=OPENING_TOKENS.length-1;
+  const POOL=["the","model","reads","every","token","at","once","so","it","needs",
+    "a","clue","about","order","otherwise","meaning","can","flip","completely","around",
+    "which","is","exactly","what","this","signal","fixes","for","us","now"];
+
+  const state={
+    N:16, D:16, base:10000,
+    sinCosFilter:"all", filterBlend:null,
+    hover:{pos:null,dim:null}, simHover:null,
+    currentPos:0, displayPos:0,
+    playing:false, speed:1.5,
+    probPEOn:false, tokenOrder:[0,1,2,3,4,5,6], shuffleSeed:1,
+    clockFocus:null, clockFocusT:0,
+    composeBlend:null, composeBuild:null,
+    drag:null,
+    mode:"explore", guidedIndex:0,
+    peMat:null
+  };
+
+  /* ================= math ================= */
+  function peValue(pos,dim){
+    const D=state.D, i=Math.floor(dim/2);
+    const denom=Math.pow(state.base,(2*i)/D);
+    const angle=pos/denom;
+    return (dim%2===0)?Math.sin(angle):Math.cos(angle);
+  }
+  function peVector(pos){
+    const D=state.D; const v=new Float32Array(D);
+    for(let dim=0;dim<D;dim++) v[dim]=peValue(pos,dim);
+    return v;
+  }
+  function peMatrix(){
+    const N=state.N; const m=new Array(N);
+    for(let p=0;p<N;p++) m[p]=peVector(p);
+    return m;
+  }
+  function tokenEmbedding(token){
+    const D=state.D; const rnd=mulberry32(hashStr(token));
+    const v=new Float32Array(D);
+    for(let k=0;k<D;k++) v[k]=rnd()*2-1;
+    return v;
+  }
+  function addVec(a,b){const r=new Float32Array(a.length);for(let k=0;k<a.length;k++)r[k]=a[k]+b[k];return r;}
+  function lerpVec(a,b,t){const r=new Float32Array(a.length);for(let k=0;k<a.length;k++)r[k]=a[k]+(b[k]-a[k])*t;return r;}
+
+  /* ================= color ================= */
+  function valueColor(v,alpha){
+    v=clamp(v,-1,1); alpha=alpha==null?1:alpha;
+    let r,g,b;
+    if(v<0){const t=v+1;r=lerp(0x2F,0xFF,t);g=lerp(0x6F,0xFF,t);b=lerp(0xED,0xFF,t);}
+    else{const t=v;r=lerp(0xFF,0xD1,t);g=lerp(0xFF,0x43,t);b=lerp(0xFF,0x43,t);}
+    return "rgba("+r+","+g+","+b+","+alpha+")";
+  }
+  function dimColor(i,maxI){
+    const hue=18+(i/Math.max(1,maxI))*(232-18);
+    return "hsl("+hue.toFixed(1)+",70%,48%)";
+  }
+  function matchesFilter(dim,filter){
+    if(filter==="all") return true;
+    if(filter==="sin") return dim%2===0;
+    return dim%2===1;
+  }
+  function heatAlphaFor(dim){
+    if(state.filterBlend){
+      const a0=matchesFilter(dim,state.filterBlend.from)?1:0.12;
+      const a1=matchesFilter(dim,state.filterBlend.to)?1:0.12;
+      return a0+(a1-a0)*state.filterBlend.t;
+    }
+    return matchesFilter(dim,state.sinCosFilter)?1:0.12;
+  }
+
+  /* ================= DOM refs ================= */
+  const els={
+    nSlider:document.getElementById("nSlider"), nVal:document.getElementById("nVal"),
+    dSlider:document.getElementById("dSlider"), dVal:document.getElementById("dVal"),
+    baseSlider:document.getElementById("baseSlider"), baseVal:document.getElementById("baseVal"),
+    resetBtn:document.getElementById("resetBtn"),
+    heatmap:document.getElementById("heatmapCanvas"),
+    heatmapReadout:document.getElementById("heatmapReadout"),
+    freqLegend:document.getElementById("freqLegend"),
+    sinBox:document.getElementById("sinBox"), cosBox:document.getElementById("cosBox"),
+    formulaSin:document.getElementById("formulaSin"), formulaCos:document.getElementById("formulaCos"),
+    clock:document.getElementById("clockCanvas"), clockBack:document.getElementById("clockBack"),
+    clockSweep:document.getElementById("clockSweep"), clockSpinBtn:document.getElementById("clockSpinBtn"),
+    clockPos:document.getElementById("clockPos"),
+    sim:document.getElementById("simCanvas"), simRef:document.getElementById("simRef"),
+    playBtn:document.getElementById("playBtn"), buildBtn:document.getElementById("buildBtn"),
+    posScrub:document.getElementById("posScrub"), posVal:document.getElementById("posVal"),
+    speedSlider:document.getElementById("speedSlider"),
+    composeLabel:document.getElementById("composeLabel"),
+    composeTok:document.getElementById("composeTok"), composePE:document.getElementById("composePE"), composeSum:document.getElementById("composeSum"),
+    probChips:document.getElementById("probChips"),
+    probToggle:document.getElementById("probToggle"), shuffleBtn:document.getElementById("shuffleBtn"),
+    probA:document.getElementById("probA"), probB:document.getElementById("probB"),
+    probALabel:document.getElementById("probALabel"), probBLabel:document.getElementById("probBLabel"),
+    probNote:document.getElementById("probNote"),
+    segButtons:Array.prototype.slice.call(document.querySelectorAll('.segmented button[data-filter]')),
+    modeExplore:document.getElementById("modeExplore"), modeGuided:document.getElementById("modeGuided"),
+    guidedBar:document.getElementById("guidedBar"), guidedTitle:document.getElementById("guidedTitle"),
+    guidedText:document.getElementById("guidedText"), guidedDots:document.getElementById("guidedDots"),
+    guidedPrev:document.getElementById("guidedPrev"), guidedNext:document.getElementById("guidedNext"),
+    guidedExit:document.getElementById("guidedExit")
+  };
+
+  /* ================= animation loop ================= */
+  const tweens=new Map();
+  let loopRunning=false;
+  function addTween(key,fn){ tweens.set(key,fn); ensureLoop(); }
+  function removeTween(key){ tweens.delete(key); }
+  function ensureLoop(){
+    if(loopRunning) return;
+    loopRunning=true;
+    function frame(now){
+      tweens.forEach(function(fn,key){ if(!fn(16,now)) tweens.delete(key); });
+      renderDynamic();
+      if(tweens.size>0){ requestAnimationFrame(frame); } else { loopRunning=false; }
+    }
+    requestAnimationFrame(frame);
+  }
+
+  function animateTo(target,duration){
+    if(REDUCED){ state.displayPos=target; state.currentPos=Math.round(target); return; }
+    duration=duration||420;
+    const start=state.displayPos, startTime=performance.now();
+    addTween("pos",function(dt,now){
+      const t=Math.min(1,(now-startTime)/duration), e=easeOutCubic(t);
+      state.displayPos=start+(target-start)*e;
+      if(t>=1){ state.displayPos=target; state.currentPos=Math.round(target); return false; }
+      state.currentPos=Math.round(state.displayPos);
+      return true;
+    });
+  }
+
+  function jumpToPos(newPos,opts){
+    opts=opts||{};
+    removeTween("spin");
+    const prev=currentVectors();
+    state.currentPos=clamp(Math.round(newPos),0,state.N-1);
+    state.composeBlend={prevTok:prev.tok,prevPE:prev.pe,prevSum:prev.sum,t:0};
+    if(REDUCED){ state.composeBlend=null; }
+    else{
+      const startTime=performance.now(), duration=300;
+      addTween("composeBlend",function(dt,now){
+        const t=Math.min(1,(now-startTime)/duration);
+        state.composeBlend.t=easeOutCubic(t);
+        if(t>=1){ state.composeBlend=null; return false; }
+        return true;
+      });
+    }
+    if(opts.animatePos===false){ state.displayPos=state.currentPos; }
+    else{ animateTo(state.currentPos,420); }
+  }
+
+  function setFilter(newFilter){
+    if(newFilter===state.sinCosFilter) return;
+    const from=state.sinCosFilter;
+    state.sinCosFilter=newFilter;
+    state.filterBlend={from:from,to:newFilter,t:0};
+    const startTime=performance.now(), duration=300;
+    addTween("filter",function(dt,now){
+      const t=Math.min(1,(now-startTime)/duration);
+      state.filterBlend.t=easeOutCubic(t);
+      if(t>=1){ state.filterBlend=null; return false; }
+      return true;
+    });
+    updateFormulaBoxActive();
+  }
+
+  function syncPlayButtons(){
+    const label=state.playing?"⏸ Pause":"▶ Sweep positions";
+    if(els.clockSweep) els.clockSweep.textContent=label;
+    els.playBtn.textContent=state.playing?"⏸ Pause":"▶ Auto-sweep";
+  }
+  function startSweep(){
+    if(state.playing) return;
+    removeTween("spin");
+    state.playing=true; syncPlayButtons();
+    addTween("sweep",function(dt){
+      if(!state.playing) return false;
+      state.displayPos+=state.speed*(dt/1000);
+      if(state.displayPos>=state.N) state.displayPos-=state.N;
+      if(state.displayPos<0) state.displayPos+=state.N;
+      state.currentPos=Math.floor(state.displayPos)%state.N;
+      return true;
+    });
+  }
+  function stopSweep(){
+    if(!state.playing) return;
+    state.playing=false; syncPlayButtons();
+    removeTween("sweep");
+  }
+  /* one pass over the whole sequence: 0 → N-1, so every hand sweeps at its own speed */
+  function spinOnce(duration){
+    stopSweep(); removeTween("spin");
+    if(REDUCED){ state.displayPos=state.N-1; state.currentPos=state.N-1; renderDynamic(); return; }
+    duration=duration||Math.max(1800,Math.min(4200,state.N*110));
+    const to=state.N-1, startTime=performance.now();
+    state.displayPos=0; state.currentPos=0;
+    addTween("spin",function(dt,now){
+      const t=Math.min(1,(now-startTime)/duration);
+      state.displayPos=to*t;
+      state.currentPos=clamp(Math.round(state.displayPos),0,state.N-1);
+      if(t>=1){ state.displayPos=to; state.currentPos=to; return false; }
+      return true;
+    });
+  }
+
+  function triggerBuildReplay(){
+    stopSweep();
+    state.composeBlend=null;
+    if(REDUCED){ state.composeBuild=null; renderDynamic(); return; }
+    state.composeBuild=0;
+    const startTime=performance.now(), duration=1800;
+    addTween("composeBuild",function(dt,now){
+      const t=Math.min(1,(now-startTime)/duration)*3;
+      state.composeBuild=t;
+      if(t>=3){ state.composeBuild=null; return false; }
+      return true;
+    });
+  }
+
+  function focusClock(idx){
+    if(state.clockFocus===idx) return;
+    state.clockFocus=idx;
+    els.clockBack.classList.add("show");
+    animateFocusT(1);
+  }
+  function unfocusClock(){
+    if(state.clockFocus==null) return;
+    animateFocusT(0,function(){ state.clockFocus=null; els.clockBack.classList.remove("show"); });
+  }
+  function animateFocusT(target,onDone){
+    const start=state.clockFocusT, startTime=performance.now(), duration=420;
+    addTween("clockFocus",function(dt,now){
+      const t=Math.min(1,(now-startTime)/duration);
+      state.clockFocusT=start+(target-start)*easeOutCubic(t);
+      if(t>=1){ state.clockFocusT=target; if(onDone) onDone(); return false; }
+      return true;
+    });
+  }
+
+  /* ================= canvas basics ================= */
+  function setupCanvas(canvas,cssW,cssH){
+    const dpr=window.devicePixelRatio||1;
+    canvas.width=Math.max(1,Math.round(cssW*dpr));
+    canvas.height=Math.max(1,Math.round(cssH*dpr));
+    const ctx=canvas.getContext("2d");
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    return ctx;
+  }
+
+  function drawBars(canvas,vector,D,opts){
+    opts=opts||{};
+    const range=opts.range||1, growth=(opts.growth==null)?1:opts.growth;
+    const cssW=canvas.clientWidth||200, cssH=canvas.clientHeight||160;
+    const ctx=setupCanvas(canvas,cssW,cssH);
+    ctx.clearRect(0,0,cssW,cssH);
+    const baseline=cssH/2;
+    const maxI=Math.max(0,Math.floor(D/2)-1);
+    const cellW=cssW/D, barW=Math.max(1,cellW*0.68);
+    for(let dim=0;dim<D;dim++){
+      const val=vector[dim]*growth;
+      const i=Math.floor(dim/2);
+      const h=(val/range)*(cssH/2-10);
+      const x=dim*cellW+(cellW-barW)/2;
+      ctx.fillStyle=dimColor(i,maxI);
+      if(h>=0) ctx.fillRect(x,baseline-h,barW,h);
+      else ctx.fillRect(x,baseline,barW,-h);
+    }
+    ctx.strokeStyle="rgba(28,35,51,.25)"; ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(0,baseline+0.5);ctx.lineTo(cssW,baseline+0.5);ctx.stroke();
+  }
+
+  /* heatmap geometry: leaves a left gutter for position labels and a bottom gutter for dim labels */
+  function heatGeom(){
+    const canvas=els.heatmap;
+    const cssW=canvas.clientWidth||600, cssH=canvas.clientHeight||400;
+    const padL=32, padT=4, padR=2, padB=20;
+    const N=state.N, D=state.D;
+    const plotW=Math.max(10,cssW-padL-padR), plotH=Math.max(10,cssH-padT-padB);
+    return {cssW:cssW,cssH:cssH,padL:padL,padT:padT,plotW:plotW,plotH:plotH,cellW:plotW/D,cellH:plotH/N,N:N,D:D};
+  }
+  function heatCellFromEvent(e){
+    const rect=els.heatmap.getBoundingClientRect(), g=heatGeom();
+    const sx=(g.cssW/rect.width)||1, sy=(g.cssH/rect.height)||1;
+    const x=(e.clientX-rect.left)*sx-g.padL, y=(e.clientY-rect.top)*sy-g.padT;
+    if(x<0||y<0||x>g.plotW||y>g.plotH) return null;
+    return {dim:clamp(Math.floor(x/g.cellW),0,g.D-1), pos:clamp(Math.floor(y/g.cellH),0,g.N-1)};
+  }
+  function drawHeatmap(){
+    const g=heatGeom();
+    const ctx=setupCanvas(els.heatmap,g.cssW,g.cssH);
+    const N=g.N, D=g.D, mat=state.peMat, cellW=g.cellW, cellH=g.cellH;
+    ctx.clearRect(0,0,g.cssW,g.cssH);
+    for(let pos=0;pos<N;pos++){
+      for(let dim=0;dim<D;dim++){
+        ctx.fillStyle=valueColor(mat[pos][dim],heatAlphaFor(dim));
+        ctx.fillRect(g.padL+dim*cellW,g.padT+pos*cellH,cellW+0.6,cellH+0.6);
+      }
+    }
+    /* axes: position (rows) and dimension (columns), thinned to stay readable */
+    ctx.font="12px "+BODY_FONT; ctx.fillStyle="#7A8296";
+    ctx.textAlign="right"; ctx.textBaseline="middle";
+    const rowStep=Math.max(1,Math.ceil(18/cellH));
+    for(let p=0;p<N;p+=rowStep) ctx.fillText(String(p),g.padL-5,g.padT+p*cellH+cellH/2);
+    ctx.textAlign="center"; ctx.textBaseline="top";
+    const colStep=Math.max(1,Math.ceil(28/cellW));
+    for(let d=0;d<D;d+=colStep) ctx.fillText(String(d),g.padL+d*cellW+cellW/2,g.padT+g.plotH+5);
+    const rowY=g.padT+clamp(state.displayPos,0,N-1)*cellH;
+    ctx.strokeStyle="#2F6FED"; ctx.lineWidth=2;
+    ctx.strokeRect(g.padL+0.5,rowY+0.5,g.plotW-1,cellH-1);
+    if(state.hover.pos!=null && state.hover.pos<N && state.hover.dim<D){
+      ctx.strokeStyle="#1C2333"; ctx.lineWidth=1.5;
+      ctx.strokeRect(g.padL+state.hover.dim*cellW+0.5,g.padT+state.hover.pos*cellH+0.5,cellW-1,cellH-1);
+    }
+  }
+
+  function getClockIndices(){
+    const D=state.D, maxI=Math.max(0,Math.floor(D/2)-1);
+    if(maxI+1<=8){ const a=[]; for(let i=0;i<=maxI;i++)a.push(i); return a; }
+    const set=new Set();
+    for(let k=0;k<8;k++) set.add(Math.round(k*maxI/7));
+    return Array.from(set).sort(function(a,b){return a-b;});
+  }
+  function hitTestGrid(x,y,w,h){
+    const idxs=getClockIndices(); const subW=w/idxs.length; const r=Math.min(subW,h)*0.30;
+    for(let k=0;k<idxs.length;k++){
+      const cx=subW*k+subW/2, cy=h/2-16;
+      const dx=x-cx, dy=y-cy;
+      if(dx*dx+dy*dy<=(r*1.5)*(r*1.5)) return idxs[k];
+    }
+    return null;
+  }
+
+  function drawOneClock(ctx,cx,cy,r,i,maxI,alpha,detailed){
+    const color=dimColor(i,maxI);
+    ctx.globalAlpha=alpha;
+    ctx.strokeStyle="rgba(28,35,51,.18)"; ctx.lineWidth=1;
+    ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.stroke();
+    ctx.strokeStyle="rgba(28,35,51,.08)";
+    ctx.beginPath();ctx.moveTo(cx-r,cy);ctx.lineTo(cx+r,cy);ctx.moveTo(cx,cy-r);ctx.lineTo(cx,cy+r);ctx.stroke();
+    const denom=Math.pow(state.base,(2*i)/state.D);
+    const angle=state.displayPos/denom;
+    /* trail: the arc this hand has swept since position 0 — fast hands lap, slow ones creep */
+    if(angle>0.0005){
+      ctx.strokeStyle=color; ctx.lineWidth=detailed?3:2.5; ctx.globalAlpha=alpha*(detailed?.32:.2);
+      ctx.beginPath();ctx.arc(cx,cy,r*0.8,-Math.PI/2,-Math.PI/2+Math.min(angle,Math.PI*40));ctx.stroke();
+      ctx.globalAlpha=alpha;
+    }
+    const px=cx+r*Math.sin(angle), py=cy-r*Math.cos(angle);
+    ctx.strokeStyle=color; ctx.lineWidth=1.6;
+    ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(px,py);ctx.stroke();
+    ctx.fillStyle=color;
+    ctx.beginPath();ctx.arc(px,py,Math.max(3,r*0.07),0,Math.PI*2);ctx.fill();
+    ctx.fillStyle="#1C2333"; ctx.textAlign="center";
+    ctx.font=(detailed?15:14)+"px "+BODY_FONT;
+    ctx.fillText("i="+i,cx,cy+r+18);
+    ctx.fillStyle="#5B6478"; ctx.font="12px "+BODY_FONT;
+    const period=2*Math.PI*denom;
+    ctx.fillText("period≈"+formatNum(period),cx,cy+r+35);
+    if(detailed){
+      const deg=angle*180/Math.PI, laps=angle/(Math.PI*2);
+      const degTxt=(deg>=100?deg.toFixed(0):deg.toFixed(1))+"°";
+      const turnTxt=(laps>=1)?laps.toFixed(2)+" laps":Math.round(laps*100)+"% of a lap";
+      ctx.fillStyle="#1C2333"; ctx.font="13.5px "+BODY_FONT;
+      ctx.fillText("pos="+state.currentPos+" · swept "+degTxt+" ("+turnTxt+")",cx,cy+r+54);
+    }
+    ctx.globalAlpha=1;
+  }
+
+  function drawClock(){
+    const canvas=els.clock;
+    const cssW=canvas.clientWidth||600, cssH=canvas.clientHeight||220;
+    const ctx=setupCanvas(canvas,cssW,cssH);
+    ctx.clearRect(0,0,cssW,cssH);
+    const D=state.D, maxI=Math.max(0,Math.floor(D/2)-1);
+    const idxs=getClockIndices();
+    const subW=cssW/idxs.length;
+    const gridR=Math.min(subW,cssH)*0.30;
+    const focusCx=cssW/2, focusCy=cssH/2-18, focusR=Math.min(cssW,cssH)*0.34;
+    const focusT=state.clockFocusT||0, focusIdx=state.clockFocus;
+    idxs.forEach(function(i,k){
+      const gcx=subW*k+subW/2, gcy=cssH/2-16;
+      let cx,cy,r,alpha,detailed=false;
+      if(i===focusIdx){
+        cx=gcx+(focusCx-gcx)*focusT; cy=gcy+(focusCy-gcy)*focusT; r=gridR+(focusR-gridR)*focusT;
+        alpha=1; detailed=focusT>0.95;
+      }else{
+        cx=gcx; cy=gcy; r=gridR; alpha=1-focusT;
+        if(alpha<=0.015) return;
+      }
+      drawOneClock(ctx,cx,cy,r,i,maxI,alpha,detailed);
+    });
+  }
+
+  function similarityValues(){
+    /* cosine similarity: every PE vector has norm^2 = D/2 (one sin/cos pair per dim pair),
+       so dividing by D/2 makes the self-similarity exactly 1 and keeps distant pairs near 0. */
+    const D=state.D, mat=state.peMat, ref=mat[state.currentPos];
+    const vals=new Array(state.N);
+    for(let p=0;p<state.N;p++){
+      let dot=0; for(let k=0;k<D;k++) dot+=ref[k]*mat[p][k];
+      vals[p]=dot/(D/2);
+    }
+    return vals;
+  }
+  /* first distance Δ at which the average similarity drops below 0.5 (= "positional horizon") */
+  function simHorizon(){
+    const pairs=Math.max(1,Math.floor(state.D/2));
+    for(let d=1;d<state.N;d++){
+      let s=0;
+      for(let i=0;i<pairs;i++) s+=Math.cos(d/Math.pow(state.base,(2*i)/state.D));
+      if(s/pairs<0.5) return d;
+    }
+    return null;
+  }
+  function simGeom(){
+    const canvas=els.sim;
+    const cssW=canvas.clientWidth||600, cssH=canvas.clientHeight||170;
+    const padL=42,padR=16,padT=14,padB=36;
+    const N=state.N, yMin=-0.3, yMax=1.05;
+    const plotW=Math.max(10,cssW-padL-padR), plotH=Math.max(10,cssH-padT-padB);
+    return {
+      cssW:cssW, cssH:cssH, padL:padL, padT:padT, padB:padB, plotW:plotW, plotH:plotH, N:N, yMin:yMin, yMax:yMax,
+      xAt:function(p){ return padL+(N<=1?0:p/(N-1))*plotW; },
+      yAt:function(v){ return padT+(1-(clamp(v,yMin,yMax)-yMin)/(yMax-yMin))*plotH; }
+    };
+  }
+  function simPosFromEvent(e){
+    const rect=els.sim.getBoundingClientRect(), g=simGeom();
+    const sx=(g.cssW/rect.width)||1;
+    const x=(e.clientX-rect.left)*sx-g.padL;
+    if(x<0||x>g.plotW) return null;
+    return clamp(Math.round(x/g.plotW*(g.N-1)),0,g.N-1);
+  }
+  function drawSimilarity(){
+    const canvas=els.sim; if(!canvas) return;
+    const g=simGeom(), ctx=setupCanvas(canvas,g.cssW,g.cssH);
+    ctx.clearRect(0,0,g.cssW,g.cssH);
+    const vals=similarityValues(), N=g.N, ref=state.currentPos;
+    const xAt=g.xAt, yAt=g.yAt;
+    ctx.font="12px "+BODY_FONT; ctx.textAlign="right"; ctx.textBaseline="middle";
+    ctx.strokeStyle="rgba(28,35,51,.15)"; ctx.lineWidth=1;
+    [[1,"1.0"],[0,"0"]].forEach(function(t){
+      const y=yAt(t[0]);
+      ctx.beginPath();ctx.moveTo(g.padL,y+0.5);ctx.lineTo(g.cssW-16,y+0.5);ctx.stroke();
+      ctx.fillStyle="#5B6478"; ctx.fillText(t[1],g.padL-7,y);
+    });
+    /* where similarity falls below 0.5, i.e. the distance at which positions stop looking related */
+    const hz=simHorizon();
+    if(hz!=null && hz<N-1){
+      const hp=(ref+hz<=N-1)?ref+hz:ref-hz;
+      ctx.setLineDash([4,4]); ctx.strokeStyle="rgba(209,67,67,.5)"; ctx.lineWidth=1.2;
+      ctx.beginPath();ctx.moveTo(xAt(hp),g.padT);ctx.lineTo(xAt(hp),g.padT+g.plotH);ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    ctx.beginPath();
+    vals.forEach(function(v,p){ const x=xAt(p),y=yAt(v); if(p===0) ctx.moveTo(x,y); else ctx.lineTo(x,y); });
+    ctx.strokeStyle="#2F6FED"; ctx.lineWidth=2; ctx.stroke();
+    ctx.lineTo(xAt(N-1),yAt(0)); ctx.lineTo(xAt(0),yAt(0)); ctx.closePath();
+    ctx.fillStyle="rgba(47,111,237,.12)"; ctx.fill();
+    /* x axis: signed distance from the reference (concept) + absolute position (reference) */
+    const pStep=Math.max(1,Math.ceil(N/12));
+    ctx.textAlign="center"; ctx.textBaseline="top";
+    for(let p=0;p<N;p+=pStep){
+      const x=xAt(p), d=p-ref;
+      ctx.fillStyle="#3A4256";
+      ctx.fillText((d>0?"+":"")+(d===0?"0":d),x,g.padT+g.plotH+4);
+      ctx.fillStyle="#9AA1AE";
+      ctx.fillText(String(p),x,g.padT+g.plotH+20);
+    }
+    const rx=xAt(ref);
+    ctx.strokeStyle="#E2725B"; ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.moveTo(rx,g.padT);ctx.lineTo(rx,g.padT+g.plotH);ctx.stroke();
+    ctx.fillStyle="#E2725B";
+    ctx.beginPath();ctx.arc(rx,yAt(vals[ref]),3.5,0,Math.PI*2);ctx.fill();
+    /* hovered position */
+    let hover=null;
+    if(state.simHover!=null){
+      const hp=state.simHover, hx=xAt(hp);
+      hover={p:hp,d:hp-ref,v:vals[hp]};
+      ctx.strokeStyle="rgba(28,35,51,.45)"; ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(hx,g.padT);ctx.lineTo(hx,g.padT+g.plotH);ctx.stroke();
+      ctx.fillStyle="#1C2333";
+      ctx.beginPath();ctx.arc(hx,yAt(vals[hp]),3,0,Math.PI*2);ctx.fill();
+    }
+    els.simRef.textContent=(hover?"pos="+hover.p+" Δ="+(hover.d>0?"+":"")+hover.d+" sim="+hover.v.toFixed(2)+"  |  ":"")+
+      "ref pos="+ref+" · Δ = distance from it"+(hz!=null?" · related within Δ≈"+hz:"");
+  }
+
+  function currentVectors(){
+    const pos=state.currentPos, D=state.D;
+    const token=POOL[((pos%POOL.length)+POOL.length)%POOL.length];
+    const tok=tokenEmbedding(token);
+    const pe=state.peMat[pos];
+    const sum=new Float32Array(D); for(let k=0;k<D;k++) sum[k]=tok[k]+pe[k];
+    return {token:token,tok:tok,pe:pe,sum:sum};
+  }
+  function drawCompose(){
+    const cur=currentVectors(), D=state.D;
+    if(state.composeBuild!=null){
+      const t=state.composeBuild;
+      const p1=easeOutCubic(clamp(t,0,1)), p2=easeOutCubic(clamp(t-1,0,1)), p3=easeOutCubic(clamp(t-2,0,1));
+      drawBars(els.composeTok,cur.tok,D,{range:1,growth:p1});
+      drawBars(els.composePE,cur.pe,D,{range:1,growth:p2});
+      drawBars(els.composeSum,cur.sum,D,{range:2,growth:p3});
+    }else if(state.composeBlend){
+      const b=state.composeBlend;
+      drawBars(els.composeTok,lerpVec(b.prevTok,cur.tok,b.t),D,{range:1});
+      drawBars(els.composePE,lerpVec(b.prevPE,cur.pe,b.t),D,{range:1});
+      drawBars(els.composeSum,lerpVec(b.prevSum,cur.sum,b.t),D,{range:2});
+    }else{
+      drawBars(els.composeTok,cur.tok,D,{range:1});
+      drawBars(els.composePE,cur.pe,D,{range:1});
+      drawBars(els.composeSum,cur.sum,D,{range:2});
+    }
+    els.composeLabel.textContent='pos='+state.currentPos+' · "'+cur.token+'"';
+    els.posVal.textContent=state.currentPos;
+    if(document.activeElement!==els.posScrub) els.posScrub.value=state.currentPos;
+  }
+
+  function updateClockReadout(){
+    if(!els.clockPos) return;
+    const D=state.D, iMax=Math.max(0,Math.floor(D/2)-1);
+    const a0=state.displayPos, aMax=a0/Math.pow(state.base,(2*iMax)/D);
+    const deg=function(rad){ return (rad*180/Math.PI); };
+    const fmt=function(d){ return d>=100?d.toFixed(0):(d>=10?d.toFixed(1):d.toFixed(2)); };
+    els.clockPos.textContent="pos="+state.displayPos.toFixed(1)+
+      " · i=0: "+fmt(deg(a0))+"° · i="+iMax+": "+fmt(deg(aMax))+"°";
+  }
+  function renderDynamic(){
+    updateClockReadout();
+    drawHeatmap();
+    drawClock();
+    drawCompose();
+    drawSimilarity();
+  }
+
+  /* ================= formulas ================= */
+  const HL=" hlbox";
+  function vSpan(cls,html,on){ return '<span class="var '+cls+(on?HL:"")+'">'+html+'</span>'; }
+  function num(v){ return Math.round(v).toLocaleString("en-US"); }
+  function formulaHTML(kind,hl){
+    const pos=vSpan("v-pos","pos",hl.pos);
+    const i2=vSpan("v-i","2i",hl.i);
+    const d=vSpan("v-d","d<sub>model</sub>",hl.d);
+    const base=vSpan("v-base",num(state.base),hl.base);
+    const label=(kind==="sin")?i2:vSpan("v-i","2i+1",hl.i);
+    const fn=(kind==="sin")?"sin":"cos";
+    return '<span class="tf">PE<sub>('+pos+',&thinsp;'+label+')</sub> = '+
+      '<span class="func">'+fn+'</span><span class="bp">(</span>'+
+      '<span class="frac"><span class="fn">'+pos+'</span>'+
+      '<span class="fd">'+base+'<sup>'+i2+'/'+d+'</sup></span></span>'+
+      '<span class="bp">)</span></span>';
+  }
+  function renderFormulas(hl){
+    hl=hl||{pos:false,i:false,d:false,base:false};
+    els.formulaSin.innerHTML=formulaHTML("sin",hl);
+    els.formulaCos.innerHTML=formulaHTML("cos",hl);
+  }
+  let hlTimer=null;
+  function pulseHighlight(partial){
+    renderFormulas(Object.assign({pos:false,i:false,d:false,base:false},partial));
+    clearTimeout(hlTimer);
+    hlTimer=setTimeout(function(){ renderFormulas(); },900);
+  }
+  function updateFormulaBoxActive(){
+    els.sinBox.classList.toggle("active",state.sinCosFilter==="sin");
+    els.cosBox.classList.toggle("active",state.sinCosFilter==="cos");
+  }
+
+  /* ================= legend / readout ================= */
+  function updateFreqLegend(){
+    const maxI=Math.max(1,Math.floor(state.D/2)-1);
+    const stops=[];
+    for(let i=0;i<=maxI;i++) stops.push(dimColor(i,maxI)+" "+((i/maxI)*100).toFixed(1)+"%");
+    els.freqLegend.style.background="linear-gradient(90deg,"+stops.join(",")+")";
+  }
+  function updateReadout(pos,dim){
+    if(pos==null){ els.heatmapReadout.textContent="Hover a cell for its value."; return; }
+    const D=state.D, i=Math.floor(dim/2), parity=dim%2===0?"sin":"cos";
+    const denom=Math.pow(state.base,(2*i)/D), angle=pos/denom;
+    const val=parity==="sin"?Math.sin(angle):Math.cos(angle);
+    els.heatmapReadout.innerHTML="pos="+pos+" · dim="+dim+" · i="+i+" · "+parity+"<br>"+
+      parity+"("+angle.toFixed(3)+") ≈ <b>"+val.toFixed(3)+"</b>";
+  }
+
+  /* ================= problem section ================= */
+  function buildChips(){
+    els.probChips.innerHTML="";
+    state.tokenOrder.forEach(function(instIdx,slot){
+      const el=document.createElement("span");
+      const isHot=(instIdx===DOG_A||instIdx===DOG_B);
+      el.className="chip"+(isHot?" chip-hot":"");
+      el.dataset.inst=String(instIdx);
+      el.innerHTML='<span class="idx">slot '+slot+'</span>'+OPENING_TOKENS[instIdx];
+      els.probChips.appendChild(el);
+    });
+  }
+  function updateProblem(){
+    const D=state.D;
+    const slotA=state.tokenOrder.indexOf(DOG_A), slotB=state.tokenOrder.indexOf(DOG_B);
+    const emb=tokenEmbedding("dog");
+    let vecA=emb, vecB=emb;
+    if(state.probPEOn){ vecA=addVec(emb,peVector(slotA)); vecB=addVec(emb,peVector(slotB)); }
+    drawBars(els.probA,vecA,D,{range:state.probPEOn?2:1});
+    drawBars(els.probB,vecB,D,{range:state.probPEOn?2:1});
+    els.probALabel.textContent='"dog" · slot '+slotA;
+    els.probBLabel.textContent='"dog" · slot '+slotB;
+    if(state.probPEOn){
+      els.probNote.className="prob-note ok";
+      els.probNote.textContent="Now distinct — position broke the tie.";
+    }else{
+      els.probNote.className="prob-note";
+      els.probNote.textContent="Identical vectors — position is lost.";
+    }
+  }
+  function shuffleOrder(){
+    const chipEls=Array.prototype.slice.call(els.probChips.children);
+    const oldRects={};
+    chipEls.forEach(function(el){ oldRects[el.dataset.inst]=el.getBoundingClientRect(); });
+    const rnd=mulberry32(state.shuffleSeed++);
+    const perm=state.tokenOrder.slice();
+    for(let i=perm.length-1;i>0;i--){ const j=Math.floor(rnd()*(i+1)); const tmp=perm[i]; perm[i]=perm[j]; perm[j]=tmp; }
+    state.tokenOrder=perm;
+    buildChips();
+    const newChipEls=Array.prototype.slice.call(els.probChips.children);
+    newChipEls.forEach(function(el){
+      const old=oldRects[el.dataset.inst];
+      if(!old) return;
+      const nr=el.getBoundingClientRect();
+      const dx=old.left-nr.left, dy=old.top-nr.top;
+      el.style.transition="none";
+      el.style.transform="translate("+dx+"px,"+dy+"px)";
+      requestAnimationFrame(function(){
+        el.style.transition="transform .4s cubic-bezier(.2,.8,.2,1)";
+        el.style.transform="translate(0,0)";
+      });
+    });
+    updateProblem();
+  }
+
+  /* ================= scale changes (N / D / base) ================= */
+  function crossfadeHeatmap(){
+    if(REDUCED) return;
+    const canvas=els.heatmap, wrap=canvas.parentElement;
+    const clone=document.createElement("canvas");
+    clone.width=canvas.width; clone.height=canvas.height;
+    clone.style.position="absolute"; clone.style.left="0"; clone.style.top="0";
+    clone.style.width=canvas.clientWidth+"px"; clone.style.height=canvas.clientHeight+"px";
+    clone.style.borderRadius="7px"; clone.style.transition="opacity .35s ease"; clone.style.pointerEvents="none";
+    clone.getContext("2d").drawImage(canvas,0,0,clone.width,clone.height);
+    wrap.appendChild(clone);
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){ clone.style.opacity="0"; }); });
+    setTimeout(function(){ clone.remove(); },380);
+  }
+  function onScaleChange(){
+    crossfadeHeatmap();
+    state.peMat=peMatrix();
+    state.currentPos=clamp(state.currentPos,0,state.N-1);
+    state.displayPos=clamp(state.displayPos,0,state.N-1);
+    els.posScrub.max=state.N-1;
+    updateFreqLegend();
+    renderDynamic();
+    updateProblem();
+    updateReadout(null,null);
+    if(state.simHover!=null) state.simHover=clamp(state.simHover,0,state.N-1);
+  }
+  function applyNCore(v){ state.N=v; els.nVal.textContent=v; pulseHighlight({pos:true}); onScaleChange(); }
+  function applyDCore(v){ state.D=v; els.dVal.textContent=v; pulseHighlight({d:true}); onScaleChange(); }
+  function applyBaseCore(sliderVal){
+    state.base=Math.pow(10,sliderVal/1000);
+    els.baseVal.textContent=Math.round(state.base).toLocaleString("en-US");
+    pulseHighlight({base:true});
+    onScaleChange();
+  }
+  function applyN(v){ els.nSlider.value=v; applyNCore(v); }
+  function applyD(v){ els.dSlider.value=v; applyDCore(v); }
+  function applyBaseValue(v){
+    const s=clamp(Math.round(Math.log10(v)*1000),301,5000);
+    els.baseSlider.value=s; applyBaseCore(s);
+  }
+  function applyFilter(f){
+    els.segButtons.forEach(function(b){ b.setAttribute("aria-pressed",b.dataset.filter===f?"true":"false"); });
+    setFilter(f);
+  }
+  function applyProbPE(on){ els.probToggle.checked=on; state.probPEOn=on; updateProblem(); }
+
+  /* ================= events ================= */
+  els.nSlider.addEventListener("input",function(){ applyNCore(+els.nSlider.value); });
+  els.dSlider.addEventListener("input",function(){ applyDCore(+els.dSlider.value); });
+  els.baseSlider.addEventListener("input",function(){ applyBaseCore(+els.baseSlider.value); });
+
+  els.resetBtn.addEventListener("click",function(){
+    stopSweep(); unfocusClock();
+    state.sinCosFilter="all"; state.filterBlend=null;
+    state.probPEOn=false; state.tokenOrder=[0,1,2,3,4,5,6];
+    els.segButtons.forEach(function(b){ b.setAttribute("aria-pressed",b.dataset.filter==="all"?"true":"false"); });
+    updateFormulaBoxActive();
+    els.probToggle.checked=false;
+    buildChips();
+    applyN(16); applyD(16); applyBaseValue(10000);
+    state.speed=1.5; els.speedSlider.value=1.5;
+    jumpToPos(0,{animatePos:false});
+  });
+
+  els.segButtons.forEach(function(btn){
+    btn.addEventListener("click",function(){ applyFilter(btn.dataset.filter); });
+  });
+
+  els.heatmap.addEventListener("pointermove",function(e){
+    const c=heatCellFromEvent(e);
+    if(!c){
+      if(state.hover.pos!=null){ state.hover.pos=null; state.hover.dim=null; updateReadout(null,null); drawHeatmap(); }
+      return;
+    }
+    if(state.hover.pos===c.pos && state.hover.dim===c.dim) return;
+    state.hover.pos=c.pos; state.hover.dim=c.dim;
+    updateReadout(c.pos,c.dim);
+    pulseHighlight({pos:true,i:true});
+    drawHeatmap();
+  });
+  els.heatmap.addEventListener("pointerleave",function(){
+    state.hover.pos=null; state.hover.dim=null;
+    updateReadout(null,null); drawHeatmap();
+  });
+  els.heatmap.addEventListener("click",function(e){
+    const c=heatCellFromEvent(e)||state.hover;
+    if(!c || c.pos==null) return;
+    stopSweep(); jumpToPos(c.pos);
+  });
+
+  els.sim.addEventListener("pointermove",function(e){
+    const p=simPosFromEvent(e);
+    if(p==null){ if(state.simHover!=null){ state.simHover=null; drawSimilarity(); } return; }
+    if(state.simHover===p) return;
+    state.simHover=p; drawSimilarity();
+  });
+  els.sim.addEventListener("pointerleave",function(){
+    if(state.simHover!=null){ state.simHover=null; drawSimilarity(); }
+  });
+  els.sim.addEventListener("click",function(e){
+    const p=simPosFromEvent(e); if(p==null) return;
+    stopSweep(); jumpToPos(p);
+  });
+
+  els.posScrub.addEventListener("input",function(){
+    stopSweep(); jumpToPos(+els.posScrub.value,{animatePos:false});
+  });
+  els.speedSlider.addEventListener("input",function(){ state.speed=+els.speedSlider.value; });
+  els.playBtn.addEventListener("click",function(){ if(state.playing) stopSweep(); else startSweep(); });
+  els.buildBtn.addEventListener("click",triggerBuildReplay);
+
+  els.probToggle.addEventListener("change",function(){ state.probPEOn=els.probToggle.checked; updateProblem(); });
+  els.shuffleBtn.addEventListener("click",shuffleOrder);
+
+  /* clock: click to focus + spin the sequence, drag the focused hand to set the position */
+  els.clock.addEventListener("click",function(e){
+    if(state.clockFocus!=null){
+      if(state.drag && state.drag.moved) return;   /* a drag, not a click */
+      spinOnce();
+      return;
+    }
+    const rect=els.clock.getBoundingClientRect();
+    const idx=hitTestGrid(e.clientX-rect.left,e.clientY-rect.top,rect.width,rect.height);
+    if(idx!=null){ focusClock(idx); setTimeout(spinOnce, REDUCED?0:300); }
+  });
+  els.clockBack.addEventListener("click",unfocusClock);
+  els.clockSweep.addEventListener("click",function(){ if(state.playing) stopSweep(); else startSweep(); });
+  els.clockSpinBtn.addEventListener("click",function(){ spinOnce(); });
+  els.clock.addEventListener("pointerdown",function(e){
+    if(state.clockFocus==null) return;
+    const rect=els.clock.getBoundingClientRect();
+    const cx=rect.width/2, cy=rect.height/2-18;
+    const r=Math.min(rect.width,rect.height)*0.36;
+    const denom=Math.pow(state.base,(2*state.clockFocus)/state.D);
+    if(Math.hypot(e.clientX-rect.left-cx,e.clientY-rect.top-cy) > r*1.6) return;
+    stopSweep(); removeTween("spin");
+    state.drag={active:true,cx:cx,cy:cy,denom:denom,lastAngle:null,accum:state.displayPos/denom,moved:false};
+    els.clock.setPointerCapture(e.pointerId);
+    dragMove(e);
+  });
+  els.clock.addEventListener("pointermove",function(e){ if(state.drag&&state.drag.active) dragMove(e); });
+  els.clock.addEventListener("pointerup",function(){
+    if(state.drag&&state.drag.active){ state.drag.active=false; animateTo(Math.round(state.displayPos),220); }
+  });
+  els.clock.addEventListener("pointercancel",function(){ if(state.drag) state.drag.active=false; });
+  function dragMove(e){
+    const rect=els.clock.getBoundingClientRect();
+    const x=e.clientX-rect.left, y=e.clientY-rect.top;
+    const dx=x-state.drag.cx, dy=y-state.drag.cy;
+    if(Math.abs(dx)>8||Math.abs(dy)>8) state.drag.moved=true;
+    let raw=Math.atan2(dx,-dy); if(raw<0) raw+=Math.PI*2;
+    if(state.drag.lastAngle==null){ state.drag.lastAngle=raw; }
+    else{
+      let delta=raw-state.drag.lastAngle;
+      if(delta>Math.PI) delta-=Math.PI*2;
+      if(delta<-Math.PI) delta+=Math.PI*2;
+      state.drag.accum+=delta;
+      state.drag.lastAngle=raw;
+    }
+    let pos=clamp(state.drag.accum*state.drag.denom,0,state.N-1);
+    state.drag.accum=pos/state.drag.denom;
+    state.displayPos=pos; state.currentPos=Math.round(pos);
+    ensureLoop();
+  }
+  document.addEventListener("keydown",function(e){
+    const tag=document.activeElement?document.activeElement.tagName:"";
+    if(tag==="INPUT"||tag==="TEXTAREA") return;
+    if(state.mode==="guided"){
+      if(e.key==="ArrowRight"){ e.preventDefault(); guidedStep(1); return; }
+      if(e.key==="ArrowLeft"){ e.preventDefault(); guidedStep(-1); return; }
+      if(e.key==="Escape"){ exitGuided(); return; }
+    }
+    if(e.key==="ArrowRight"){ stopSweep(); jumpToPos(Math.min(state.N-1,state.currentPos+1)); }
+    else if(e.key==="ArrowLeft"){ stopSweep(); jumpToPos(Math.max(0,state.currentPos-1)); }
+    else if(e.key===" "){ e.preventDefault(); if(state.playing) stopSweep(); else startSweep(); }
+    else if(e.key==="Escape" && state.clockFocus!=null){ unfocusClock(); }
+  });
+
+  let resizeTimer=null;
+  window.addEventListener("resize",function(){
+    clearTimeout(resizeTimer);
+    resizeTimer=setTimeout(function(){ renderDynamic(); updateProblem(); },200);
+  });
+
+  /* ================= guided tour ================= */
+  function exitFocusIfAny(){ if(state.clockFocus!=null) unfocusClock(); }
+  const SCENES=[
+    { title:"The problem", text:'"dog" appears twice — with no position, both copies are identical.',
+      focus:"sec-problem", run:function(){ exitFocusIfAny(); applyFilter("all"); applyProbPE(false); } },
+    { title:"Add a signal", text:"Add position encoding: the two copies split apart.",
+      focus:"sec-problem", run:function(){ applyProbPE(true); } },
+    { title:"One fingerprint per slot", text:"Every position gets its own row: a unique fingerprint.",
+      focus:"sec-heatmap", run:function(){ jumpToPos(Math.min(7,state.N-1)); } },
+    { title:"Sine and cosine, paired", text:"Even dims use sine, odd dims use cosine — same frequency, quarter-turn apart.",
+      focus:"sec-formula", run:function(){ applyFilter("sin"); setTimeout(function(){ applyFilter("cos"); },900); } },
+    { title:"Clocks at different speeds", text:"One pass over the sequence: i=0 laps many times, the slowest hand barely creeps.",
+      focus:"sec-clock", run:function(){ applyFilter("all"); unfocusClock(); focusClock(0); spinOnce(); } },
+    { title:"Nearby positions look alike", text:"Δ = distance from the current token. Similarity is 1.0 at Δ=0 and decays from there — that is the signal a model reads.",
+      focus:"sec-sim", run:function(){ unfocusClock(); jumpToPos(Math.floor(state.N/2)); } },
+    { title:"Putting it together", text:"Token meaning + positional fingerprint = the model's input.",
+      focus:"sec-compose", run:function(){ triggerBuildReplay(); } },
+    { title:"Order really matters", text:"Shuffle: the words move, each slot keeps its fingerprint.",
+      focus:"sec-problem", run:function(){ shuffleOrder(); } },
+    { title:"Your turn", text:"Try the sliders, drag a clock hand, shuffle again.",
+      focus:null, run:function(){} }
+  ];
+  function spotlight(id){
+    document.querySelectorAll(".spotlightable").forEach(function(el){ el.classList.toggle("dim",el.id!==id); });
+    if(id){ const t=document.getElementById(id); if(t) t.scrollIntoView({behavior:REDUCED?"auto":"smooth",block:"center"}); }
+  }
+  function clearSpotlight(){ document.querySelectorAll(".spotlightable").forEach(function(el){ el.classList.remove("dim"); }); }
+  function renderDots(){
+    els.guidedDots.innerHTML="";
+    SCENES.forEach(function(_,i){
+      const d=document.createElement("span");
+      d.className="guided-dot"+(i===state.guidedIndex?" active":"");
+      els.guidedDots.appendChild(d);
+    });
+  }
+  function runScene(idx){
+    idx=clamp(idx,0,SCENES.length-1);
+    state.guidedIndex=idx;
+    const sc=SCENES[idx];
+    els.guidedTitle.textContent=sc.title;
+    els.guidedText.textContent=sc.text;
+    renderDots();
+    sc.run();
+    if(sc.focus) spotlight(sc.focus); else clearSpotlight();
+    els.guidedPrev.disabled=(idx===0);
+    els.guidedNext.textContent=(idx===SCENES.length-1)?"Done":"Next →";
+  }
+  function enterGuided(start){
+    state.mode="guided";
+    els.modeExplore.setAttribute("aria-pressed","false");
+    els.modeGuided.setAttribute("aria-pressed","true");
+    els.guidedBar.classList.remove("hidden");
+    runScene(start==null?0:clamp(start,0,SCENES.length-1));
+  }
+  function guidedStep(delta){
+    if(delta>0 && state.guidedIndex>=SCENES.length-1){ exitGuided(); return; }
+    runScene(state.guidedIndex+delta);
+  }
+  function exitGuided(){
+    state.mode="explore";
+    els.modeExplore.setAttribute("aria-pressed","true");
+    els.modeGuided.setAttribute("aria-pressed","false");
+    els.guidedBar.classList.add("hidden");
+    clearSpotlight(); stopSweep();
+  }
+  els.modeExplore.addEventListener("click",function(){ if(state.mode==="guided") exitGuided(); });
+  els.modeGuided.addEventListener("click",function(){ if(state.mode==="explore") enterGuided(); });
+  els.guidedNext.addEventListener("click",function(){ guidedStep(1); });
+  els.guidedPrev.addEventListener("click",function(){ guidedStep(-1); });
+  els.guidedExit.addEventListener("click",exitGuided);
+
+  /* ================= debug hook ================= */
+  window.__demo={
+    state:state,
+    setN:applyN, setD:applyD, setBase:applyBaseValue, setFilter:applyFilter,
+    gotoPos:function(p){ jumpToPos(p); }, focusClock:focusClock, unfocusClock:unfocusClock,
+    shuffle:shuffleOrder, enterGuided:enterGuided, exitGuided:exitGuided,
+    spin:spinOnce, sweep:function(on){ if(on) startSweep(); else stopSweep(); }
+  };
+
+  /* ================= deep links: ?n= &d= &base= &pos= &tour= ================= */
+  function applyQuery(){
+    let q=null;
+    try{ q=new URLSearchParams(window.location.search); }catch(e){ return; }
+    if(q.has("n")) applyN(clamp(Math.round(+q.get("n"))||16,4,48));
+    if(q.has("d")) applyD(clamp(Math.round(((+q.get("d"))||16)/2)*2,4,32));
+    if(q.has("base")){ const b=+q.get("base"); if(isFinite(b)&&b>1) applyBaseValue(b); }
+    if(q.has("pos")) jumpToPos(clamp(Math.round(+q.get("pos"))||0,0,state.N-1),{animatePos:false});
+    if(q.has("tour")) enterGuided(isFinite(+q.get("tour"))?Math.round(+q.get("tour")):0);
+  }
+
+  /* ================= init ================= */
+  buildChips();
+  state.peMat=peMatrix();
+  updateFreqLegend();
+  renderFormulas();
+  updateFormulaBoxActive();
+  applyQuery();
+  renderDynamic();
+  updateProblem();
+})();
+</script>
+</body>
+</html>

@@ -2,7 +2,7 @@
 layout: single
 permalink: /teaching/
 title: "Teaching"
-excerpt: "Interactive demos and knowledge-point visualizations for the courses I teach."
+excerpt: "Interactive demos organized by course."
 author_profile: false
 hide_title: true
 ---
@@ -11,161 +11,18 @@ hide_title: true
 
   <header class="page-header">
     <h1>Teaching</h1>
-    <p>A growing collection of interactive, in-browser demos that visualize neural-network and sequence-modeling concepts — from a single neuron's forward pass to recurrent networks and multi-head attention. Drag the sliders, step through, and watch the math move.</p>
+    <p>Interactive demos, organized by course.</p>
   </header>
 
-  <p class="teaching-intro">These widgets accompany <strong>DSAI4207</strong> lectures on neural-network foundations and self-attention. Each card opens a standalone demo page — click <strong>Open Demo</strong> to explore it.</p>
-
-  <h2>Neural Network Foundations</h2>
-
   <div class="demo-gallery">
-
     <article class="demo-card">
-      <a class="demo-card__thumb" href="{{ '/teaching/demos/scalar-accumulation/' | relative_url }}">
-        <img src="{{ '/images/teaching/nn-02-scalar.png' | relative_url }}" alt="Scalar accumulation demo preview" loading="lazy">
-        <span class="demo-card__play">▶ Interactive</span>
-      </a>
       <div class="demo-card__body">
-        <span class="demo-card__badge">Demo 1 · Neurons</span>
-        <h3 class="demo-card__title">Scalar Accumulation</h3>
-        <p class="demo-card__desc">Step through a single neuron's forward pass, term by term: <code>a = w₁x₁ + w₂x₂ + b</code>, with a linked geometric view.</p>
-        <p class="demo-card__concept"><strong>Knowledge point:</strong> weighted sums and the bias term inside a neuron.</p>
-        <a class="demo-card__cta" href="{{ '/teaching/demos/scalar-accumulation/' | relative_url }}">Open Demo →</a>
+        <span class="demo-card__badge">Course</span>
+        <h2 class="demo-card__title">DSAI4207</h2>
+        <p class="demo-card__desc">Lectures 3–5: neural networks, self-attention, and LLM architecture.</p>
+        <a class="demo-card__cta" href="{{ '/teaching/dsai4207/' | relative_url }}">View demos →</a>
       </div>
     </article>
-
-    <article class="demo-card">
-      <a class="demo-card__thumb" href="{{ '/teaching/demos/activation-functions/' | relative_url }}">
-        <img src="{{ '/images/teaching/nn-025-activation.png' | relative_url }}" alt="Scalar activation demo preview" loading="lazy">
-        <span class="demo-card__play">▶ Interactive</span>
-      </a>
-      <div class="demo-card__body">
-        <span class="demo-card__badge">Demo 2 · Activations</span>
-        <h3 class="demo-card__title">Scalar Activation</h3>
-        <p class="demo-card__desc">Push the same weighted sum <code>z</code> through six switchable activation functions and see how <code>a = φ(z)</code> changes.</p>
-        <p class="demo-card__concept"><strong>Knowledge point:</strong> why nonlinear activation functions matter.</p>
-        <a class="demo-card__cta" href="{{ '/teaching/demos/activation-functions/' | relative_url }}">Open Demo →</a>
-      </div>
-    </article>
-
-    <article class="demo-card">
-      <a class="demo-card__thumb" href="{{ '/teaching/demos/linear-map-geometry/' | relative_url }}">
-        <img src="{{ '/images/teaching/nn-04-geometry.png' | relative_url }}" alt="Linear map geometry demo preview" loading="lazy">
-        <span class="demo-card__play">▶ Interactive</span>
-      </a>
-      <div class="demo-card__body">
-        <span class="demo-card__badge">Demo 3 · Linear algebra</span>
-        <h3 class="demo-card__title">What a Linear Map Changes</h3>
-        <p class="demo-card__desc">Watch a weight matrix <code>W</code> stretch a grid, a circle, and a point cloud, with the singular axes drawn to scale.</p>
-        <p class="demo-card__concept"><strong>Knowledge point:</strong> matrices as geometric transformations of the data space.</p>
-        <a class="demo-card__cta" href="{{ '/teaching/demos/linear-map-geometry/' | relative_url }}">Open Demo →</a>
-      </div>
-    </article>
-
-    <article class="demo-card">
-      <a class="demo-card__thumb" href="{{ '/teaching/demos/feature-map-lifting/' | relative_url }}">
-        <img src="{{ '/images/teaching/nn-06-lifting.png' | relative_url }}" alt="Feature map lifting demo preview" loading="lazy">
-        <span class="demo-card__play">▶ Interactive</span>
-      </a>
-      <div class="demo-card__body">
-        <span class="demo-card__badge">Demo 4 · Feature maps</span>
-        <h3 class="demo-card__title">A Feature Map Makes XOR Linear</h3>
-        <p class="demo-card__desc">Lift the XOR points into 3D with <code>ψ(x) = (x₁, x₂, x₁x₂)</code> and watch a plane separate what no line could.</p>
-        <p class="demo-card__concept"><strong>Knowledge point:</strong> nonlinear feature maps and the kernel-trick intuition.</p>
-        <a class="demo-card__cta" href="{{ '/teaching/demos/feature-map-lifting/' | relative_url }}">Open Demo →</a>
-      </div>
-    </article>
-
-    <article class="demo-card">
-      <a class="demo-card__thumb" href="{{ '/teaching/demos/computation-graph/' | relative_url }}">
-        <img src="{{ '/images/teaching/nn-08-scalar-graph.png' | relative_url }}" alt="Scalar computation graph demo preview" loading="lazy">
-        <span class="demo-card__play">▶ Interactive</span>
-      </a>
-      <div class="demo-card__body">
-        <span class="demo-card__badge">Demo 5 · Autodiff</span>
-        <h3 class="demo-card__title">Scalar Computation Graph</h3>
-        <p class="demo-card__desc">Build a graph of <code>+ − × ÷</code> nodes and watch values flow forward while gradients flow back, node by node.</p>
-        <p class="demo-card__concept"><strong>Knowledge point:</strong> the chain rule and how automatic differentiation works.</p>
-        <a class="demo-card__cta" href="{{ '/teaching/demos/computation-graph/' | relative_url }}">Open Demo →</a>
-      </div>
-    </article>
-
-    <article class="demo-card">
-      <a class="demo-card__thumb" href="{{ '/teaching/demos/forward-backward-update/' | relative_url }}">
-        <img src="{{ '/images/teaching/nn-07-backprop.png' | relative_url }}" alt="Forward backward update demo preview" loading="lazy">
-        <span class="demo-card__play">▶ Interactive</span>
-      </a>
-      <div class="demo-card__body">
-        <span class="demo-card__badge">Demo 6 · Backpropagation</span>
-        <h3 class="demo-card__title">Forward, Backward, Update</h3>
-        <p class="demo-card__desc">Train a small MLP on the XOR corners one phase at a time — forward activations, backward gradients, then a parameter update.</p>
-        <p class="demo-card__concept"><strong>Knowledge point:</strong> the full training loop, from forward pass to gradient descent.</p>
-        <a class="demo-card__cta" href="{{ '/teaching/demos/forward-backward-update/' | relative_url }}">Open Demo →</a>
-      </div>
-    </article>
-
-  </div>
-
-  <h2>Lecture 4 · Self-Attention</h2>
-
-  <div class="demo-gallery">
-
-    <article class="demo-card">
-      <a class="demo-card__thumb" href="{{ '/teaching/demos/sequence-convolution/' | relative_url }}">
-        <img src="{{ '/images/teaching/seq-01-convolution.png' | relative_url }}" alt="Sliding-window sequence convolution demo preview" loading="lazy">
-        <span class="demo-card__play">▶ Interactive</span>
-      </a>
-      <div class="demo-card__body">
-        <span class="demo-card__badge">Lecture 4 · Demo 1</span>
-        <h3 class="demo-card__title">Sequence Convolution</h3>
-        <p class="demo-card__desc">Slide a three-value window across a sequence and build each output from the same kernel weights, one product at a time.</p>
-        <p class="demo-card__concept"><strong>Knowledge point:</strong> local context and weight sharing across positions.</p>
-        <a class="demo-card__cta" href="{{ '/teaching/demos/sequence-convolution/' | relative_url }}">Open Demo →</a>
-      </div>
-    </article>
-
-    <article class="demo-card">
-      <a class="demo-card__thumb" href="{{ '/teaching/demos/backpropagation-through-time/' | relative_url }}">
-        <img src="{{ '/images/teaching/seq-03-bptt.png' | relative_url }}" alt="Backpropagation through time demo preview" loading="lazy">
-        <span class="demo-card__play">▶ Interactive</span>
-      </a>
-      <div class="demo-card__body">
-        <span class="demo-card__badge">Lecture 4 · Demo 3</span>
-        <h3 class="demo-card__title">Backpropagation Through Time</h3>
-        <p class="demo-card__desc">Unroll an RNN, follow states forward and gradients backward, then sum each step's contribution to shared parameters.</p>
-        <p class="demo-card__concept"><strong>Knowledge point:</strong> the chain rule across time and shared weights.</p>
-        <a class="demo-card__cta" href="{{ '/teaching/demos/backpropagation-through-time/' | relative_url }}">Open Demo →</a>
-      </div>
-    </article>
-
-    <article class="demo-card">
-      <a class="demo-card__thumb" href="{{ '/teaching/demos/self-attention-matrix/' | relative_url }}">
-        <img src="{{ '/images/teaching/seq-05-attention-matrix.png' | relative_url }}" alt="Self-attention matrix demo preview" loading="lazy">
-        <span class="demo-card__play">▶ Interactive</span>
-      </a>
-      <div class="demo-card__body">
-        <span class="demo-card__badge">Lecture 4 · Demo 5</span>
-        <h3 class="demo-card__title">Self-Attention Matrix</h3>
-        <p class="demo-card__desc">See every token become a reader: scores turn into row-wise weights, which then mix the source values.</p>
-        <p class="demo-card__concept"><strong>Knowledge point:</strong> attention rows, softmax, and weighted value mixtures.</p>
-        <a class="demo-card__cta" href="{{ '/teaching/demos/self-attention-matrix/' | relative_url }}">Open Demo →</a>
-      </div>
-    </article>
-
-    <article class="demo-card">
-      <a class="demo-card__thumb" href="{{ '/teaching/demos/multi-head-attention/' | relative_url }}">
-        <img src="{{ '/images/teaching/seq-07-multi-head.png' | relative_url }}" alt="Multi-head attention demo preview" loading="lazy">
-        <span class="demo-card__play">▶ Interactive</span>
-      </a>
-      <div class="demo-card__body">
-        <span class="demo-card__badge">Lecture 4 · Demo 7</span>
-        <h3 class="demo-card__title">Multi-Head Attention</h3>
-        <p class="demo-card__desc">Compare how several heads read the same tokens, inspect each attention matrix, and combine their outputs.</p>
-        <p class="demo-card__concept"><strong>Knowledge point:</strong> parallel attention views and output recombination.</p>
-        <a class="demo-card__cta" href="{{ '/teaching/demos/multi-head-attention/' | relative_url }}">Open Demo →</a>
-      </div>
-    </article>
-
   </div>
 
 </div>

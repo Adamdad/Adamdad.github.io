@@ -1,14 +1,14 @@
 ---
 layout: teaching-demo
+course: DSAI4207
+course_url: /teaching/dsai4207/#lecture-3
 permalink: /teaching/demos/activation-functions/
 title: "Scalar Activation"
-demo_badge: "Demo 2 · Activation functions"
-key_concept: "A neuron's output is not the raw sum z — it is a = φ(z), the sum passed through a nonlinear activation φ."
+demo_badge: "Lecture 3 · Demo 2"
+key_concept: "An activation maps the weighted sum z to the output a = φ(z)."
 demo_src: /assets/demos/nn-demo-02.5-activation.html
 ---
 
-This demo extends the scalar-accumulation walk (Demo 1) with one more row: the pre-activation `z = w₁x₁ + w₂x₂ + b` is passed through a switchable activation function `φ` to produce the neuron's actual output `a = φ(z)`.
+Start with the sum from Demo 1, then switch among six activation functions. The curve marks the current `z` and its output `a`.
 
-A selector in the header lets you flip between six activations (e.g. identity, sigmoid, tanh, ReLU, and others); the activation-map panel plots `φ` as a curve and marks exactly where the current `z` sits on it, while a grey hairline shows the displacement `φ` produces — how far `a` ends up from `z`.
-
-**What to look for:** drag the weight sliders to change `z`, then switch activations to see how the same `z` can map to very different outputs `a` — this is the difference between a linear unit and a nonlinear one.
+**What to look for:** drag the weights to change `z`, then switch functions. The same `z` can produce different outputs.

@@ -1,15 +1,15 @@
 ---
 layout: teaching-demo
+course: DSAI4207
+course_url: /teaching/dsai4207/#lecture-4
 permalink: /teaching/demos/multi-head-attention/
 title: "Multi-Head Attention"
-demo_badge: "Lecture 4 · Demo 7 · Multi-head attention"
-key_concept: "Multiple attention heads can assign different weights to the same tokens; their separate outputs are concatenated and recombined by Wᴼ."
+demo_badge: "Lecture 4 · Demo 7"
+key_concept: "Attention heads can read the same tokens with different weights and contribute separate outputs."
 demo_src: /assets/demos/seq-demo-07-multi-head.html
 demo_height: 650
 ---
 
-One attention head gives a reader one way to weigh the source tokens. This demo puts up to four heads side by side, shows the full weight matrix for the selected head, and combines their output vectors into a final result.
+Add heads one at a time, select a **Reader**, and inspect a head’s weight matrix. The final panel combines active outputs; this toy uses their mean in place of a learned output projection `Wᴼ`.
 
-Click **Add a head** to reveal the heads one at a time, or choose a count under **Heads**. Select another **Reader** token, click a head to inspect its matrix, and trace a source token across the panels.
-
-**What to look for:** the heads assign different weights to the same reader and produce different output vectors. The combined output changes as you add heads, because each head contributes its own view.
+**What to look for:** each head follows a different pattern, so adding a head changes the combined result.

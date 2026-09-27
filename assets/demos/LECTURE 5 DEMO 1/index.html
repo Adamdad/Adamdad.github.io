@@ -1,0 +1,1542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rotary Position Embedding (RoPE) · Interactive Explainer</title>
+<style>
+  :root{
+    --paper:#F7F6F1;
+    --paper-line: rgba(28,35,51,.055);
+    --ink:#1C2333;
+    --ink-soft:#5B6478;
+    --panel:#FFFFFF;
+    --line:#E1DFD6;
+    --accent:#2F6FED;
+    --accent-soft:#E3EBFC;
+    --warn:#D14343;
+    --warn-soft:#FBE7E6;
+    --ok:#1F9E6B;
+    --e1-c:#2F6FED;
+    --e2-c:#E2725B;
+    --sum-c:#C9971D;
+    --undo-c:#D14343;
+    --mono:'IBM Plex Mono','JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --serif:'Iowan Old Style','Palatino Linotype',Georgia,'Noto Serif',serif;
+    --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background-color:var(--paper);
+    background-image:
+      linear-gradient(var(--paper-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--paper-line) 1px, transparent 1px);
+    background-size:28px 28px;
+    color:var(--ink);
+    font-family:var(--sans);
+    line-height:1.6;
+  }
+  .wrap{max-width:1180px;margin:0 auto;padding:40px 24px 140px;}
+  header{max-width:100%;margin-bottom:8px;display:flex;flex-wrap:wrap;gap:20px;justify-content:space-between;align-items:flex-end;}
+  header .htext{max-width:640px;}
+  header h1{font-family:var(--serif);font-size:clamp(30px,4.2vw,44px);margin:0 0 4px;}
+  header .sub{font-size:17px;color:var(--ink-soft);margin:0 0 10px;}
+  header p{font-size:16px;color:var(--ink-soft);max-width:66ch;margin:0 0 6px;}
+  h2{font-family:var(--serif);font-size:25px;margin:0 0 4px;}
+  h3{font-size:17px;margin:0 0 4px;font-weight:700;}
+  h4{font-size:15px;margin:14px 0 6px;font-weight:700;}
+  .lead{color:var(--ink-soft);font-size:15.5px;max-width:70ch;margin:0 0 14px;}
+  section.block{margin:52px 0;scroll-margin-top:96px;transition:opacity .4s ease,filter .4s ease;}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px 22px;transition:opacity .4s ease,filter .4s ease;scroll-margin-top:96px;}
+  .spotlightable.dim{opacity:.32;filter:saturate(.55);}
+  code{font-family:var(--mono);background:var(--accent-soft);padding:1px 5px;border-radius:4px;font-size:.9em;}
+
+  .segmented{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff;}
+  .segmented button{border:none;background:#fff;padding:8px 14px;font-size:14px;cursor:pointer;color:var(--ink-soft);border-right:1px solid var(--line);}
+  .segmented button:last-child{border-right:none;}
+  .segmented button[aria-pressed="true"]{background:var(--accent);color:#fff;font-weight:600;}
+  .segmented button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;}
+
+  .controls-bar{display:flex;flex-wrap:wrap;gap:24px;align-items:flex-end;padding:16px 20px;background:#fff;border:1px solid var(--line);border-radius:10px;margin-bottom:36px;position:sticky;top:12px;z-index:20;}
+  .slider-group{display:flex;flex-direction:column;gap:5px;min-width:150px;}
+  .slider-group label{font-size:13.5px;color:var(--ink-soft);display:flex;justify-content:space-between;gap:8px;}
+  .slider-group label b{color:var(--ink);font-family:var(--mono);font-weight:600;}
+  input[type=range]{width:100%;accent-color:var(--accent);}
+  .btn{border:1px solid var(--line);background:#fff;color:var(--ink);padding:7px 13px;border-radius:7px;font-size:14.5px;cursor:pointer;}
+  .btn:hover{border-color:var(--accent);color:var(--accent);}
+  .btn:disabled{opacity:.4;cursor:default;}
+  .btn:focus-visible,input:focus-visible,button:focus-visible,label:focus-within{outline:2px solid var(--accent);outline-offset:2px;}
+  .btn-primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;}
+  .btn-primary:hover{opacity:.9;color:#fff;}
+  .btn-text{border:none;background:none;color:var(--ink-soft);font-size:13.5px;cursor:pointer;text-decoration:underline;padding:4px 2px;}
+  .btn-text:hover{color:var(--warn);}
+  .check-row{display:flex;align-items:center;gap:7px;font-size:15px;}
+  .check-row input{accent-color:var(--accent);width:15px;height:15px;}
+
+  .two-col{display:grid;grid-template-columns:1.05fr .95fr;gap:22px;align-items:start;}
+  @media (max-width:900px){.two-col{grid-template-columns:1fr;}}
+  canvas{display:block;}
+  .stage{border:1px solid var(--line);border-radius:8px;background:#fff;}
+  .draggable{cursor:grab;touch-action:none;}
+  .draggable:active{cursor:grabbing;}
+  .readout{margin-top:12px;font-size:15px;font-family:var(--mono);background:var(--paper);border:1px dashed var(--line);border-radius:8px;padding:9px 13px;color:var(--ink-soft);line-height:1.7;}
+  .readout b{color:var(--ink);}
+  .caption{margin-top:10px;font-size:14.5px;font-weight:600;color:var(--accent);background:var(--accent-soft);border-radius:7px;padding:7px 12px;}
+  .hint{font-size:13px;color:var(--ink-soft);margin-top:6px;}
+  .legend-swatch{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:middle;}
+  .legend-line{font-size:13.5px;color:var(--ink-soft);margin-top:8px;display:flex;gap:16px;flex-wrap:wrap;}
+
+  .formula-box{border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:8px;padding:12px 16px;margin-top:16px;background:var(--accent-soft);}
+  .formula-box p{margin:2px 0 0;font-size:14px;color:var(--ink-soft);}
+  .formula-box{overflow-x:auto;}
+  .formula-live{margin-top:8px;padding-top:9px;border-top:1px dashed rgba(28,35,51,.18);}
+  /* --- native MathML: real math typesetting, no external library, works offline --- */
+  .formula-box math{font-size:26px;line-height:1.55;}
+  .formula-box math[display="block"]{margin:4px 0;}
+  .formula-live math{font-size:24px;}
+  .clock-wrap{position:relative;}
+  .clock-back-btn{position:absolute;top:0;left:0;font-size:14px;padding:5px 11px;display:none;z-index:2;}
+  .clock-back-btn.show{display:inline-block;}
+
+  .guided-bar{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 10px 28px rgba(28,35,51,.16);padding:14px 20px;max-width:600px;width:calc(100% - 36px);z-index:60;display:flex;flex-direction:column;gap:8px;}
+  .guided-bar.hidden{display:none;}
+  .guided-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;}
+  .guided-title{font-weight:700;font-size:15.5px;}
+  .guided-close{background:none;border:none;color:var(--ink-soft);font-size:18px;cursor:pointer;line-height:1;padding:2px 4px;}
+  .guided-text{font-size:14.5px;color:var(--ink-soft);min-height:32px;}
+  .guided-nav{display:flex;justify-content:space-between;align-items:center;}
+  .guided-dots{display:flex;gap:5px;align-items:center;flex-wrap:wrap;max-width:260px;}
+  .guided-dot{width:6px;height:6px;border-radius:50%;background:var(--line);transition:all .25s;}
+  .guided-dot.active{background:var(--accent);width:15px;border-radius:4px;}
+  .guided-btns{display:flex;gap:8px;}
+
+  footer{margin-top:60px;font-size:13.5px;color:var(--ink-soft);border-top:1px solid var(--line);padding-top:16px;max-width:72ch;}
+
+  @media (prefers-reduced-motion: reduce){
+    *{transition-duration:.01ms !important;animation-duration:.01ms !important;}
+    html{scroll-behavior:auto;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="htext">
+      <h1>Rotary Position Embedding</h1>
+      <p class="sub">Same building blocks as before — a different trick</p>
+      <p>Same token vectors, same frequency spectrum as the additive page — but instead of
+      <b>adding</b> a position signal, RoPE <b>rotates</b> the vector itself. Drag any outlined handle;
+      the sliders are a backup.</p>
+      <p class="hint"><b>←</b> <b>→</b> nudge the last slider · <b>space</b> play the last sweep · <b>Esc</b> leave tour</p>
+    </div>
+    <div class="segmented" role="group" aria-label="Mode">
+      <button id="modeExplore" aria-pressed="true">Explore</button>
+      <button id="modeGuided" aria-pressed="false">Guided tour</button>
+    </div>
+  </header>
+
+  <!-- ============ controls ============ -->
+  <div class="controls-bar" id="sec-controls">
+    <div class="slider-group">
+      <label for="dSlider">Embedding dim d <b id="dVal">16</b></label>
+      <input type="range" id="dSlider" min="4" max="32" step="2" value="16">
+    </div>
+    <div class="slider-group">
+      <label for="baseSlider">Frequency base <b id="baseVal">10,000</b></label>
+      <input type="range" id="baseSlider" min="301" max="5000" step="1" value="4000">
+    </div>
+    <button class="btn" id="resetBtn">Reset</button>
+    <span class="hint" style="align-self:center;">These two drive every panel below.</span>
+  </div>
+
+  <!-- ============ P0 problem ============ -->
+  <section class="block spotlightable" id="sec-p0">
+    <h2>Why relative beats absolute</h2>
+    <p class="lead">Two tokens, always 5 slots apart. Slide them through the sequence — the gap never changes, yet the similarity does.</p>
+    <div class="panel">
+      <div class="two-col">
+        <div>
+          <canvas id="p0Canvas" class="stage" role="img" aria-label="Similarity between two tokens five slots apart, as both slide through the sequence" width="600" height="250" style="width:100%;height:250px;"></canvas>
+          <div class="legend-line">
+            <span><span class="legend-swatch" style="background:var(--accent);"></span>similarity(shift)</span>
+            <span><span class="legend-swatch" style="background:var(--e2-c);"></span>current shift</span>
+          </div>
+        </div>
+        <div>
+          <div class="slider-group">
+            <label for="p0ShiftSlider">Shift both tokens by <b id="p0ShiftVal">0</b></label>
+            <input type="range" id="p0ShiftSlider" min="0" max="30" step="1" value="0">
+          </div>
+          <div class="readout" id="p0Readout" role="status" aria-live="polite"></div>
+          <p class="hint">Click the curve to jump to a shift, or hover it to read a value. Same-gap pairs never matched on the additive page — this is why.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ P1 rotation basics ============ -->
+  <section class="block spotlightable" id="sec-p1">
+    <h2>Rotation matrices, from scratch</h2>
+    <p class="lead">Everything RoPE does comes from one object: a 2×2 rotation matrix. <b>Drag the black arrowhead</b> and watch what it preserves.</p>
+    <div class="panel">
+      <div class="two-col">
+        <div>
+          <canvas id="p1Canvas" class="stage draggable" role="img" aria-label="A vector rotated by theta on a circle" width="420" height="420" style="width:100%;height:400px;"></canvas>
+          <div class="legend-line">
+            <span><span class="legend-swatch" style="background:#1C2333;"></span>v = R(θ)v₀ — drag me</span>
+            <span><span class="legend-swatch" style="background:var(--e1-c);"></span>where (1,0) lands</span>
+            <span><span class="legend-swatch" style="background:var(--e2-c);"></span>where (0,1) lands</span>
+            <span><span class="legend-swatch" style="background:var(--ok);"></span>then rotate by θ₂</span>
+            <span><span class="legend-swatch" style="background:var(--undo-c);"></span>undo (transpose)</span>
+          </div>
+        </div>
+        <div>
+          <div class="slider-group">
+            <label for="p1ThetaSlider">Angle θ <b id="p1ThetaVal">40°</b></label>
+            <input type="range" id="p1ThetaSlider" min="0" max="360" step="1" value="40">
+          </div>
+          <div class="check-row" style="margin-top:10px;">
+            <input type="checkbox" id="p1BasisToggle"><label for="p1BasisToggle">Show where the axes land (the matrix)</label>
+          </div>
+          <div class="check-row" style="margin-top:8px;">
+            <input type="checkbox" id="p1ComposeToggle"><label for="p1ComposeToggle">Compose a second rotation</label>
+          </div>
+          <div class="slider-group" id="p1Theta2Group" style="display:none;margin-top:8px;">
+            <label for="p1Theta2Slider">Angle θ₂ <b id="p1Theta2Val">35°</b></label>
+            <input type="range" id="p1Theta2Slider" min="0" max="360" step="1" value="35">
+          </div>
+          <button class="btn" id="p1UndoBtn" style="margin-top:10px;">↺ Apply the transpose (undo)</button>
+          <div class="readout" id="p1Readout" role="status" aria-live="polite"></div>
+        </div>
+      </div>
+      <div class="formula-box">
+        <div id="f1a"></div>
+        <div id="f1b"></div>
+        <p>Its two columns are where (1,0) and (0,1) land — that is the whole matrix.</p>
+        <div class="formula-live" id="f1c"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ P2 rotating the embedding ============ -->
+  <section class="block spotlightable" id="sec-p2">
+    <h2>Rotating a whole embedding</h2>
+    <p class="lead">Split the vector into d/2 pairs, each with its own frequency — the same spectrum as the additive page. Now each pair is rotated instead of added to.</p>
+    <div class="panel">
+      <div class="two-col">
+        <div>
+          <div class="clock-wrap">
+            <button class="btn clock-back-btn" id="p2ClockBack">← back</button>
+            <canvas id="p2ClockCanvas" class="stage" role="img" aria-label="One clock hand per dimension pair, each rotating at its own frequency" width="640" height="270" style="width:100%;height:270px;"></canvas>
+          </div>
+          <p class="hint">Click a clock to zoom in, then drag its hand. Scroll on a clock to zoom.</p>
+        </div>
+        <div>
+          <h3>The rotation matrix is mostly empty</h3>
+          <canvas id="p2MatrixCanvas" class="stage" role="img" aria-label="Block diagonal rotation matrix with d/2 two by two blocks" width="260" height="260" style="width:100%;max-width:260px;height:auto;aspect-ratio:1;"></canvas>
+          <p class="hint">Only d/2 tiny 2×2 blocks are non-zero; the rest is 0. The active block is outlined.</p>
+          <div class="formula-box">
+            <div id="f3"></div>
+            <p>Blank cells are 0 — d/2 little rotations side by side.</p>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:18px;align-items:flex-end;flex-wrap:wrap;margin-top:18px;">
+        <div class="slider-group" style="flex:1 1 320px;max-width:460px;">
+          <label for="p2PosSlider">Position <b id="p2PosVal">0</b></label>
+          <input type="range" id="p2PosSlider" min="0" max="6000" step="5" value="0">
+        </div>
+        <button class="btn" id="p2SweepPosBtn">▶ Sweep position</button>
+      </div>
+      <div class="readout" id="p2Readout" role="status" aria-live="polite"></div>
+
+      <h4>From one long vector to d/2 rotating pairs</h4>
+      <p class="lead">The flat embedding first splits into coloured pairs, then each pair rotates. <b>Click a pair</b> to inspect it.</p>
+      <div class="formula-box" style="margin-top:0;margin-bottom:14px;">
+        <div id="f2"></div>
+        <div class="formula-live" id="f2live"></div>
+      </div>
+      <canvas id="p2EmbedCanvas" class="stage" role="img" aria-label="Embedding bars grouped into pairs, each pair rotating" width="640" height="190" style="width:100%;height:190px;cursor:pointer;"></canvas>
+      <div style="margin-top:10px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+        <button class="btn btn-primary" id="p2SweepBtn">▶ Split, then rotate pair by pair</button>
+        <span class="caption" id="p2SweepCaption">Press play to watch it split into pairs, then rotate.</span>
+      </div>
+      <p class="hint">Each bracket of two bars is one pair — same colour as its clock.</p>
+    </div>
+  </section>
+
+  <!-- ============ P3 relative position ============ -->
+  <section class="block spotlightable" id="sec-p3">
+    <h2>Where relative position comes from</h2>
+    <p class="lead">Query at position m, key at position n, in the same pair's plane. <b>Drag either arrowhead</b> and watch the angle and the dot product.</p>
+    <div class="panel">
+      <div class="two-col">
+        <div>
+          <canvas id="p3Canvas" class="stage draggable" role="img" aria-label="Query and key vectors for one frequency pair at positions m and n" width="420" height="380" style="width:100%;height:360px;"></canvas>
+          <div class="legend-line">
+            <span><span class="legend-swatch" style="background:var(--e1-c);"></span>q at position m — drag me</span>
+            <span><span class="legend-swatch" style="background:var(--e2-c);"></span>k at position n — drag me</span>
+          </div>
+        </div>
+        <div>
+          <div class="segmented" role="group" aria-label="P3 mode" style="margin-bottom:12px;">
+            <button data-p3mode="shift" aria-pressed="true">Shift together</button>
+            <button data-p3mode="gap" aria-pressed="false">Change the gap</button>
+          </div>
+          <div class="slider-group" id="p3ShiftGroup">
+            <label for="p3ShiftSlider">Shift both by <b id="p3ShiftVal">0</b> (gap fixed at 5)</label>
+            <input type="range" id="p3ShiftSlider" min="0" max="25" step="1" value="0">
+          </div>
+          <div class="slider-group" id="p3GapGroup" style="display:none;">
+            <label for="p3GapSlider">Gap (m − n) <b id="p3GapVal">5</b> (m fixed at 15, drag k only)</label>
+            <input type="range" id="p3GapSlider" min="-15" max="15" step="1" value="5">
+          </div>
+          <div class="slider-group" style="margin-top:8px;">
+            <label for="p3PairSlider">Which pair, i <b id="p3PairVal">0</b></label>
+            <input type="range" id="p3PairSlider" min="0" max="7" step="1" value="0">
+          </div>
+          <div class="readout" id="p3Readout" role="status" aria-live="polite"></div>
+        </div>
+      </div>
+      <div class="formula-box">
+        <div id="f4a"></div>
+        <div id="f4b"></div>
+        <p>Transpose reverses a rotation, and rotations compose by adding angles — so the score only sees n − m.</p>
+        <div class="formula-live" id="f4c"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ P4 heatmap ============ -->
+  <section class="block spotlightable" id="sec-p4">
+    <h2>The whole attention map, at a glance</h2>
+    <p class="lead">Each cell is a score between m (row) and n (column), summed over all d/2 pairs. <b>Click a cell</b> to pin its diagonal, or press play.</p>
+    <div class="panel">
+      <div class="formula-box" style="margin-top:0;">
+        <div id="f5a"></div>
+        <div id="f5b"></div>
+        <div class="formula-live" id="f5c"></div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-end;margin-bottom:10px;">
+        <div class="slider-group" style="max-width:220px;">
+          <label for="p4NSlider">Grid size <b id="p4NVal">14</b></label>
+          <input type="range" id="p4NSlider" min="6" max="24" step="1" value="14">
+        </div>
+        <button class="btn btn-primary" id="p4SweepBtn">▶ Sweep by relative distance</button>
+      </div>
+      <div class="slider-group" style="max-width:420px;margin-bottom:14px;">
+        <label for="p4GapSlider">Pin relative distance m − n <b id="p4GapVal">—</b> <button class="btn-text" id="p4ClearBtn" type="button">✕ clear</button></label>
+        <input type="range" id="p4GapSlider" min="-13" max="13" step="1" value="0">
+      </div>
+      <canvas id="p4Canvas" class="stage" role="img" aria-label="Attention score map, rows are m and columns are n" width="560" height="560" style="width:100%;max-width:520px;height:auto;aspect-ratio:1;cursor:pointer;"></canvas>
+      <div class="readout" id="p4Readout" role="status" aria-live="polite">Hover a cell for its score.</div>
+    </div>
+  </section>
+
+  <footer>
+    Su et al., 2021, <i>RoFormer: Enhanced Transformer with Rotary Position Embedding</i>.
+    Demo vectors are placeholders. Runs fully offline in your browser.
+  </footer>
+</div>
+
+<div class="guided-bar hidden" id="guidedBar">
+  <div class="guided-top">
+    <span class="guided-title" id="guidedTitle">Title</span>
+    <button class="guided-close" id="guidedExit" aria-label="Exit tour">✕</button>
+  </div>
+  <div class="guided-text" id="guidedText">Text</div>
+  <div class="guided-nav">
+    <div class="guided-dots" id="guidedDots"></div>
+    <div class="guided-btns">
+      <button class="btn" id="guidedPrev">← Prev</button>
+      <button class="btn btn-primary" id="guidedNext">Next →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ================= utils ================= */
+  function clamp(v,min,max){return Math.max(min,Math.min(max,v));}
+  function lerp(a,b,t){return Math.round(a+(b-a)*t);}
+  function easeOutCubic(t){return 1-Math.pow(1-t,3);}
+  function formatNum(n){ return Math.abs(n)>=1000 ? Math.round(n).toLocaleString('en-US') : n.toFixed(1); }
+  function compactNum(n){   /* short form so eight clocks fit side by side: 6.3 · 199 · 2.0k · 20k */
+    if(Math.abs(n)>=10000) return Math.round(n/1000)+"k";
+    if(Math.abs(n)>=1000) return (n/1000).toFixed(1)+"k";
+    if(Math.abs(n)>=100) return Math.round(n)+"";
+    return n.toFixed(1);
+  }
+  function angleFromCenter(rect,clientX,clientY,cx,cy){
+    const x=clientX-rect.left, y=clientY-rect.top;
+    let raw=Math.atan2(x-cx,-(y-cy));
+    if(raw<0) raw+=Math.PI*2;
+    return raw;
+  }
+  function impliedAngleFromPointer(rect,clientX,clientY,cx,cy){
+    const x=clientX-rect.left, y=clientY-rect.top;
+    let a=Math.atan2(cy-y,x-cx)-BASE_ANGLE;
+    a=((a%(Math.PI*2))+Math.PI*2)%(Math.PI*2);
+    return a;
+  }
+  const BODY_FONT = getComputedStyle(document.body).fontFamily;
+  const REDUCED = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  const BASE_PAIR={x:1.0,y:0.6};
+  const BASE_NORM=Math.hypot(BASE_PAIR.x,BASE_PAIR.y);
+  const BASE_NORM_SQ=BASE_PAIR.x*BASE_PAIR.x+BASE_PAIR.y*BASE_PAIR.y;
+  const BASE_ANGLE=Math.atan2(BASE_PAIR.y,BASE_PAIR.x);
+  const M_COLOR="#2F6FED", N_COLOR="#E2725B";
+
+  function hashStr(s){
+    let h=1779033703;
+    for(let i=0;i<s.length;i++){h=Math.imul(h^s.charCodeAt(i),3432918353);h=(h<<13)|(h>>>19);}
+    return h>>>0;
+  }
+  function mulberry32(seed){
+    let a=seed>>>0;
+    return function(){
+      a=(a+0x6D2B79F5)|0;
+      let t=Math.imul(a^(a>>>15),1|a);
+      t=(t+Math.imul(t^(t>>>7),61|t))^t;
+      return ((t^(t>>>14))>>>0)/4294967296;
+    };
+  }
+
+  /* ================= state ================= */
+  const state={
+    D:16, base:10000,
+    p0Shift:0, p0Hover:null,
+    p1Theta:40, p1ShowBasis:false, p1Compose:false, p1Theta2:35, p1UndoT:0, p1ComposeT:1, p1Dragging:false,
+    p2Pos:0, p2Focus:null, p2FocusT:0, p2SweepT:8, p2GroupT:1, p2InspectPair:0, p2ClockDrag:null,
+    p3Mode:"shift", p3Shift:0, p3Gap:5, p3Pair:0, p3Drag:null,
+    p4N:14, p4Hover:{m:null,n:null}, p4SweepGap:null,
+    mode:"explore", guidedIndex:0
+  };
+  const P3_GAP_FIXED=5, P3_ANCHOR=15;
+
+  /* ================= math ================= */
+  function pairDenom(i){ return Math.pow(state.base,(2*i)/state.D); }
+  function pairAngle(pos,i){ return pos/pairDenom(i); }
+  function rotate(x,y,theta){
+    const c=Math.cos(theta), s=Math.sin(theta);
+    return {x:x*c-y*s, y:x*s+y*c};
+  }
+  function dimColor(i,maxI){
+    const hue=18+(i/Math.max(1,maxI))*(232-18);
+    return "hsl("+hue.toFixed(1)+",70%,48%)";
+  }
+  function valueColor(v,alpha){
+    v=clamp(v,-1,1); alpha=alpha==null?1:alpha;
+    let r,g,b;
+    if(v<0){const t=v+1;r=lerp(0x2F,0xFF,t);g=lerp(0x6F,0xFF,t);b=lerp(0xED,0xFF,t);}
+    else{const t=v;r=lerp(0xFF,0xD1,t);g=lerp(0xFF,0x43,t);b=lerp(0xFF,0x43,t);}
+    return "rgba("+r+","+g+","+b+","+alpha+")";
+  }
+  function sinPEValue(pos,dim){
+    const D=state.D, i=Math.floor(dim/2);
+    const denom=pairDenom(i), angle=pos/denom;
+    return (dim%2===0)?Math.sin(angle):Math.cos(angle);
+  }
+  function tiledVector(){
+    const D=state.D, v=new Float32Array(D);
+    for(let dim=0;dim<D;dim++) v[dim]=(dim%2===0)?BASE_PAIR.x:BASE_PAIR.y;
+    return v;
+  }
+  function rotatedVector(pos){
+    const D=state.D, v=new Float32Array(D);
+    for(let i=0;i<D/2;i++){
+      const r=rotate(BASE_PAIR.x,BASE_PAIR.y,pairAngle(pos,i));
+      v[2*i]=r.x; v[2*i+1]=r.y;
+    }
+    return v;
+  }
+  function dot(a,b){ let s=0; for(let k=0;k<a.length;k++) s+=a[k]*b[k]; return s; }
+  function norm(a){ return Math.sqrt(dot(a,a)); }
+
+  /* ================= DOM ================= */
+  const els={
+    dSlider:document.getElementById("dSlider"), dVal:document.getElementById("dVal"),
+    baseSlider:document.getElementById("baseSlider"), baseVal:document.getElementById("baseVal"),
+    resetBtn:document.getElementById("resetBtn"),
+    p0Canvas:document.getElementById("p0Canvas"), p0Readout:document.getElementById("p0Readout"),
+    p0ShiftSlider:document.getElementById("p0ShiftSlider"), p0ShiftVal:document.getElementById("p0ShiftVal"),
+    p1Canvas:document.getElementById("p1Canvas"), p1Readout:document.getElementById("p1Readout"),
+    p1ThetaSlider:document.getElementById("p1ThetaSlider"), p1ThetaVal:document.getElementById("p1ThetaVal"),
+    p1BasisToggle:document.getElementById("p1BasisToggle"), p1ComposeToggle:document.getElementById("p1ComposeToggle"),
+    p1Theta2Group:document.getElementById("p1Theta2Group"),
+    p1Theta2Slider:document.getElementById("p1Theta2Slider"), p1Theta2Val:document.getElementById("p1Theta2Val"),
+    p1UndoBtn:document.getElementById("p1UndoBtn"), f1c:document.getElementById("f1c"),
+    p2ClockCanvas:document.getElementById("p2ClockCanvas"), p2ClockBack:document.getElementById("p2ClockBack"),
+    p2MatrixCanvas:document.getElementById("p2MatrixCanvas"), p2Readout:document.getElementById("p2Readout"),
+    p2PosSlider:document.getElementById("p2PosSlider"), p2PosVal:document.getElementById("p2PosVal"),
+    p2SweepPosBtn:document.getElementById("p2SweepPosBtn"),
+    p2EmbedCanvas:document.getElementById("p2EmbedCanvas"), p2SweepBtn:document.getElementById("p2SweepBtn"),
+    p2SweepCaption:document.getElementById("p2SweepCaption"), f2live:document.getElementById("f2live"),
+    p3Canvas:document.getElementById("p3Canvas"), p3Readout:document.getElementById("p3Readout"),
+    p3ShiftGroup:document.getElementById("p3ShiftGroup"), p3GapGroup:document.getElementById("p3GapGroup"),
+    p3ShiftSlider:document.getElementById("p3ShiftSlider"), p3ShiftVal:document.getElementById("p3ShiftVal"),
+    p3GapSlider:document.getElementById("p3GapSlider"), p3GapVal:document.getElementById("p3GapVal"),
+    p3PairSlider:document.getElementById("p3PairSlider"), p3PairVal:document.getElementById("p3PairVal"),
+    p3ModeBtns:Array.prototype.slice.call(document.querySelectorAll('[data-p3mode]')),
+    f4c:document.getElementById("f4c"),
+    p4Canvas:document.getElementById("p4Canvas"), p4Readout:document.getElementById("p4Readout"),
+    p4NSlider:document.getElementById("p4NSlider"), p4NVal:document.getElementById("p4NVal"),
+    p4SweepBtn:document.getElementById("p4SweepBtn"), f5c:document.getElementById("f5c"),
+    p4GapSlider:document.getElementById("p4GapSlider"), p4GapVal:document.getElementById("p4GapVal"),
+    p4ClearBtn:document.getElementById("p4ClearBtn"),
+    modeExplore:document.getElementById("modeExplore"), modeGuided:document.getElementById("modeGuided"),
+    guidedBar:document.getElementById("guidedBar"), guidedTitle:document.getElementById("guidedTitle"),
+    guidedText:document.getElementById("guidedText"), guidedDots:document.getElementById("guidedDots"),
+    guidedPrev:document.getElementById("guidedPrev"), guidedNext:document.getElementById("guidedNext"),
+    guidedExit:document.getElementById("guidedExit")
+  };
+
+  /* ================= formulas =================
+     Rendered as native MathML: the browser's own math typesetting (Latin Modern
+     Math in Chrome), so fractions, matrices and fences come out LaTeX-shaped
+     while the page stays fully offline. */
+  const INV='<mo>&#x2061;</mo>';                       /* invisible function application */
+  function mi(x){ return '<mi>'+x+'</mi>'; }
+  function mn(x){ return '<mn>'+x+'</mn>'; }
+  function mo(x){ return '<mo>'+x+'</mo>'; }
+  function mr(x){ return '<mrow>'+x+'</mrow>'; }
+  function msub(b,sub){ return '<msub>'+mr(b)+mr(sub)+'</msub>'; }
+  function msup(b,sup){ return '<msup>'+mr(b)+mr(sup)+'</msup>'; }
+  function msubsup(b,sub,sup){ return '<msubsup>'+mr(b)+mr(sub)+mr(sup)+'</msubsup>'; }
+  function mfrac(n,d){ return '<mfrac>'+mr(n)+mr(d)+'</mfrac>'; }
+  function msqrt(x){ return '<msqrt>'+mr(x)+'</msqrt>'; }
+  function mfn(name,arg){ return mi(name)+INV+arg; }
+  function mnum(v,digits){
+    const x=Number(v).toFixed(digits==null?2:digits);
+    return (x.charAt(0)==="-") ? mo('−')+mn(x.slice(1)) : mn(x);
+  }
+  function mcol(cells){ return mr(mo('[')+'<mtable>'+cells.map(function(c){ return '<mtr><mtd>'+c+'</mtd></mtr>'; }).join('')+'</mtable>'+mo(']')); }
+  function mmat(rows){ return mr(mo('[')+'<mtable>'+rows.map(function(r){ return '<mtr>'+r.map(function(c){ return '<mtd>'+c+'</mtd>'; }).join('')+'</mtr>'; }).join('')+'</mtable>'+mo(']')); }
+  function mmath(x){ return '<math display="block">'+x+'</math>'; }
+  function mclr(c,fill){ return '<mrow style="color:'+c+'">'+fill+'</mrow>'; }
+  const C_M='var(--e1-c)', C_N='var(--e2-c)', C_G='var(--sum-c)';
+  const C_MI=function(c){ return function(f){ return mclr(c,f); }; };
+  const clM=C_MI(C_M), clN=C_MI(C_N), clG=C_MI(C_G);
+  function mtheta(i){ return msub(mi('θ'),mn(i)); }
+  function mR(arg){ return mi('R')+mo('(')+arg+mo(')'); }
+  function mRsub(sub){ return msub(mi('R'),sub); }
+
+  function put(id,html){ const el=(typeof id==="string")?document.getElementById(id):id; el.innerHTML=html; }
+  const lastFormulaRender={}, lastFormulaContent={};
+  function putThrottled(key,el,html,minInterval){
+    if(lastFormulaContent[key]===html) return;
+    const now=performance.now();
+    if(lastFormulaRender[key]!=null && now-lastFormulaRender[key]<(minInterval||90)) return;
+    lastFormulaRender[key]=now; lastFormulaContent[key]=html;
+    put(el,html);
+  }
+
+  function initFormulas(){
+    /* R(θ) = [cos θ, −sin θ ; sin θ, cos θ] */
+    var m2x2 = mmat([[mfn('cos',mi('θ')), mo('−')+mfn('sin',mi('θ'))],
+                     [mfn('sin',mi('θ')), mfn('cos',mi('θ'))]]);
+    put("f1a", mmath(mr(mi('R')+mo('(')+mi('θ')+mo(')')+mo('=')+m2x2)));
+
+    /* R(θ) applied to a column vector */
+    var v0  = mcol([mi('x'),mi('y')]);
+    var vR  = mcol([mi('x')+mfn('cos',mi('θ'))+mo('−')+mi('y')+mfn('sin',mi('θ')),
+                    mi('x')+mfn('sin',mi('θ'))+mo('+')+mi('y')+mfn('cos',mi('θ'))]);
+    put("f1b", mmath(mr(mi('R')+mo('(')+mi('θ')+mo(')')+v0+mo('=')+vR)));
+
+    /* the pair-wise rotation, with its frequency */
+    var lhs2 = mcol([msubsup(mi('x'), mr(mn(2)+mi('i')), mo('′')),
+                     msubsup(mi('x'), mr(mn(2)+mi('i')+mo('+')+mn(1)), mo('′'))]);
+    var rhs2 = mcol([msub(mi('x'), mr(mn(2)+mi('i'))),
+                     msub(mi('x'), mr(mn(2)+mi('i')+mo('+')+mn(1)))]);
+    var freq = mtheta('i')+mo('=')+msup(mi('base'), mfrac(mo('−')+mn(2)+mi('i'), mi('d')));
+    put("f2", mmath(mr(lhs2+mo('=')+mR(mi('m')+mtheta('i'))+rhs2+mo(',')+freq)));
+
+    /* the full block-diagonal matrix */
+    var blank = '<mspace width="1.1em"></mspace>';
+    var diag = mmat([[mR(mi('m')+mtheta(0)), blank, blank, blank],
+                     [blank, mR(mi('m')+mtheta(1)), blank, blank],
+                     [blank, blank, mo('⋱'), blank],
+                     [blank, blank, blank,
+                      mR(mi('m')+msub(mi('θ'), mr(mi('d')+mo('/')+mn(2)+mo('−')+mn(1))))]]);
+    put("f3", mmath(mr(mRsub(mi('Θ')+mo(',')+mi('m'))+mo('=')+diag)));
+
+    /* R(mθ)ᵀ R(nθ) = R(−mθ) R(nθ) = R((n−m)θ) */
+    var gapT = mr(mo('(')+clN(mi('n'))+mo('−')+clM(mi('m'))+mo(')'));
+    put("f4a", mmath(mr(
+      msup(mR(clM(mi('m'))+mi('θ')), mo('⊤')) + mR(clN(mi('n'))+mi('θ')) + mo('=') +
+      mR(mo('−')+clM(mi('m'))+mi('θ'))   + mR(clN(mi('n'))+mi('θ')) + mo('=') +
+      mR(gapT+mi('θ')))));
+
+    /* qᵀ R(mθ)ᵀ R(nθ) k = qᵀ R((n−m)θ) k */
+    put("f4b", mmath(mr(
+      msup(mi('q'), mo('⊤')) + msup(mR(clM(mi('m'))+mi('θ')), mo('⊤')) + mR(clN(mi('n'))+mi('θ')) + mi('k') +
+      mo('=') +
+      msup(mi('q'), mo('⊤')) + mR(gapT+mi('θ')) + mi('k'))));
+
+    /* the attention score */
+    var Rm = mRsub(mi('Θ')+mo(',')+clM(mi('m')));
+    var Rn = mRsub(mi('Θ')+mo(',')+clN(mi('n')));
+    put("f5a", mmath(mr(
+      mi('score')+mo('(')+mr(clM(mi('m'))+mo(',')+clN(mi('n')))+mo(')')+mo('=') +
+      mfrac(msup(mr(mo('(')+Rm+msub(mi('q'),clM(mi('m')))+mo(')')), mo('⊤')) +
+            mr(mo('(')+Rn+msub(mi('k'),clN(mi('n')))+mo(')')),
+            msqrt(mi('d'))) +
+      mo('=') +
+      mfrac(msup(msub(mi('q'),clM(mi('m'))), mo('⊤')) +
+            mRsub(mi('Θ')+mo(',')+clN(mi('n'))+mo('−')+clM(mi('m'))) +
+            msub(mi('k'),clN(mi('n'))),
+            msqrt(mi('d'))))));
+
+    put("f5b", mmath(mr(
+      mi('Attention')+mo('(')+mi('Q')+mo(',')+mi('K')+mo(',')+mi('V')+mo(')')+mo('=')+
+      mfn('softmax', mr(mo('(')+mi('score')+mo(')')))+mo('·')+mi('V'))));
+  }
+
+  function updateP1LiveFormula(v0,v,thetaDeg){
+    var deg = msup(mn(Math.round(thetaDeg)), mo('∘'));
+    putThrottled("f1c", els.f1c, mmath(mr(
+      mi('R')+mo('(')+deg+mo(')')+
+      mcol([mnum(v0.x,1), mnum(v0.y,1)]) + mo('=') +
+      mcol([mnum(v.x), mnum(v.y)]))), 90);
+  }
+  function updateP2LiveFormula(i){
+    var m = Math.round(state.p2Pos);
+    var r = rotate(BASE_PAIR.x, BASE_PAIR.y, pairAngle(state.p2Pos,i));
+    var lhs = mcol([msubsup(mi('x'), mn(2*i), mo('′')), msubsup(mi('x'), mn(2*i+1), mo('′'))]);
+    var arg = mcol([mnum(BASE_PAIR.x,1), mnum(BASE_PAIR.y,1)]);
+    var res = mcol([mnum(r.x), mnum(r.y)]);
+    putThrottled("f2live", els.f2live, mmath(mr(lhs+mo('=')+mR(mn(m)+mtheta(i))+arg+mo('=')+res)), 90);
+  }
+  function updateP3LiveFormula(m,n,i){
+    var mm = Math.round(m), nn = Math.round(n), gap = nn-mm;
+    putThrottled("f4c", els.f4c, mmath(mr(
+      msup(mR(clM(mn(mm))+mtheta(i)), mo('⊤')) + mR(clN(mn(nn))+mtheta(i)) + mo('=') +
+      mR(mr(mo('(')+clN(mn(nn))+mo('−')+clM(mn(mm))+mo(')'))+mtheta(i)) + mo('=') +
+      mR(clG(mnum(gap,0))+mtheta(i)))), 90);
+  }
+  function updateP4LiveFormula(m,n){
+    var score = p4Score(m,n);
+    putThrottled("f5c", els.f5c, mmath(mr(
+      mi('score')+mo('(')+clM(mn(m))+mo(',')+clN(mn(n))+mo(')')+mo('=') +
+      mfrac(msup(msub(mi('q'),mn(m)), mo('⊤')) +
+            mRsub(mi('Θ')+mo(',')+clG(mn(n-m))) +
+            msub(mi('k'),mn(n)),
+            msqrt(mi('d'))) +
+      mo('≈')+mnum(score,3))), 90);
+  }
+
+  /* ================= animation loop ================= */
+  const tweens=new Map();
+  let loopRunning=false;
+  function addTween(key,fn){ tweens.set(key,fn); ensureLoop(); }
+  function removeTween(key){ tweens.delete(key); }
+  function ensureLoop(){
+    if(loopRunning) return;
+    loopRunning=true;
+    function frame(now){
+      tweens.forEach(function(fn,key){ if(!fn(16,now)) tweens.delete(key); });
+      renderDynamic();
+      if(tweens.size>0){ requestAnimationFrame(frame); } else { loopRunning=false; }
+    }
+    requestAnimationFrame(frame);
+  }
+  function tweenScalar(key,getCurrent,setValue,target,duration){
+    if(REDUCED){ setValue(target); return; }
+    const start=getCurrent(), startTime=performance.now(); duration=duration||600;
+    addTween(key,function(dt,now){
+      const t=Math.min(1,(now-startTime)/duration), e=easeOutCubic(t);
+      setValue(start+(target-start)*e);
+      if(t>=1){ setValue(target); return false; }
+      return true;
+    });
+  }
+
+  /* ================= canvas basics ================= */
+  function setupCanvas(canvas,cssW,cssH){
+    const dpr=window.devicePixelRatio||1;
+    canvas.width=Math.max(1,Math.round(cssW*dpr));
+    canvas.height=Math.max(1,Math.round(cssH*dpr));
+    const ctx=canvas.getContext("2d");
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.imageSmoothingEnabled=true;
+    return ctx;
+  }
+  function drawArrow(ctx,x0,y0,x1,y1,color,width){
+    ctx.strokeStyle=color; ctx.fillStyle=color; ctx.lineWidth=width||2; ctx.lineCap="round";
+    ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(x1,y1); ctx.stroke();
+    const ang=Math.atan2(y1-y0,x1-x0), headLen=Math.max(7,(width||2)*3.2);
+    ctx.beginPath();
+    ctx.moveTo(x1,y1);
+    ctx.lineTo(x1-headLen*Math.cos(ang-Math.PI/6), y1-headLen*Math.sin(ang-Math.PI/6));
+    ctx.lineTo(x1-headLen*Math.cos(ang+Math.PI/6), y1-headLen*Math.sin(ang+Math.PI/6));
+    ctx.closePath(); ctx.fill();
+  }
+  function capturePointer(canvas,e){ try{ canvas.setPointerCapture(e.pointerId); }catch(err){} }
+  function drawHandle(ctx,x,y,color){
+    ctx.fillStyle="#fff"; ctx.strokeStyle=color; ctx.lineWidth=2.4;
+    ctx.beginPath(); ctx.arc(x,y,7.5,0,Math.PI*2); ctx.fill(); ctx.stroke();
+  }
+  function drawAngleTicks(ctx,cx,cy,r){
+    ctx.fillStyle="rgba(28,35,51,.42)"; ctx.font="10.5px "+BODY_FONT; ctx.textAlign="center";
+    [0,90,180,270].forEach(function(deg){
+      const rad=deg*Math.PI/180;
+      const tx=cx+Math.sin(rad)*(r+15), ty=cy-Math.cos(rad)*(r+15);
+      ctx.fillText(deg+"°",tx,ty+3);
+    });
+  }
+
+  /* ================= P0 ================= */
+  function p0Similarity(shift){
+    const tok=tiledVector(); const D=state.D;
+    const a=new Float32Array(D), b=new Float32Array(D);
+    for(let k=0;k<D;k++){ a[k]=tok[k]+sinPEValue(shift,k); b[k]=tok[k]+sinPEValue(shift+P3_GAP_FIXED,k); }
+    return dot(a,b)/(norm(a)*norm(b));
+  }
+  let p0PlotGeom={padL:34,padR:10,padT:12,padB:22,maxShift:30};
+  let p0CurveCache={key:"",vals:null};
+  function p0Curve(){
+    const key=state.D+"|"+state.base+"|"+P3_GAP_FIXED;
+    if(p0CurveCache.key!==key){
+      const vals=[];
+      for(let s=0;s<=30;s++) vals.push(p0Similarity(s));
+      p0CurveCache={key:key,vals:vals};
+    }
+    return p0CurveCache.vals;
+  }
+  function drawP0(){
+    const canvas=els.p0Canvas, cssW=canvas.clientWidth||600, cssH=canvas.clientHeight||220;
+    const ctx=setupCanvas(canvas,cssW,cssH); ctx.clearRect(0,0,cssW,cssH);
+    const padL=34,padR=10,padT=12,padB=22, plotW=cssW-padL-padR, plotH=cssH-padT-padB, maxShift=30;
+    p0PlotGeom={padL:padL,padR:padR,padT:padT,padB:padB,maxShift:maxShift,plotW:plotW,plotH:plotH};
+    function xAt(s){return padL+(s/maxShift)*plotW;}
+    /* auto-range: the drift is only a few percent wide, so fit the axis to the curve
+       instead of pinning it to a fixed [-1, 1] window */
+    const curve=p0Curve();
+    let vLo=1, vHi=-1;
+    curve.forEach(function(v){ if(v<vLo)vLo=v; if(v>vHi)vHi=v; });
+    const lo=vLo-0.015, hi=vHi+0.008;
+    function yAt(v){return padT+(1-(clamp(v,lo,hi)-lo)/(hi-lo))*plotH;}
+    ctx.strokeStyle="rgba(28,35,51,.15)"; ctx.lineWidth=1;
+    ctx.fillStyle="#5B6478"; ctx.font="12px "+BODY_FONT; ctx.textAlign="right";
+    [[hi,vHi],[lo,vLo]].forEach(function(t){
+      ctx.beginPath(); ctx.moveTo(padL,yAt(t[0])+0.5); ctx.lineTo(cssW-padR,yAt(t[0])+0.5); ctx.stroke();
+      ctx.fillText(t[1].toFixed(3),padL-6,yAt(t[0])+3);
+    });
+    ctx.beginPath();
+    for(let s=0;s<=maxShift;s++){ const v=curve[s]; const x=xAt(s),y=yAt(v); if(s===0) ctx.moveTo(x,y); else ctx.lineTo(x,y); }
+    ctx.strokeStyle="#2F6FED"; ctx.lineWidth=2.4; ctx.lineJoin="round"; ctx.stroke();
+    ctx.textAlign="center"; ctx.fillStyle="#8A90A0"; ctx.font="12px "+BODY_FONT;
+    for(let s=0;s<=maxShift;s+=5) ctx.fillText(String(s),xAt(s),cssH-6);
+    if(state.p0Hover!=null && state.p0Hover!==state.p0Shift){
+      const hx=xAt(state.p0Hover), hy=yAt(p0Similarity(state.p0Hover));
+      ctx.strokeStyle="rgba(28,35,51,.35)"; ctx.setLineDash([4,4]); ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(hx,padT); ctx.lineTo(hx,cssH-padB); ctx.stroke(); ctx.setLineDash([]);
+      ctx.strokeStyle="#1C2333"; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.arc(hx,hy,5,0,Math.PI*2); ctx.stroke();
+    }
+    const cx=xAt(state.p0Shift), cv=p0Similarity(state.p0Shift), cy=yAt(cv);
+    ctx.strokeStyle="#E2725B"; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(cx,padT); ctx.lineTo(cx,cssH-padB); ctx.stroke();
+    drawHandle(ctx,cx,cy,"#E2725B");
+  }
+  function updateP0Readout(){
+    const m=state.p0Shift, n=m+P3_GAP_FIXED, sim=p0Similarity(m);
+    let html="tokens at pos="+m+" and pos="+n+" (gap="+P3_GAP_FIXED+")<br>similarity ≈ <b>"+sim.toFixed(3)+"</b> — keep sliding, the number keeps moving.";
+    if(state.p0Hover!=null && state.p0Hover!==m){
+      html="<span style=\"color:#5B6478\">hover · shift "+state.p0Hover+" → similarity ≈ "+p0Similarity(state.p0Hover).toFixed(3)+"</span><br>"+html;
+    }
+    els.p0Readout.innerHTML=html;
+    els.p0ShiftVal.textContent=m;
+  }
+  function p0ShiftFromClientX(clientX){
+    const rect=els.p0Canvas.getBoundingClientRect();
+    const x=clientX-rect.left;
+    const t=clamp((x-p0PlotGeom.padL)/p0PlotGeom.plotW,0,1);
+    return Math.round(t*p0PlotGeom.maxShift);
+  }
+  function p0SetShiftFromClientX(clientX){
+    state.p0Shift=p0ShiftFromClientX(clientX);
+    els.p0ShiftSlider.value=state.p0Shift;
+    renderDynamic();
+  }
+  let p0Dragging=false;
+  els.p0Canvas.style.cursor="pointer";
+  els.p0Canvas.addEventListener("pointerdown",function(e){ removeTween("p0shift"); p0Dragging=true; capturePointer(els.p0Canvas,e); p0SetShiftFromClientX(e.clientX); });
+  els.p0Canvas.addEventListener("pointermove",function(e){
+    if(p0Dragging){ p0SetShiftFromClientX(e.clientX); return; }
+    const h=p0ShiftFromClientX(e.clientX);
+    if(state.p0Hover===h) return;
+    state.p0Hover=h; drawP0(); updateP0Readout();
+  });
+  els.p0Canvas.addEventListener("pointerleave",function(){
+    if(state.p0Hover==null) return;
+    state.p0Hover=null; drawP0(); updateP0Readout();
+  });
+  els.p0Canvas.addEventListener("pointerup",function(){ p0Dragging=false; });
+  els.p0Canvas.addEventListener("pointercancel",function(){ p0Dragging=false; });
+
+  /* ================= P1 ================= */
+  let p1Geom={cx:0,cy:0,scale:0};
+  function drawP1(){
+    const canvas=els.p1Canvas, cssW=canvas.clientWidth||420, cssH=canvas.clientHeight||400;
+    const ctx=setupCanvas(canvas,cssW,cssH); ctx.clearRect(0,0,cssW,cssH);
+    const cx=cssW/2, cy=cssH/2, scale=Math.min(cssW,cssH)*0.29;
+    p1Geom={cx:cx,cy:cy,scale:scale};
+    ctx.strokeStyle="rgba(28,35,51,.12)"; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(0,cy); ctx.lineTo(cssW,cy); ctx.moveTo(cx,0); ctx.lineTo(cx,cssH); ctx.stroke();
+    const theta=state.p1Theta*Math.PI/180;
+    const v=rotate(BASE_PAIR.x,BASE_PAIR.y,theta);
+    ctx.strokeStyle="rgba(28,35,51,.16)"; ctx.setLineDash([4,4]);
+    ctx.beginPath(); ctx.arc(cx,cy,BASE_NORM*scale,0,Math.PI*2); ctx.stroke(); ctx.setLineDash([]);
+    drawAngleTicks(ctx,cx,cy,BASE_NORM*scale);
+    if(state.p1ShowBasis){
+      drawArrow(ctx,cx,cy,cx+scale,cy,"rgba(28,35,51,.32)",1.6);
+      drawArrow(ctx,cx,cy,cx,cy-scale,"rgba(28,35,51,.32)",1.6);
+      const re1=rotate(1,0,theta), re2=rotate(0,1,theta);
+      drawArrow(ctx,cx,cy,cx+re1.x*scale,cy-re1.y*scale,"#2F6FED",2.4);
+      drawArrow(ctx,cx,cy,cx+re2.x*scale,cy-re2.y*scale,"#E2725B",2.4);
+    }
+    drawArrow(ctx,cx,cy,cx+v.x*scale,cy-v.y*scale,"#1C2333",3.2);
+    if(state.p1Compose){
+      const theta2=state.p1Theta2*Math.PI/180;
+      const revealT=(state.p1ComposeT==null)?1:state.p1ComposeT;
+      const v2=rotate(v.x,v.y,theta2*revealT);
+      drawArrow(ctx,cx,cy,cx+v2.x*scale,cy-v2.y*scale,"#1F9E6B",2.6);
+      if(revealT>0.98){
+        const vSum=rotate(BASE_PAIR.x,BASE_PAIR.y,theta+theta2);
+        ctx.strokeStyle="#C9971D"; ctx.lineWidth=2.2;
+        ctx.beginPath(); ctx.arc(cx+vSum.x*scale,cy-vSum.y*scale,7,0,Math.PI*2); ctx.stroke();
+      }
+    }
+    if(state.p1UndoT>0){
+      const back=-theta*state.p1UndoT;
+      const vb=rotate(BASE_PAIR.x,BASE_PAIR.y,theta+back);
+      drawArrow(ctx,cx,cy,cx+vb.x*scale,cy-vb.y*scale,"#D14343",2.6);
+    }
+    drawHandle(ctx,cx+v.x*scale,cy-v.y*scale,"#1C2333");
+    const ct=Math.cos(theta), st=Math.sin(theta);
+    let html="R(θ) = [ ["+ct.toFixed(2)+", "+(-st).toFixed(2)+"], ["+st.toFixed(2)+", "+ct.toFixed(2)+"] ]&nbsp;&nbsp;θ="+Math.round(state.p1Theta)+"°<br>"+
+      "|v| = "+Math.hypot(v.x,v.y).toFixed(3)+" (|v₀| = "+BASE_NORM.toFixed(3)+") — length preserved.";
+    if(state.p1Compose && (state.p1ComposeT==null || state.p1ComposeT>0.98)){ html+="<br>compose: θ₁+θ₂ = "+Math.round(state.p1Theta+state.p1Theta2)+"° — sequential and direct land on the same ringed point."; }
+    els.p1Readout.innerHTML=html;
+    updateP1LiveFormula(BASE_PAIR,v,state.p1Theta);
+  }
+  function playUndo(){
+    if(REDUCED){ state.p1UndoT=1; drawP1(); return; }
+    state.p1UndoT=0;
+    const startTime=performance.now(), duration=1050;
+    addTween("p1undo",function(dt,now){
+      const t=Math.min(1,(now-startTime)/duration);
+      state.p1UndoT=easeOutCubic(t);
+      if(t>=1){ return false; }
+      return true;
+    });
+  }
+  function playComposeReveal(){
+    if(REDUCED){ state.p1ComposeT=1; drawP1(); return; }
+    state.p1ComposeT=0;
+    const startTime=performance.now(), duration=800;
+    addTween("p1compose",function(dt,now){
+      const t=Math.min(1,(now-startTime)/duration);
+      state.p1ComposeT=easeOutCubic(t);
+      if(t>=1){ state.p1ComposeT=1; return false; }
+      return true;
+    });
+  }
+  function p1SetThetaFromPointer(clientX,clientY){
+    const rect=els.p1Canvas.getBoundingClientRect();
+    const a=impliedAngleFromPointer(rect,clientX,clientY,p1Geom.cx,p1Geom.cy);
+    state.p1Theta=a*180/Math.PI;
+    els.p1ThetaSlider.value=Math.round(state.p1Theta);
+    els.p1ThetaVal.textContent=Math.round(state.p1Theta)+"°";
+    drawP1();
+  }
+  els.p1Canvas.addEventListener("pointerdown",function(e){
+    removeTween("p1theta"); state.p1Dragging=true;
+    capturePointer(els.p1Canvas,e);
+    p1SetThetaFromPointer(e.clientX,e.clientY);
+  });
+  els.p1Canvas.addEventListener("pointermove",function(e){ if(state.p1Dragging) p1SetThetaFromPointer(e.clientX,e.clientY); });
+  els.p1Canvas.addEventListener("pointerup",function(){ state.p1Dragging=false; });
+  els.p1Canvas.addEventListener("pointercancel",function(){ state.p1Dragging=false; });
+
+  /* ================= P2 ================= */
+  function getClockIndices(){
+    const D=state.D, maxI=Math.max(0,Math.floor(D/2)-1);
+    if(maxI+1<=8){ const a=[]; for(let i=0;i<=maxI;i++)a.push(i); return a; }
+    const set=new Set();
+    for(let k=0;k<8;k++) set.add(Math.round(k*maxI/7));
+    return Array.from(set).sort(function(a,b){return a-b;});
+  }
+  function hitTestGrid(x,y,w,h){
+    const idxs=getClockIndices(); const subW=w/idxs.length; const r=Math.min(subW,h)*0.30;
+    for(let k=0;k<idxs.length;k++){
+      const cx=subW*k+subW/2, cy=h/2-14;
+      const dx=x-cx, dy=y-cy;
+      if(dx*dx+dy*dy<=(r*1.5)*(r*1.5)) return idxs[k];
+    }
+    return null;
+  }
+  function p2ActiveIndex(){
+    const pairs=state.D/2, sweepT=clamp(state.p2SweepT,0,pairs);
+    const sweeping=sweepT>0 && sweepT<pairs;
+    return sweeping ? clamp(Math.floor(sweepT),0,pairs-1) : clamp(state.p2InspectPair,0,pairs-1);
+  }
+  function drawOneClock(ctx,cx,cy,r,i,maxI,alpha,detailed){
+    const color=dimColor(i,maxI);
+    ctx.globalAlpha=alpha;
+    ctx.strokeStyle="rgba(28,35,51,.18)"; ctx.lineWidth=1;
+    ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.stroke();
+    const angle=pairAngle(state.p2Pos,i);
+    if(angle>0.0005){   /* trail: how far this pair has swept since position 0 */
+      ctx.strokeStyle=color; ctx.lineWidth=detailed?3:2.5; ctx.globalAlpha=alpha*(detailed?.32:.2);
+      ctx.beginPath(); ctx.arc(cx,cy,r*0.8,-Math.PI/2,-Math.PI/2+Math.min(angle,Math.PI*40)); ctx.stroke();
+      ctx.globalAlpha=alpha;
+    }
+    const px=cx+r*Math.sin(angle), py=cy-r*Math.cos(angle);
+    ctx.strokeStyle=color; ctx.lineWidth=1.8;
+    ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(px,py);ctx.stroke();
+    ctx.fillStyle=color; ctx.beginPath();ctx.arc(px,py,Math.max(3.2,r*0.075),0,Math.PI*2);ctx.fill();
+    ctx.fillStyle="#1C2333"; ctx.textAlign="center"; ctx.font=(detailed?13.5:12.5)+"px "+BODY_FONT;
+    ctx.fillText("i="+i,cx,cy+r+17);
+    ctx.fillStyle="#5B6478"; ctx.font="11.5px "+BODY_FONT;
+    ctx.fillText("T≈"+compactNum(2*Math.PI*pairDenom(i)),cx,cy+r+33);
+    ctx.globalAlpha=1;
+  }
+  let p2ClockGeom=null;
+  function drawP2Clock(){
+    const canvas=els.p2ClockCanvas, cssW=canvas.clientWidth||640, cssH=canvas.clientHeight||230;
+    const ctx=setupCanvas(canvas,cssW,cssH); ctx.clearRect(0,0,cssW,cssH);
+    const D=state.D, maxI=Math.max(0,Math.floor(D/2)-1);
+    const idxs=getClockIndices(); const subW=cssW/idxs.length;
+    const gridR=Math.min(subW,cssH)*0.30;
+    const focusCx=cssW/2, focusCy=cssH/2-16, focusR=Math.min(cssW,cssH)*0.37;
+    const focusT=state.p2FocusT||0, focusIdx=state.p2Focus;
+    const activeI=p2ActiveIndex();
+    p2ClockGeom={cssW:cssW,cssH:cssH,focusCx:focusCx,focusCy:focusCy,focusR:focusR};
+    idxs.forEach(function(i,k){
+      const gcx=subW*k+subW/2, gcy=cssH/2-14;
+      let cx,cy,r,alpha,detailed=false;
+      if(i===focusIdx){ cx=gcx+(focusCx-gcx)*focusT; cy=gcy+(focusCy-gcy)*focusT; r=gridR+(focusR-gridR)*focusT; alpha=1; detailed=focusT>0.95; }
+      else{ cx=gcx; cy=gcy; r=gridR; alpha=1-focusT; if(alpha<=0.015) return; }
+      drawOneClock(ctx,cx,cy,r,i,maxI,alpha,detailed);
+      if(i===focusIdx && focusT>0.95){ drawHandle(ctx,cx+r*Math.sin(pairAngle(state.p2Pos,i)),cy-r*Math.cos(pairAngle(state.p2Pos,i)),dimColor(i,maxI)); }
+      if(i===activeI){
+        ctx.strokeStyle="#1C2333"; ctx.lineWidth=1.6; ctx.setLineDash([3,3]);
+        ctx.beginPath(); ctx.arc(cx,cy,r+7,0,Math.PI*2); ctx.stroke(); ctx.setLineDash([]);
+      }
+    });
+  }
+  function drawP2Matrix(){
+    const canvas=els.p2MatrixCanvas, cssW=canvas.clientWidth||260, cssH=canvas.clientHeight||260;
+    const ctx=setupCanvas(canvas,cssW,cssH); ctx.clearRect(0,0,cssW,cssH);
+    const D=state.D, maxI=Math.max(0,Math.floor(D/2)-1), cell=Math.min(cssW,cssH)/D;
+    for(let r=0;r<D;r++){
+      for(let c=0;c<D;c++){
+        const blockR=Math.floor(r/2), blockC=Math.floor(c/2);
+        ctx.fillStyle = (blockR===blockC) ? dimColor(blockR,maxI) : "rgba(28,35,51,.05)";
+        ctx.fillRect(c*cell,r*cell,cell-0.6,cell-0.6);
+      }
+    }
+    const i=p2ActiveIndex();
+    ctx.strokeStyle="#1C2333"; ctx.lineWidth=2.4;
+    ctx.strokeRect(2*i*cell+1,2*i*cell+1,cell*2-2,cell*2-2);
+  }
+  function focusP2(idx){
+    if(state.p2Focus===idx) return;
+    state.p2Focus=idx; els.p2ClockBack.classList.add("show");
+    tweenScalar("p2focus",function(){return state.p2FocusT;},function(v){state.p2FocusT=v;},1,420);
+  }
+  function unfocusP2(){
+    if(state.p2Focus==null) return;
+    tweenScalar("p2focus",function(){return state.p2FocusT;},function(v){state.p2FocusT=v;},0,420);
+    setTimeout(function(){ state.p2Focus=null; els.p2ClockBack.classList.remove("show"); },430);
+  }
+  function updateP2Readout(){
+    const v0=tiledVector(), v=rotatedVector(state.p2Pos);
+    els.p2Readout.innerHTML="pos="+Math.round(state.p2Pos)+"&nbsp;&nbsp;‖v‖ before rotation = <b>"+norm(v0).toFixed(3)+"</b> · after rotation = <b>"+norm(v).toFixed(3)+"</b> — identical, no matter how far out you go.";
+    els.p2PosVal.textContent=Math.round(state.p2Pos);
+  }
+  let p2EmbedGeom=null;
+  function drawP2Embed(){
+    const canvas=els.p2EmbedCanvas, cssW=canvas.clientWidth||640, cssH=canvas.clientHeight||170;
+    const ctx=setupCanvas(canvas,cssW,cssH); ctx.clearRect(0,0,cssW,cssH);
+    const D=state.D, maxI=Math.max(0,Math.floor(D/2)-1), pairs=D/2;
+    const baseline=cssH/2, maxPairGap=7;
+    const groupT=clamp(state.p2GroupT,0,1);
+    const curGap=maxPairGap*groupT;
+    const cellW=(cssW-curGap*(pairs-1))/D;
+    p2EmbedGeom={cssW:cssW,cellW:cellW,curGap:curGap,pairs:pairs};
+    const barW=Math.max(1,cellW*0.72);
+    const v0=tiledVector(), v1=rotatedVector(state.p2Pos);
+    const sweepT=clamp(state.p2SweepT,0,pairs), fullPairs=Math.floor(sweepT+1e-6), frac=sweepT-fullPairs;
+    const activeI=p2ActiveIndex();
+    for(let i=0;i<pairs;i++){
+      let blend; if(i<fullPairs) blend=1; else if(i===fullPairs) blend=frac; else blend=0;
+      const groupX=2*i*cellW+i*curGap;
+      for(let k=0;k<2;k++){
+        const dim=2*i+k;
+        const val=v0[dim]+(v1[dim]-v0[dim])*blend;
+        const x=groupX+k*cellW+(cellW-barW)/2;
+        const h=(val/1.5)*(cssH/2-18);
+        const y0=h>=0?baseline-h:baseline, hh=Math.abs(h);
+        ctx.fillStyle="#9AA1AE";
+        ctx.fillRect(x,y0,barW,hh);
+        if(groupT>0.01){
+          ctx.globalAlpha=groupT; ctx.fillStyle=dimColor(i,maxI);
+          ctx.fillRect(x,y0,barW,hh); ctx.globalAlpha=1;
+        }
+      }
+      if(i===activeI && groupT>0.5){
+        ctx.strokeStyle="#1C2333"; ctx.lineWidth=1.8;
+        ctx.strokeRect(groupX-2,6,cellW*2+4,cssH-12);
+      }
+    }
+    ctx.strokeStyle="rgba(28,35,51,.25)"; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(0,baseline+0.5); ctx.lineTo(cssW,baseline+0.5); ctx.stroke();
+    updateP2LiveFormula(activeI);
+  }
+  function updateP2SweepCaption(){
+    const pairs=state.D/2, groupT=clamp(state.p2GroupT,0,1), sweepT=clamp(state.p2SweepT,0,pairs);
+    if(groupT<0.99){ els.p2SweepCaption.textContent="Splitting the embedding into "+pairs+" pairs…"; }
+    else if(sweepT<=0){ els.p2SweepCaption.textContent="Press play to watch it split into pairs, then rotate."; }
+    else if(sweepT>=pairs){ els.p2SweepCaption.textContent="All "+pairs+" pairs rotated — click any pair above to inspect it."; }
+    else{ const i=clamp(Math.floor(sweepT),0,pairs-1); els.p2SweepCaption.textContent="Rotating pair i="+i+" of "+(pairs-1)+"…"; }
+  }
+  function playP2Sweep(){
+    if(REDUCED){ state.p2GroupT=1; state.p2SweepT=state.D/2; renderDynamic(); return; }
+    const pairs=state.D/2;
+    removeTween("p2group"); removeTween("p2sweep");
+    state.p2GroupT=0; state.p2SweepT=0;
+    const t1start=performance.now(), t1dur=650;
+    addTween("p2group",function(dt,now){
+      const t=Math.min(1,(now-t1start)/t1dur);
+      state.p2GroupT=easeOutCubic(t);
+      if(t>=1){ state.p2GroupT=1; startP2RotatePhase(); return false; }
+      return true;
+    });
+  }
+  function startP2RotatePhase(){
+    const pairs=state.D/2;
+    const t2start=performance.now(), t2dur=Math.max(2600,pairs*760);
+    addTween("p2sweep",function(dt,now){
+      const t=Math.min(1,(now-t2start)/t2dur);
+      state.p2SweepT=t*pairs;
+      if(t>=1){ state.p2SweepT=pairs; return false; }
+      return true;
+    });
+  }
+  els.p2EmbedCanvas.addEventListener("click",function(e){
+    if(!p2EmbedGeom) return;
+    const rect=els.p2EmbedCanvas.getBoundingClientRect();
+    const x=e.clientX-rect.left;
+    const span=2*p2EmbedGeom.cellW+p2EmbedGeom.curGap;
+    let i=Math.floor(x/Math.max(1,span));
+    i=clamp(i,0,p2EmbedGeom.pairs-1);
+    state.p2InspectPair=i;
+    if(!(state.p2SweepT>0 && state.p2SweepT<state.D/2)){ renderDynamic(); }
+  });
+  els.p2ClockCanvas.addEventListener("wheel",function(e){
+    if(!p2ClockGeom) return;
+    const rect=els.p2ClockCanvas.getBoundingClientRect();
+    const x=e.clientX-rect.left, y=e.clientY-rect.top;
+    let idx=null;
+    if(state.p2Focus!=null){
+      const dx=x-p2ClockGeom.focusCx, dy=y-p2ClockGeom.focusCy;
+      if(Math.hypot(dx,dy)<p2ClockGeom.focusR*1.6) idx=state.p2Focus;
+    } else {
+      idx=hitTestGrid(x,y,rect.width,rect.height);
+    }
+    if(idx==null) return;
+    e.preventDefault();
+    if(state.p2Focus!==idx){ focusP2(idx); return; }
+    const delta=clamp(-e.deltaY*0.15,-1,1);
+    removeTween("p2focus");
+    state.p2FocusT=clamp(state.p2FocusT+delta*0.08,0.3,1);
+  },{passive:false});
+
+  /* ================= P3 ================= */
+  function p3Positions(){
+    if(state.p3Mode==="shift"){ return {m:state.p3Shift, n:state.p3Shift+P3_GAP_FIXED}; }
+    return {m:P3_ANCHOR, n:P3_ANCHOR-state.p3Gap};
+  }
+  let p3Geom={cx:0,cy:0,scale:0,qx:0,qy:0,kx:0,ky:0};
+  function drawP3(){
+    const canvas=els.p3Canvas, cssW=canvas.clientWidth||420, cssH=canvas.clientHeight||360;
+    const ctx=setupCanvas(canvas,cssW,cssH); ctx.clearRect(0,0,cssW,cssH);
+    const cx=cssW/2, cy=cssH/2, scale=Math.min(cssW,cssH)*0.30;
+    ctx.strokeStyle="rgba(28,35,51,.12)"; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(0,cy); ctx.lineTo(cssW,cy); ctx.moveTo(cx,0); ctx.lineTo(cx,cssH); ctx.stroke();
+    ctx.strokeStyle="rgba(28,35,51,.16)"; ctx.setLineDash([4,4]);
+    ctx.beginPath(); ctx.arc(cx,cy,BASE_NORM*scale,0,Math.PI*2); ctx.stroke(); ctx.setLineDash([]);
+    drawAngleTicks(ctx,cx,cy,BASE_NORM*scale);
+    const pos=p3Positions(), i=state.p3Pair;
+    const angM=pairAngle(pos.m,i), angN=pairAngle(pos.n,i);
+    const q=rotate(BASE_PAIR.x,BASE_PAIR.y,angM), k=rotate(BASE_PAIR.x,BASE_PAIR.y,angN);
+    const qx=cx+q.x*scale, qy=cy-q.y*scale, kx=cx+k.x*scale, ky=cy-k.y*scale;
+    p3Geom={cx:cx,cy:cy,scale:scale,qx:qx,qy:qy,kx:kx,ky:ky};
+    drawArrow(ctx,cx,cy,qx,qy,"#2F6FED",2.8);
+    drawArrow(ctx,cx,cy,kx,ky,"#E2725B",2.8);
+    drawHandle(ctx,qx,qy,"#2F6FED");
+    drawHandle(ctx,kx,ky,"#E2725B");
+    const dphi=Math.acos(clamp((q.x*k.x+q.y*k.y)/(BASE_NORM*BASE_NORM),-1,1));
+    const dp=q.x*k.x+q.y*k.y;
+    els.p3Readout.innerHTML="pos m="+Math.round(pos.m)+", n="+Math.round(pos.n)+" &nbsp;(m−n="+Math.round(pos.m-pos.n)+")&nbsp;&nbsp;pair i="+i+"<br>"+
+      "angle between q and k ≈ <b>"+(dphi*180/Math.PI).toFixed(1)+"°</b>&nbsp;&nbsp;q·k ≈ <b>"+dp.toFixed(3)+"</b>"+
+      (state.p3Mode==="gap" ? "<br>compare: ‖v₀‖²·cos((n−m)θ"+("<sub>"+i+"</sub>")+") = "+(Math.cos((pos.n-pos.m)*(1/pairDenom(i)))*BASE_NORM*BASE_NORM).toFixed(3) : "");
+    updateP3LiveFormula(pos.m,pos.n,i);
+  }
+  els.p3Canvas.addEventListener("pointerdown",function(e){
+    const rect=els.p3Canvas.getBoundingClientRect();
+    const x=e.clientX-rect.left, y=e.clientY-rect.top;
+    const dq=Math.hypot(x-p3Geom.qx,y-p3Geom.qy), dk=Math.hypot(x-p3Geom.kx,y-p3Geom.ky);
+    const THRESH=30;
+    let which=null;
+    if(dq<THRESH && dq<=dk) which="q"; else if(dk<THRESH) which="k";
+    if(!which) return;
+    if(which==="q" && state.p3Mode==="gap") return;
+    removeTween("p3shift"); removeTween("p3gap");
+    const denom=pairDenom(state.p3Pair);
+    const pos=p3Positions();
+    state.p3Drag={which:which,denom:denom,lastAngle:null,accum:(which==="q"?pos.m:pos.n)/denom};
+    capturePointer(els.p3Canvas,e);
+    p3DragMove(e.clientX,e.clientY);
+  });
+  els.p3Canvas.addEventListener("pointermove",function(e){
+    if(state.p3Drag){ p3DragMove(e.clientX,e.clientY); return; }
+    const rect=els.p3Canvas.getBoundingClientRect();
+    const x=e.clientX-rect.left, y=e.clientY-rect.top;
+    const near=(Math.hypot(x-p3Geom.qx,y-p3Geom.qy)<30 && state.p3Mode==="shift") || Math.hypot(x-p3Geom.kx,y-p3Geom.ky)<30;
+    els.p3Canvas.style.cursor=near?"grab":"default";
+  });
+  els.p3Canvas.addEventListener("pointerup",function(){ state.p3Drag=null; });
+  els.p3Canvas.addEventListener("pointercancel",function(){ state.p3Drag=null; });
+  function p3DragMove(clientX,clientY){
+    const rect=els.p3Canvas.getBoundingClientRect();
+    const raw=impliedAngleFromPointer(rect,clientX,clientY,p3Geom.cx,p3Geom.cy);
+    const d=state.p3Drag;
+    if(d.lastAngle==null){ d.lastAngle=raw; }
+    else{
+      let delta=raw-d.lastAngle;
+      if(delta>Math.PI) delta-=Math.PI*2;
+      if(delta<-Math.PI) delta+=Math.PI*2;
+      d.accum+=delta; d.lastAngle=raw;
+    }
+    /* keep the fractional position while dragging — the arrows then follow the pointer
+       smoothly instead of snapping to the next whole position (57° hops when i=0) */
+    const posVal=d.accum*d.denom;
+    if(d.which==="q"){
+      state.p3Shift=clamp(posVal,0,25); d.accum=state.p3Shift/d.denom;
+      els.p3ShiftSlider.value=Math.round(state.p3Shift); els.p3ShiftVal.textContent=Math.round(state.p3Shift);
+    } else if(state.p3Mode==="shift"){
+      state.p3Shift=clamp(posVal-P3_GAP_FIXED,0,25); d.accum=(state.p3Shift+P3_GAP_FIXED)/d.denom;
+      els.p3ShiftSlider.value=Math.round(state.p3Shift); els.p3ShiftVal.textContent=Math.round(state.p3Shift);
+    } else {
+      state.p3Gap=clamp(P3_ANCHOR-posVal,-15,15); d.accum=(P3_ANCHOR-state.p3Gap)/d.denom;
+      els.p3GapSlider.value=Math.round(state.p3Gap); els.p3GapVal.textContent=Math.round(state.p3Gap);
+    }
+    drawP3();
+  }
+
+  /* ================= P4 ================= */
+  function p4Score(m,n){
+    const D=state.D; let s=0;
+    for(let i=0;i<D/2;i++){
+      const a=rotate(BASE_PAIR.x,BASE_PAIR.y,pairAngle(m,i));
+      const b=rotate(BASE_PAIR.x,BASE_PAIR.y,pairAngle(n,i));
+      s+=a.x*b.x+a.y*b.y;
+    }
+    return s/(D/2);
+  }
+  function p4ScoreByGap(gap){
+    const D=state.D; let s=0;
+    for(let i=0;i<D/2;i++){ s+=Math.cos(gap/pairDenom(i))*BASE_NORM_SQ; }
+    return s/(D/2);
+  }
+  function drawP4(){
+    const canvas=els.p4Canvas, cssW=canvas.clientWidth||520, cssH=canvas.clientHeight||520;
+    const ctx=setupCanvas(canvas,cssW,cssH); ctx.clearRect(0,0,cssW,cssH);
+    const N=state.p4N, cell=Math.min(cssW,cssH)/N;
+    let maxAbs=0.001;
+    const grid=[];
+    for(let m=0;m<N;m++){ grid.push([]); for(let n=0;n<N;n++){ const s=p4Score(m,n); grid[m].push(s); if(Math.abs(s)>maxAbs) maxAbs=Math.abs(s); } }
+    for(let m=0;m<N;m++){
+      for(let n=0;n<N;n++){
+        ctx.fillStyle=valueColor(grid[m][n]/maxAbs,1);
+        ctx.fillRect(n*cell,m*cell,cell-0.6,cell-0.6);
+      }
+    }
+    const activeGap = state.p4SweepGap!=null ? state.p4SweepGap : (state.p4Hover.m!=null ? state.p4Hover.m-state.p4Hover.n : null);
+    if(activeGap!=null){
+      ctx.strokeStyle="rgba(28,35,51,.5)"; ctx.lineWidth=1.3;
+      for(let m=0;m<N;m++){ const n=m-activeGap; if(n>=0&&n<N){ ctx.strokeRect(n*cell+0.5,m*cell+0.5,cell-1,cell-1); } }
+    }
+    if(state.p4Hover.m!=null){
+      ctx.strokeStyle="#1C2333"; ctx.lineWidth=2.2;
+      ctx.strokeRect(state.p4Hover.n*cell+0.5,state.p4Hover.m*cell+0.5,cell-1,cell-1);
+    }
+  }
+  function refreshP4Readout(){
+    let m,n;
+    if(state.p4SweepGap!=null){
+      els.p4Readout.innerHTML="pinned diagonal m−n = <b>"+state.p4SweepGap+"</b> → score ≈ <b>"+p4ScoreByGap(state.p4SweepGap).toFixed(3)+"</b> (same on every matching cell)";
+      els.p4GapVal.textContent=state.p4SweepGap;
+      if(document.activeElement!==els.p4GapSlider) els.p4GapSlider.value=state.p4SweepGap;
+      const N=state.p4N, gap=state.p4SweepGap; m=null;
+      for(let mm=0;mm<N;mm++){ const nn=mm-gap; if(nn>=0&&nn<N){ m=mm; n=nn; break; } }
+      if(m==null){ m=0; n=0; }
+    }else if(state.p4Hover.m!=null){
+      m=state.p4Hover.m; n=state.p4Hover.n;
+      els.p4Readout.innerHTML="m="+m+", n="+n+", m−n="+(m-n)+"&nbsp;&nbsp;score ≈ <b>"+p4Score(m,n).toFixed(3)+"</b>";
+      els.p4GapVal.textContent="—";
+    }else{
+      els.p4Readout.textContent="Hover a cell, drag the slider, or press play.";
+      els.p4GapVal.textContent="—";
+      m=Math.min(5,state.p4N-1); n=Math.min(2,state.p4N-1);
+    }
+    updateP4LiveFormula(m,n);
+  }
+  function playP4Sweep(){
+    if(REDUCED) return;
+    const N=state.p4N, fromGap=-(N-1), toGap=(N-1);
+    state.p4SweepGap=fromGap;
+    const startTime=performance.now(), duration=2100;
+    addTween("p4sweep",function(dt,now){
+      const t=Math.min(1,(now-startTime)/duration);
+      state.p4SweepGap=Math.round(fromGap+(toGap-fromGap)*t);
+      if(t>=1){ state.p4SweepGap=null; return false; }
+      return true;
+    });
+  }
+  function p4SetGapFromCell(m,n){
+    removeTween("p4sweep");
+    state.p4Hover={m:null,n:null};
+    state.p4SweepGap=m-n;
+    renderDynamic();
+  }
+
+  function renderDynamic(){
+    drawP0(); drawP1(); drawP2Clock(); drawP2Matrix(); drawP2Embed(); drawP3(); drawP4();
+    updateP0Readout(); updateP2Readout(); updateP2SweepCaption(); refreshP4Readout();
+  }
+
+  /* ================= scale change ================= */
+  function onScaleChange(){
+    state.p2SweepT=state.D/2; state.p2GroupT=1;
+    state.p2InspectPair=clamp(state.p2InspectPair,0,Math.max(0,state.D/2-1));
+    const maxPair=Math.max(0,Math.floor(state.D/2)-1);
+    els.p3PairSlider.max=maxPair;
+    state.p3Pair=clamp(state.p3Pair,0,maxPair);
+    els.p3PairSlider.value=state.p3Pair; els.p3PairVal.textContent=state.p3Pair;
+    renderDynamic();
+  }
+
+  /* ================= events: controls ================= */
+  els.dSlider.addEventListener("input",function(){ state.D=+els.dSlider.value; els.dVal.textContent=state.D; onScaleChange(); });
+  els.baseSlider.addEventListener("input",function(){
+    state.base=Math.pow(10,(+els.baseSlider.value)/1000);
+    els.baseVal.textContent=Math.round(state.base).toLocaleString("en-US");
+    onScaleChange();
+  });
+  function applyD(v){ els.dSlider.value=v; state.D=v; els.dVal.textContent=v; onScaleChange(); }
+  function applyBase(v){
+    const s=clamp(Math.round(Math.log10(v)*1000),301,5000);
+    els.baseSlider.value=s; state.base=Math.pow(10,s/1000);
+    els.baseVal.textContent=Math.round(state.base).toLocaleString("en-US");
+    onScaleChange();
+  }
+  els.resetBtn.addEventListener("click",function(){
+    unfocusP2(); setP2SweepPos(false);
+    state.p0Shift=0; els.p0ShiftSlider.value=0;
+    state.p1Theta=40; els.p1ThetaSlider.value=40; els.p1ThetaVal.textContent="40°";
+    state.p1ShowBasis=false; els.p1BasisToggle.checked=false;
+    state.p1Compose=false; els.p1ComposeToggle.checked=false; els.p1Theta2Group.style.display="none"; state.p1ComposeT=1;
+    state.p2Pos=0; els.p2PosSlider.value=0; state.p2InspectPair=0; state.p2GroupT=1;
+    state.p3Mode="shift"; state.p3Shift=0; state.p3Gap=5; state.p3Pair=0;
+    els.p3ShiftSlider.value=0; els.p3GapSlider.value=5; els.p3PairSlider.value=0; els.p3PairVal.textContent=0;
+    els.p3ShiftGroup.style.display=""; els.p3GapGroup.style.display="none";
+    els.p3ModeBtns.forEach(function(b){ b.setAttribute("aria-pressed", b.dataset.p3mode==="shift"?"true":"false"); });
+    state.p4Hover={m:null,n:null}; state.p4SweepGap=null;
+    applyD(16); applyBase(10000);
+  });
+
+  /* ================= events: P0 ================= */
+  els.p0ShiftSlider.addEventListener("input",function(){ removeTween("p0shift"); state.p0Shift=+els.p0ShiftSlider.value; renderDynamic(); });
+
+  /* ================= events: P1 ================= */
+  els.p1ThetaSlider.addEventListener("input",function(){
+    removeTween("p1theta");
+    state.p1Theta=+els.p1ThetaSlider.value; els.p1ThetaVal.textContent=Math.round(state.p1Theta)+"°"; drawP1();
+  });
+  els.p1BasisToggle.addEventListener("change",function(){ state.p1ShowBasis=els.p1BasisToggle.checked; drawP1(); });
+  els.p1ComposeToggle.addEventListener("change",function(){
+    state.p1Compose=els.p1ComposeToggle.checked;
+    els.p1Theta2Group.style.display=state.p1Compose?"flex":"none";
+    if(state.p1Compose){ playComposeReveal(); } else { drawP1(); }
+  });
+  els.p1Theta2Slider.addEventListener("input",function(){
+    state.p1Theta2=+els.p1Theta2Slider.value; els.p1Theta2Val.textContent=Math.round(state.p1Theta2)+"°"; state.p1ComposeT=1; drawP1();
+  });
+  els.p1UndoBtn.addEventListener("click",playUndo);
+
+  /* ================= events: P2 ================= */
+  els.p2PosSlider.addEventListener("input",function(){ setP2SweepPos(false); state.p2Pos=+els.p2PosSlider.value; state.p2SweepT=state.D/2; state.p2GroupT=1; renderDynamic(); });
+  els.p2ClockCanvas.addEventListener("click",function(e){
+    if(state.p2Focus!=null) return;
+    const rect=els.p2ClockCanvas.getBoundingClientRect();
+    const idx=hitTestGrid(e.clientX-rect.left,e.clientY-rect.top,rect.width,rect.height);
+    if(idx!=null){ focusP2(idx); state.p2InspectPair=idx; }
+  });
+  els.p2ClockBack.addEventListener("click",unfocusP2);
+  els.p2ClockCanvas.addEventListener("pointerdown",function(e){
+    if(state.p2Focus==null || !p2ClockGeom) return;
+    const rect=els.p2ClockCanvas.getBoundingClientRect();
+    const dx=(e.clientX-rect.left)-p2ClockGeom.focusCx, dy=(e.clientY-rect.top)-p2ClockGeom.focusCy;
+    if(Math.hypot(dx,dy) > p2ClockGeom.focusR*1.6) return;
+    removeTween("p2pos"); setP2SweepPos(false);
+    const denom=pairDenom(state.p2Focus);
+    state.p2ClockDrag={denom:denom,lastAngle:null,accum:state.p2Pos/denom};
+    capturePointer(els.p2ClockCanvas,e);
+    p2ClockDragMove(e.clientX,e.clientY);
+  });
+  els.p2ClockCanvas.addEventListener("pointermove",function(e){ if(state.p2ClockDrag) p2ClockDragMove(e.clientX,e.clientY); });
+  els.p2ClockCanvas.addEventListener("pointerup",function(){ state.p2ClockDrag=null; });
+  els.p2ClockCanvas.addEventListener("pointercancel",function(){ state.p2ClockDrag=null; });
+  function p2ClockDragMove(clientX,clientY){
+    const rect=els.p2ClockCanvas.getBoundingClientRect();
+    const raw=angleFromCenter(rect,clientX,clientY,p2ClockGeom.focusCx,p2ClockGeom.focusCy);
+    const d=state.p2ClockDrag;
+    if(d.lastAngle==null){ d.lastAngle=raw; }
+    else{
+      let delta=raw-d.lastAngle;
+      if(delta>Math.PI) delta-=Math.PI*2;
+      if(delta<-Math.PI) delta+=Math.PI*2;
+      d.accum+=delta; d.lastAngle=raw;
+    }
+    let pos=clamp(d.accum*d.denom,0,6000);
+    d.accum=pos/d.denom;
+    state.p2Pos=pos; els.p2PosSlider.value=Math.round(pos);
+    state.p2SweepT=state.D/2; state.p2GroupT=1;
+    renderDynamic();
+  }
+  let p2Sweeping=false;
+  function setP2SweepPos(on){
+    if(on===p2Sweeping) return;
+    p2Sweeping=on;
+    els.p2SweepPosBtn.textContent=on?"⏸ Pause":"▶ Sweep position";
+    if(!on){ removeTween("p2sweeppos"); return; }
+    if(REDUCED) return;
+    addTween("p2sweeppos",function(dt){
+      state.p2Pos=(state.p2Pos+180*(dt/1000))%6000;
+      els.p2PosSlider.value=Math.round(state.p2Pos);
+      state.p2SweepT=state.D/2; state.p2GroupT=1;
+      return true;
+    });
+  }
+  els.p2SweepPosBtn.addEventListener("click",function(){ setP2SweepPos(!p2Sweeping); });
+  els.p2SweepBtn.addEventListener("click",playP2Sweep);
+
+  /* ================= events: P3 ================= */
+  els.p3ModeBtns.forEach(function(btn){
+    btn.addEventListener("click",function(){
+      const m=btn.dataset.p3mode;
+      state.p3Mode=m;
+      els.p3ModeBtns.forEach(function(b){ b.setAttribute("aria-pressed", b===btn?"true":"false"); });
+      els.p3ShiftGroup.style.display=(m==="shift")?"flex":"none";
+      els.p3GapGroup.style.display=(m==="gap")?"flex":"none";
+      drawP3();
+    });
+  });
+  els.p3ShiftSlider.addEventListener("input",function(){ removeTween("p3shift"); state.p3Shift=+els.p3ShiftSlider.value; els.p3ShiftVal.textContent=state.p3Shift; drawP3(); });
+  els.p3GapSlider.addEventListener("input",function(){ removeTween("p3gap"); state.p3Gap=+els.p3GapSlider.value; els.p3GapVal.textContent=state.p3Gap; drawP3(); });
+  els.p3PairSlider.addEventListener("input",function(){ state.p3Pair=+els.p3PairSlider.value; els.p3PairVal.textContent=state.p3Pair; drawP3(); });
+
+  /* ================= events: P4 ================= */
+  function syncP4GapSliderRange(){
+    const N=state.p4N;
+    els.p4GapSlider.min=-(N-1); els.p4GapSlider.max=(N-1);
+  }
+  els.p4NSlider.addEventListener("input",function(){
+    state.p4N=+els.p4NSlider.value; els.p4NVal.textContent=state.p4N;
+    state.p4Hover={m:null,n:null}; state.p4SweepGap=null;
+    syncP4GapSliderRange(); drawP4(); refreshP4Readout();
+  });
+  els.p4Canvas.addEventListener("mousemove",function(e){
+    if(state.p4SweepGap!=null) return;
+    const rect=els.p4Canvas.getBoundingClientRect();
+    const n=clamp(Math.floor((e.clientX-rect.left)/rect.width*state.p4N),0,state.p4N-1);
+    const m=clamp(Math.floor((e.clientY-rect.top)/rect.height*state.p4N),0,state.p4N-1);
+    if(state.p4Hover.m===m && state.p4Hover.n===n) return;
+    state.p4Hover={m:m,n:n}; drawP4(); refreshP4Readout();
+  });
+  els.p4Canvas.addEventListener("mouseleave",function(){ if(state.p4SweepGap!=null) return; state.p4Hover={m:null,n:null}; drawP4(); refreshP4Readout(); });
+  els.p4Canvas.addEventListener("click",function(e){
+    const rect=els.p4Canvas.getBoundingClientRect();
+    const n=clamp(Math.floor((e.clientX-rect.left)/rect.width*state.p4N),0,state.p4N-1);
+    const m=clamp(Math.floor((e.clientY-rect.top)/rect.height*state.p4N),0,state.p4N-1);
+    p4SetGapFromCell(m,n);
+  });
+  els.p4SweepBtn.addEventListener("click",function(){ state.p4Hover={m:null,n:null}; playP4Sweep(); });
+  els.p4GapSlider.addEventListener("input",function(){
+    removeTween("p4sweep"); state.p4Hover={m:null,n:null};
+    state.p4SweepGap=+els.p4GapSlider.value;
+    drawP4(); refreshP4Readout();
+  });
+  els.p4ClearBtn.addEventListener("click",function(){
+    removeTween("p4sweep"); state.p4SweepGap=null; state.p4Hover={m:null,n:null};
+    drawP4(); refreshP4Readout();
+  });
+  syncP4GapSliderRange();
+
+  let resizeTimer=null;
+  window.addEventListener("resize",function(){
+    clearTimeout(resizeTimer);
+    resizeTimer=setTimeout(function(){ renderDynamic(); },200);
+  });
+
+  /* ================= guided tour ================= */
+  const SCENES=[
+    { title:"Same gap, watch the score", text:"Two tokens, always 5 apart. Slide them and watch the similarity.",
+      focus:"sec-p0", run:function(){ state.p0Shift=0; els.p0ShiftSlider.value=0; } },
+    { title:"The score still drifts", text:"Same 5-word gap, different score — that is additive encoding's problem.",
+      focus:"sec-p0", run:function(){ tweenScalar("p0shift",function(){return state.p0Shift;},function(v){state.p0Shift=v; els.p0ShiftSlider.value=Math.round(v);},18,900); } },
+    { title:"A vector is just an arrow", text:"A vector is just an arrow: a direction and a length. Drag the arrowhead.",
+      focus:"sec-p1", run:function(){ state.p1ShowBasis=false; state.p1Compose=false; state.p1ComposeT=1; els.p1BasisToggle.checked=false; els.p1ComposeToggle.checked=false; els.p1Theta2Group.style.display="none"; } },
+    { title:"A matrix is where the axes land", text:"A 2×2 matrix is defined by where it sends (1,0) and (0,1). Turn the dial.",
+      focus:"sec-p1", run:function(){ state.p1ShowBasis=true; els.p1BasisToggle.checked=true; tweenScalar("p1theta",function(){return state.p1Theta;},function(v){state.p1Theta=v; els.p1ThetaSlider.value=Math.round(v); els.p1ThetaVal.textContent=Math.round(v)+"°";},70,700); } },
+    { title:"Meet the rotation matrix", text:"Those two landings are the matrix columns — every vector follows them.",
+      focus:"sec-p1", run:function(){} },
+    { title:"It never stretches", text:"Sweep the angle all the way around — the length never changes. Rotation only turns, it never scales.",
+      focus:"sec-p1", run:function(){ state.p1ShowBasis=false; els.p1BasisToggle.checked=false; tweenScalar("p1theta",function(){return state.p1Theta;},function(v){state.p1Theta=v; els.p1ThetaSlider.value=Math.round(v); els.p1ThetaVal.textContent=Math.round(v)+"°";},340,1500); } },
+    { title:"Angles just add", text:"θ₁ then θ₂ lands exactly where a single θ₁+θ₂ would.",
+      focus:"sec-p1", run:function(){ state.p1Theta=40; els.p1ThetaSlider.value=40; els.p1ThetaVal.textContent="40°"; state.p1Theta2=35; els.p1Theta2Slider.value=35; els.p1Theta2Val.textContent="35°"; state.p1Compose=true; els.p1ComposeToggle.checked=true; els.p1Theta2Group.style.display="flex"; playComposeReveal(); } },
+    { title:"Transpose undoes it", text:"The transpose is the same rotation backwards — it undoes everything.",
+      focus:"sec-p1", run:function(){ state.p1Compose=false; els.p1ComposeToggle.checked=false; els.p1Theta2Group.style.display="none"; playUndo(); } },
+    { title:"Not adding — rotating", text:"Same frequencies as the additive page — but now each pair is rotated.",
+      focus:"sec-p2", run:function(){ unfocusP2(); state.p2Pos=8; els.p2PosSlider.value=8; state.p2SweepT=state.D/2; state.p2GroupT=1; } },
+    { title:"Mostly zero, except a few small blocks", text:"The full rotation matrix is huge but almost empty — just d/2 tiny 2×2 blocks sitting on the diagonal.",
+      focus:"sec-p2", run:function(){} },
+    { title:"Watch it split, then rotate", text:"First it splits into coloured pairs, then each rotates in turn — click any pair after.",
+      focus:"sec-p2", run:function(){ playP2Sweep(); } },
+    { title:"It never blows up", text:"Push the position far beyond anything trained — the length is unchanged.",
+      focus:"sec-p2", run:function(){ tweenScalar("p2pos",function(){return state.p2Pos;},function(v){state.p2Pos=v; els.p2PosSlider.value=Math.round(v); state.p2SweepT=state.D/2; state.p2GroupT=1;},4000,2600); } },
+    { title:"Two vectors, one angle between them", text:"q at position m, k at position n, in the same pair's plane. Try dragging either arrowhead.",
+      focus:"sec-p3", run:function(){ state.p3Mode="shift"; els.p3ModeBtns.forEach(function(b){b.setAttribute("aria-pressed",b.dataset.p3mode==="shift"?"true":"false");}); els.p3ShiftGroup.style.display="flex"; els.p3GapGroup.style.display="none"; state.p3Shift=0; els.p3ShiftSlider.value=0; state.p3Pair=0; els.p3PairSlider.value=0; els.p3PairVal.textContent=0; } },
+    { title:"Slide them together — nothing changes", text:"Move both forward by the same amount: the gap stays 5. Watch the angle and the dot product.",
+      focus:"sec-p3", run:function(){ tweenScalar("p3shift",function(){return state.p3Shift;},function(v){state.p3Shift=v; els.p3ShiftSlider.value=Math.round(v); els.p3ShiftVal.textContent=Math.round(v);},18,1000); } },
+    { title:"Pull them apart — now it moves", text:"Change the gap instead — the angle now follows cos(gap·θ), straight from R(m)ᵀR(n) = R(n−m).",
+      focus:"sec-p3", run:function(){ state.p3Mode="gap"; els.p3ModeBtns.forEach(function(b){b.setAttribute("aria-pressed",b.dataset.p3mode==="gap"?"true":"false");}); els.p3ShiftGroup.style.display="none"; els.p3GapGroup.style.display="flex";
+        tweenScalar("p3gap",function(){return state.p3Gap;},function(v){state.p3Gap=v; els.p3GapSlider.value=Math.round(v); els.p3GapVal.textContent=Math.round(v);},-8,1100); } },
+    { title:"The whole attention map, at a glance", text:"Click any cell to pin its diagonal, or press play to sweep.",
+      focus:"sec-p4", run:function(){ state.p4Hover={m:null,n:null}; playP4Sweep(); } },
+    { title:"Same trick, better outcome", text:"Back to panel 1: additive encoding failed the same-gap test. Rotation passes it.",
+      focus:"sec-p0", run:function(){} }
+  ];
+  function spotlight(id){
+    document.querySelectorAll(".spotlightable").forEach(function(el){ el.classList.toggle("dim",el.id!==id); });
+    if(id){ const t=document.getElementById(id); if(t) t.scrollIntoView({behavior:REDUCED?"auto":"smooth",block:"center"}); }
+  }
+  function clearSpotlight(){ document.querySelectorAll(".spotlightable").forEach(function(el){ el.classList.remove("dim"); }); }
+  function renderDots(){
+    els.guidedDots.innerHTML="";
+    SCENES.forEach(function(_,i){
+      const d=document.createElement("span");
+      d.className="guided-dot"+(i===state.guidedIndex?" active":"");
+      els.guidedDots.appendChild(d);
+    });
+  }
+  function runScene(idx){
+    idx=clamp(idx,0,SCENES.length-1);
+    state.guidedIndex=idx;
+    const sc=SCENES[idx];
+    els.guidedTitle.textContent=sc.title; els.guidedText.textContent=sc.text;
+    renderDots(); sc.run();
+    if(sc.focus) spotlight(sc.focus); else clearSpotlight();
+    els.guidedPrev.disabled=(idx===0);
+    els.guidedNext.textContent=(idx===SCENES.length-1)?"Done":"Next →";
+  }
+  function enterGuided(start){
+    state.mode="guided";
+    els.modeExplore.setAttribute("aria-pressed","false"); els.modeGuided.setAttribute("aria-pressed","true");
+    els.guidedBar.classList.remove("hidden");
+    runScene(start==null?0:clamp(start,0,SCENES.length-1));
+  }
+  function guidedStep(delta){
+    if(delta>0 && state.guidedIndex>=SCENES.length-1){ exitGuided(); return; }
+    runScene(state.guidedIndex+delta);
+  }
+  function exitGuided(){
+    state.mode="explore";
+    els.modeExplore.setAttribute("aria-pressed","true"); els.modeGuided.setAttribute("aria-pressed","false");
+    els.guidedBar.classList.add("hidden"); clearSpotlight();
+  }
+  els.modeExplore.addEventListener("click",function(){ if(state.mode==="guided") exitGuided(); });
+  els.modeGuided.addEventListener("click",function(){ if(state.mode==="explore") enterGuided(); });
+  els.guidedNext.addEventListener("click",function(){ guidedStep(1); });
+  els.guidedPrev.addEventListener("click",function(){ guidedStep(-1); });
+  els.guidedExit.addEventListener("click",exitGuided);
+
+  /* whichever slider you touched last is the one the arrow keys nudge */
+  let lastSlider=els.p0ShiftSlider, lastPlay=els.p4SweepBtn;
+  document.addEventListener("input",function(e){
+    if(e.target && e.target.type==="range") lastSlider=e.target;
+  },true);
+  document.addEventListener("click",function(e){
+    const t=e.target;
+    if(t && t.closest && t.closest("#p2SweepBtn,#p2SweepPosBtn,#p4SweepBtn")) lastPlay=t.closest("#p2SweepBtn,#p2SweepPosBtn,#p4SweepBtn");
+  },true);
+  function escapeAction(){
+    if(state.mode==="guided"){ exitGuided(); return; }
+    if(state.p2Focus!=null){ unfocusP2(); return; }
+    stopAllSweeps();
+  }
+  function stopAllSweeps(){ setP2SweepPos(false); removeTween("p4sweep"); }
+  document.addEventListener("keydown",function(e){
+    const tag=document.activeElement?document.activeElement.tagName:"";
+    if(tag==="INPUT"||tag==="TEXTAREA") return;
+    if(e.key==="ArrowRight"||e.key==="ArrowLeft"){
+      e.preventDefault();
+      const dir=(e.key==="ArrowRight")?1:-1;
+      if(state.mode==="guided"){ guidedStep(dir); return; }
+      const el=lastSlider;
+      if(!el) return;
+      const step=(Math.abs(+el.step)||1)*dir;
+      const v=clamp((+el.value)+step, +el.min||0, +el.max||100);
+      el.value=v;
+      el.dispatchEvent(new Event("input",{bubbles:true}));
+      return;
+    }
+    if(e.key===" "){ e.preventDefault(); if(lastPlay) lastPlay.click(); return; }
+    if(e.key==="Escape"){ escapeAction(); }
+  });
+
+  /* ================= deep links: ?d= &base= &pos= &tour= (not advertised) ================= */
+  function applyQuery(){
+    let q=null;
+    try{ q=new URLSearchParams(window.location.search); }catch(e){ return; }
+    if(q.has("d")) applyD(clamp(Math.round(((+q.get("d"))||16)/2)*2,4,32));
+    if(q.has("base")){ const b=+q.get("base"); if(isFinite(b)&&b>1) applyBase(b); }
+    if(q.has("pos")){ state.p2Pos=clamp(Math.round(+q.get("pos"))||0,0,6000); els.p2PosSlider.value=state.p2Pos; }
+    if(q.has("tour")) enterGuided(isFinite(+q.get("tour"))?Math.round(+q.get("tour")):0);
+  }
+
+  /* ================= debug hook ================= */
+  window.__demo={
+    state:state, applyD:applyD, applyBase:applyBase, enterGuided:enterGuided, exitGuided:exitGuided, runScene:runScene,
+    gotoPos:function(p){ setP2SweepPos(false); state.p2Pos=clamp(Math.round(p),0,6000); els.p2PosSlider.value=state.p2Pos; state.p2SweepT=state.D/2; state.p2GroupT=1; renderDynamic(); },
+    sweep:{ clock:function(on){ setP2SweepPos(on==null?true:!!on); }, pairs:playP2Sweep, scores:playP4Sweep }
+  };
+
+  /* ================= init ================= */
+  initFormulas();
+  applyQuery();
+  renderDynamic();
+})();
+</script>
+</body>
+</html>

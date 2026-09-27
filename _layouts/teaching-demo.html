@@ -5,7 +5,7 @@ layout: default
 <article class="page demo-page">
   <div class="page-content">
 
-    <p class="demo-page__back"><a href="{{ '/teaching/' | relative_url }}">&larr; Back to Teaching</a></p>
+    <p class="demo-page__back"><a href="{{ page.course_url | relative_url }}">&larr; {{ page.course }} demos</a></p>
 
     <header class="demo-page__header">
       <span class="demo-page__badge">{{ page.demo_badge }}</span>
@@ -22,9 +22,7 @@ layout: default
     </div>
 
     <p class="demo-page__actions">
-      Interaction is easiest on a laptop/desktop screen. On a small screen, you can also
-      <a href="{{ page.demo_src | relative_url }}" target="_blank" rel="noopener">open the demo in its own tab</a>
-      at full size.
+      <a href="{{ page.demo_src | relative_url }}" target="_blank" rel="noopener">Open the demo in a new tab</a> for more room.
     </p>
 
   </div>

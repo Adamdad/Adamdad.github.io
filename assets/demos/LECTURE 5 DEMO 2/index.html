@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pre-Norm vs Post-Norm · Where does LayerNorm go?</title>
+<style>
+  :root{
+    --paper:#F7F6F1; --paper-line:rgba(28,35,51,.05);
+    --ink:#1C2333; --ink-soft:#5B6478; --panel:#FFFFFF; --line:#E1DFD6; --stage:#FFFFFF; --slab:#F1EFE8;
+    --accent:#2F6FED; --accent-soft:#E3EBFC;
+    --pre-c:#2F6FED; --post-c:#E2725B;
+    --ln-c:#C9971D; --attn-c:#7B5CD6; --ffn-c:#1F9E6B; --add-c:#5B6478; --hw-c:#9AA3B5;
+    --ok:#1F9E6B; --ok-soft:#E2F4EC; --warn:#D14343; --warn-soft:#FBE7E6; --grid:rgba(28,35,51,.08);
+    --mono:'IBM Plex Mono','JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --serif:'Iowan Old Style','Palatino Linotype',Georgia,serif;
+    --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+    box-sizing:border-box;
+    padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#15181F; --paper-line:rgba(255,255,255,.03); --ink:#E6E8EE; --ink-soft:#9AA3B5;
+      --panel:#1D212B; --line:#323846; --stage:#191D26; --slab:#262B37; --accent:#6C9BFF; --accent-soft:#232E48;
+      --pre-c:#6C9BFF; --post-c:#F08A70; --ln-c:#E0B84A; --attn-c:#A68BF0; --ffn-c:#4CC495; --add-c:#9AA3B5; --hw-c:#6B7385;
+      --ok:#4CC495; --ok-soft:#1C3A2F; --warn:#F07070; --warn-soft:#402426; --grid:rgba(255,255,255,.08);
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#15181F; --paper-line:rgba(255,255,255,.03); --ink:#E6E8EE; --ink-soft:#9AA3B5;
+    --panel:#1D212B; --line:#323846; --stage:#191D26; --slab:#262B37; --accent:#6C9BFF; --accent-soft:#232E48;
+    --pre-c:#6C9BFF; --post-c:#F08A70; --ln-c:#E0B84A; --attn-c:#A68BF0; --ffn-c:#4CC495; --add-c:#9AA3B5; --hw-c:#6B7385;
+    --ok:#4CC495; --ok-soft:#1C3A2F; --warn:#F07070; --warn-soft:#402426; --grid:rgba(255,255,255,.08);
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;scroll-padding-top:env(safe-area-inset-top,0px);}
+  body{margin:0;background-color:var(--paper);
+    background-image:linear-gradient(var(--paper-line) 1px,transparent 1px),linear-gradient(90deg,var(--paper-line) 1px,transparent 1px);
+    background-size:28px 28px;color:var(--ink);font-family:var(--sans);line-height:1.55;}
+  .wrap{max-width:980px;margin:0 auto;padding:44px 18px 170px;}
+  header{text-align:center;margin-bottom:20px;}
+  header h1{font-family:var(--serif);font-size:clamp(30px,5.4vw,46px);margin:0 0 6px;line-height:1.15;}
+  header p{font-size:clamp(15px,2.2vw,18px);color:var(--ink-soft);margin:0 auto 18px;max-width:40ch;}
+  .hero-btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;align-items:center;}
+  .big-play{font-size:16px;padding:12px 22px;border-radius:999px;}
+  .step{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;background:var(--ink);color:var(--paper);font-weight:700;font-size:15px;margin-right:10px;flex:none;}
+  h2{font-family:var(--serif);font-size:clamp(21px,3.4vw,27px);margin:0 0 4px;display:flex;align-items:center;}
+  .say{font-size:clamp(14.5px,2vw,16.5px);color:var(--ink-soft);margin:0 0 14px;max-width:62ch;}
+  section.block,.panel{transition:opacity .45s ease,filter .45s ease;scroll-margin-top:24px;}
+  section.block{margin:64px 0;}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;}
+  .spotlightable.dim{opacity:.25;filter:saturate(.4);}
+  .pre{color:var(--pre-c);font-weight:700;} .post{color:var(--post-c);font-weight:700;} .lnw{color:var(--ln-c);font-weight:700;}
+  .segmented{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--panel);}
+  .segmented button{border:none;background:var(--panel);padding:8px 16px;font-size:13.5px;cursor:pointer;color:var(--ink-soft);font-family:inherit;}
+  .segmented button[aria-pressed="true"]{background:var(--ink);color:var(--paper);font-weight:600;}
+  .segmented.role button#m1Post[aria-pressed="true"]{background:var(--post-c);color:#fff;}
+  .segmented.role button#m1Pre[aria-pressed="true"]{background:var(--pre-c);color:#fff;}
+  .btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:8px 15px;border-radius:999px;font-size:13.5px;cursor:pointer;font-family:inherit;}
+  .btn:hover{border-color:var(--accent);color:var(--accent);}
+  .btn:disabled{opacity:.4;cursor:default;}
+  .btn-primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;}
+  .btn-primary:hover{color:#fff;filter:brightness(1.08);}
+  .toolbar{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between;margin-bottom:12px;}
+  .toolbar .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+  .depth{display:flex;align-items:center;gap:10px;font-size:13.5px;color:var(--ink-soft);}
+  .depth b{font-family:var(--mono);color:var(--ink);min-width:2ch;display:inline-block;}
+  .depth input{width:150px;accent-color:var(--accent);}
+  canvas{display:block;width:100%;}
+  .stage{border-radius:10px;background:var(--stage);}
+  .key{display:flex;flex-wrap:wrap;gap:8px 16px;justify-content:center;margin-top:12px;font-size:13px;color:var(--ink-soft);}
+  .key span{display:inline-flex;align-items:center;gap:6px;}
+  .sw{width:14px;height:14px;border-radius:4px;border:2px solid var(--c);background:color-mix(in srgb,var(--c) 18%,transparent);}
+  .sw.round{border-radius:50%;}
+  .eq{display:flex;flex-direction:column;gap:6px;align-items:center;margin-top:14px;font-family:var(--mono);font-size:clamp(13px,2.2vw,16px);}
+  .eq div{transition:opacity .3s,transform .3s;padding:4px 12px;border-radius:8px;}
+  .eq .on{background:var(--accent-soft);}
+  .callout{margin-top:12px;text-align:center;font-size:clamp(14px,2vw,16px);min-height:1.6em;transition:opacity .4s;}
+  .tradeoff{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  @media (max-width:720px){ .tradeoff{grid-template-columns:1fr;} }
+  .card{background:var(--panel);border:1px solid var(--line);border-top:5px solid var(--c);border-radius:14px;padding:18px 20px;opacity:0;transform:translateY(16px);transition:opacity .6s,transform .6s;}
+  .card.show{opacity:1;transform:none;}
+  .card:nth-child(2){transition-delay:.25s;}
+  .card h3{margin:0 0 4px;color:var(--c);font-size:20px;}
+  .card .used{font-size:13px;color:var(--ink-soft);margin:0 0 12px;}
+  .pc{list-style:none;margin:0;padding:0;font-size:15px;}
+  .pc li{display:flex;gap:10px;align-items:flex-start;padding:7px 0;}
+  .pc i{font-style:normal;flex:none;width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px;margin-top:1px;}
+  .pc .p i{background:var(--ok);} .pc .m i{background:var(--warn);}
+  .verdict{text-align:center;margin-top:18px;font-size:clamp(15px,2.2vw,18px);font-family:var(--serif);}
+
+  /* puzzle */
+  .quiz-grid{display:grid;grid-template-columns:minmax(250px,340px) 1fr;gap:26px;align-items:start;}
+  @media (max-width:720px){ .quiz-grid{grid-template-columns:1fr;} }
+  .quiz-stage{position:relative;padding:4px 62px 4px 4px;}
+  .quiz-col{display:flex;flex-direction:column;gap:10px;position:relative;z-index:1;}
+  .io{font-family:var(--mono);font-size:13px;text-align:center;color:var(--ink-soft);}
+  .slot{min-height:46px;border:2px dashed var(--line);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:13.5px;color:var(--ink-soft);cursor:pointer;background:var(--stage);transition:border-color .2s,background .2s,transform .2s;position:relative;}
+  .slot .num{position:absolute;left:9px;font-family:var(--mono);font-size:11px;opacity:.6;}
+  .slot.filled{border-style:solid;}
+  .slot.target{border-color:var(--accent);background:var(--accent-soft);animation:pulse 1.2s ease-in-out infinite;}
+  .slot.right{border-color:var(--ok);background:var(--ok-soft);}
+  .slot.wrong{border-color:var(--warn);background:var(--warn-soft);animation:shake .4s;}
+  .slot.flow{animation:flow 1.6s ease both;}
+  @keyframes pulse{50%{transform:scale(1.02);}}
+  @keyframes shake{25%{transform:translateX(-5px);}75%{transform:translateX(5px);}}
+  @keyframes flow{0%{box-shadow:0 0 0 0 transparent;}30%{box-shadow:0 0 0 5px var(--glow);transform:scale(1.04);}100%{box-shadow:0 0 0 0 transparent;}}
+  .arrow-up{text-align:center;color:var(--ink-soft);font-size:12px;line-height:1;margin:-5px 0;}
+  .bank{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0;min-height:44px;}
+  .chip{border:2px solid var(--c);color:var(--c);background:var(--panel);border-radius:999px;padding:8px 15px;font-size:14px;font-weight:600;cursor:grab;user-select:none;font-family:inherit;transition:transform .15s;}
+  .chip:hover{transform:translateY(-2px);}
+  .chip.sel{background:var(--c);color:#fff;}
+  .chip.used{display:none;}
+  .chip-in{display:inline-block;padding:3px 13px;border-radius:999px;border:2px solid var(--c);color:var(--c);font-weight:600;}
+  #quizArcs{position:absolute;inset:0;pointer-events:none;z-index:0;overflow:visible;}
+  #quizArcs path{stroke-dasharray:600;stroke-dashoffset:600;animation:draw 1s ease forwards;}
+  @keyframes draw{to{stroke-dashoffset:0;}}
+  .feedback{border-radius:10px;padding:10px 14px;font-size:14px;margin-top:12px;display:none;}
+  .feedback.show{display:block;}
+  .feedback.good{background:var(--ok-soft);border:1px solid var(--ok);}
+  .feedback.bad{background:var(--warn-soft);border:1px solid var(--warn);}
+  .feedback.info{background:var(--accent-soft);border:1px solid var(--accent);}
+  .bonus{margin-top:14px;display:none;} .bonus.show{display:block;}
+  .score{font-family:var(--mono);font-size:12.5px;color:var(--ink-soft);}
+
+  .guided-bar{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:0 12px 32px rgba(0,0,0,.22);padding:14px 20px;max-width:600px;width:calc(100% - 24px);z-index:60;display:flex;flex-direction:column;gap:8px;}
+  .guided-bar.hidden{display:none;}
+  .guided-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;}
+  .guided-title{font-weight:700;font-size:15px;}
+  .guided-close{background:none;border:none;color:var(--ink-soft);font-size:17px;cursor:pointer;padding:2px 4px;}
+  .guided-text{font-size:14px;color:var(--ink-soft);min-height:40px;}
+  .guided-nav{display:flex;justify-content:space-between;align-items:center;gap:10px;}
+  .guided-dots{display:flex;gap:5px;flex-wrap:wrap;}
+  .guided-dot{width:7px;height:7px;border-radius:50%;background:var(--line);transition:all .25s;}
+  .guided-dot.active{background:var(--accent);width:18px;border-radius:4px;}
+  .guided-btns{display:flex;gap:8px;}
+  footer{margin-top:70px;font-size:12px;color:var(--ink-soft);border-top:1px solid var(--line);padding-top:14px;}
+  @media (max-width:600px){ .panel{padding:10px;} .depth input{width:110px;} }
+  @media (prefers-reduced-motion: reduce){ *{transition-duration:.01ms !important;animation-duration:.01ms !important;} html{scroll-behavior:auto;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>Where does the LayerNorm go?</h1>
+    <p>Two ways to build a Transformer block. Same parts, one box moved — and deep networks behave completely differently.</p>
+    <div class="hero-btns">
+      <button class="btn btn-primary big-play" id="heroPlay">▶ Play the story</button>
+      <div class="segmented" role="group" aria-label="Mode">
+        <button id="modeExplore" aria-pressed="true">Explore</button>
+        <button id="modeGuided" aria-pressed="false">Guided</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 1 -->
+  <section class="block spotlightable" id="sec-move">
+    <h2><span class="step">1</span>One box moves</h2>
+    <p class="say">A block has a straight <b>highway</b> (the residual connection) and side <b>branches</b> that do the work.
+    Watch the gold <span class="lnw">LayerNorm</span> box.</p>
+    <div class="panel">
+      <div class="toolbar">
+        <div class="segmented role" role="group" aria-label="Variant">
+          <button id="m1Post" aria-pressed="true">Post-LN</button>
+          <button id="m1Pre" aria-pressed="false">Pre-LN</button>
+        </div>
+        <button class="btn" id="m1Replay">↻ Replay</button>
+      </div>
+      <canvas id="moveCanvas" class="stage" style="height:470px;"></canvas>
+      <div class="key">
+        <span><i class="sw" style="--c:var(--attn-c)"></i>Attention</span>
+        <span><i class="sw" style="--c:var(--ffn-c)"></i>FFN</span>
+        <span><i class="sw" style="--c:var(--ln-c)"></i>LayerNorm = rescale to size 1</span>
+        <span><i class="sw round" style="--c:var(--add-c)"></i>⊕ = add branch back</span>
+      </div>
+      <div class="eq">
+        <div id="eqPost"><span class="post">Post-LN</span>&nbsp; out = <span class="lnw">LN</span>( x + F(x) )</div>
+        <div id="eqPre"><span class="pre">Pre-LN</span>&nbsp;&nbsp; out = x + F( <span class="lnw">LN</span>(x) )</div>
+      </div>
+      <div class="callout" id="moveCallout"></div>
+    </div>
+  </section>
+
+  <!-- 2 -->
+  <section class="block spotlightable" id="sec-fwd">
+    <h2><span class="step">2</span>Going up: how big does the signal get?</h2>
+    <p class="say">Stack many blocks. Send a signal from the bottom and watch its <b>width</b> — that's its size.</p>
+    <div class="panel">
+      <div class="toolbar">
+        <div class="depth"><label for="L1">Layers</label><input type="range" id="L1" min="4" max="32" value="16"><b id="L1v">16</b></div>
+        <button class="btn btn-primary" id="fwdPlay">▶ Send signal up</button>
+      </div>
+      <canvas id="fwdCanvas" class="stage" style="height:540px;"></canvas>
+      <div class="callout" id="fwdCallout"></div>
+    </div>
+  </section>
+
+  <!-- 3 -->
+  <section class="block spotlightable" id="sec-bwd">
+    <h2><span class="step">3</span>Going down: how hard does each layer learn?</h2>
+    <p class="say">During training a learning signal (the gradient) flows back down. <b>Brighter layer = bigger push</b> on its weights.</p>
+    <div class="panel">
+      <div class="toolbar">
+        <div class="depth"><label for="L2">Layers</label><input type="range" id="L2" min="4" max="32" value="16"><b id="L2v">16</b></div>
+        <button class="btn btn-primary" id="bwdPlay">▶ Send gradient down</button>
+      </div>
+      <canvas id="bwdCanvas" class="stage" style="height:540px;"></canvas>
+      <div class="callout" id="bwdCallout"></div>
+    </div>
+  </section>
+
+  <!-- 3b -->
+  <section class="block spotlightable" id="sec-deep">
+    <h2><span class="step">4</span>Make it deeper</h2>
+    <p class="say">Size of the push on the <b>top</b> layer, as we add more and more layers.</p>
+    <div class="panel">
+      <div class="toolbar">
+        <span class="score" id="deepStatus">computing…</span>
+        <button class="btn btn-primary" id="deepPlay">▶ Grow the network</button>
+      </div>
+      <canvas id="deepCanvas" class="stage" style="height:380px;"></canvas>
+      <div class="callout" id="deepCallout"></div>
+    </div>
+  </section>
+
+  <!-- 4 -->
+  <section class="block spotlightable" id="sec-trade">
+    <h2><span class="step">5</span>So which one?</h2>
+    <p class="say">Each placement protects something different.</p>
+    <div class="tradeoff" id="tradeCards">
+      <div class="card" style="--c:var(--post-c);">
+        <h3>Post-LN</h3>
+        <p class="used">Original Transformer (2017), BERT</p>
+        <ul class="pc">
+          <li class="p"><i>+</i>Every layer keeps a strong voice</li>
+          <li class="p"><i>+</i>Often slightly better results — when it trains</li>
+          <li class="m"><i>−</i>Big pushes everywhere → unstable, needs a slow “warm-up” start</li>
+          <li class="m"><i>−</i>Hard to make very deep</li>
+        </ul>
+      </div>
+      <div class="card" style="--c:var(--pre-c);">
+        <h3>Pre-LN</h3>
+        <p class="used">GPT-2 onward, most modern LLMs</p>
+        <ul class="pc">
+          <li class="p"><i>+</i>Clean highway → stable training</li>
+          <li class="p"><i>+</i>Easy to stack very deep, little or no warm-up</li>
+          <li class="m"><i>−</i>Signal keeps growing → top layers get quieter</li>
+          <li class="m"><i>−</i>Needs one extra LayerNorm at the very end</li>
+        </ul>
+      </div>
+    </div>
+    <p class="verdict"><span class="post">Post-LN</span> protects each layer's <b>voice</b>. <span class="pre">Pre-LN</span> protects the <b>highway</b>.</p>
+  </section>
+
+  <!-- 5 -->
+  <section class="block spotlightable" id="sec-quiz">
+    <h2><span class="step">6</span>Your turn: build the block</h2>
+    <p class="say">Fill the 6 slots from bottom (input) to top (output). Tap a part, then tap a slot — or drag it.</p>
+    <div class="panel">
+      <div class="toolbar">
+        <div class="segmented" role="group" aria-label="Puzzle">
+          <button id="qPost" aria-pressed="true">Build Post-LN</button>
+          <button id="qPre" aria-pressed="false">Build Pre-LN</button>
+        </div>
+        <span class="score" id="quizScore"></span>
+      </div>
+      <div class="quiz-grid">
+        <div class="quiz-stage" id="quizStage">
+          <svg id="quizArcs"></svg>
+          <div class="quiz-col" id="quizCol"></div>
+        </div>
+        <div>
+          <div class="bank" id="quizBank"></div>
+          <div class="row" style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-primary" id="quizCheck">Check</button>
+            <button class="btn" id="quizHint">Hint</button>
+            <button class="btn" id="quizReset">Clear</button>
+            <button class="btn" id="quizReveal">Show answer</button>
+          </div>
+          <div class="feedback" id="quizFeedback"></div>
+          <div class="bonus" id="quizBonus">
+            <p style="font-size:14.5px;margin:0 0 8px;"><b>Bonus:</b> after stacking many of these blocks, what goes before the output head?</p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn" data-bonus="none">Nothing</button>
+              <button class="btn" data-bonus="ln">One final LayerNorm</button>
+              <button class="btn" data-bonus="res">One more residual</button>
+            </div>
+            <div class="feedback" id="bonusFeedback"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <b>About the numbers.</b> Every curve and brightness comes from real forward and backward passes through a small toy Transformer at initialization
+    (width 48; attention simplified to a single-token value/output projection; FFN = W₂·ReLU(W₁x); LayerNorm without learned scale;
+    random linear read-out loss; averaged over 3 random initializations × 8 inputs). The trends match the literature; exact values don't represent real LLMs.
+    References: Vaswani et al. 2017 · Xiong et al. 2020 “On Layer Normalization in the Transformer Architecture” · Liu et al. 2020 “Understanding the Difficulty of Training Transformers”.
+  </footer>
+</div>
+
+<div class="guided-bar hidden" id="guidedBar">
+  <div class="guided-top">
+    <span class="guided-title" id="guidedTitle"></span>
+    <button class="guided-close" id="guidedExit" aria-label="Exit">✕</button>
+  </div>
+  <div class="guided-text" id="guidedText"></div>
+  <div class="guided-nav">
+    <div class="guided-dots" id="guidedDots"></div>
+    <div class="guided-btns">
+      <button class="btn" id="guidedPrev">← Back</button>
+      <button class="btn btn-primary" id="guidedNext">Next →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  /* ================= utils ================= */
+  function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
+  function lerp(a,b,t){return a+(b-a)*t;}
+  function easeOutCubic(t){return 1-Math.pow(1-t,3);}
+  function easeInOut(t){return t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;}
+  function hashStr(s){let h=1779033703;for(let i=0;i<s.length;i++){h=Math.imul(h^s.charCodeAt(i),3432918353);h=(h<<13)|(h>>>19);}return h>>>0;}
+  function mulberry32(seed){let a=seed>>>0;return function(){a=(a+0x6D2B79F5)|0;let t=Math.imul(a^(a>>>15),1|a);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296;};}
+  function gauss(r){let u=0;while(u===0)u=r();const v=r();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+  function fmt(v){ if(!isFinite(v)) return "–"; if(v===0) return "0"; const a=Math.abs(v); if(a>=100) return v.toFixed(0); if(a>=10) return v.toFixed(1); if(a>=1) return v.toFixed(1); return v.toFixed(2); }
+  const cssCache={};
+  function cv(n){ return cssCache[n]||(cssCache[n]=getComputedStyle(document.documentElement).getPropertyValue(n).trim()||"#888888"); }
+  function resetCss(){ for(const k in cssCache) delete cssCache[k]; }
+  function rgb(c){ if(c.charAt(0)!=="#") return [128,128,128]; return [parseInt(c.substr(1,2),16),parseInt(c.substr(3,2),16),parseInt(c.substr(5,2),16)]; }
+  function alpha(c,a){ const r=rgb(c); return "rgba("+r[0]+","+r[1]+","+r[2]+","+a+")"; }
+  function mix(c1,c2,t){ const a=rgb(c1),b=rgb(c2); return "rgb("+Math.round(lerp(a[0],b[0],t))+","+Math.round(lerp(a[1],b[1],t))+","+Math.round(lerp(a[2],b[2],t))+")"; }
+  const reduceMotion=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* ================= toy transformer: real forward + backward ================= */
+  const D=48,H=96,B=8,LMAX=48,EPS=1e-5,G=1.0,NSEED=3;
+  function mat(r,n,std){const m=new Float64Array(n);for(let i=0;i<n;i++)m[i]=gauss(r)*std;return m;}
+  function mv(W,rows,cols,x){const y=new Float64Array(rows);for(let i=0;i<rows;i++){let s=0;const o=i*cols;for(let j=0;j<cols;j++)s+=W[o+j]*x[j];y[i]=s;}return y;}
+  function mtv(W,rows,cols,g){const y=new Float64Array(cols);for(let i=0;i<rows;i++){const gi=g[i];if(gi===0)continue;const o=i*cols;for(let j=0;j<cols;j++)y[j]+=W[o+j]*gi;}return y;}
+  function outerAdd(Gm,rows,cols,g,x){for(let i=0;i<rows;i++){const gi=g[i];if(gi===0)continue;const o=i*cols;for(let j=0;j<cols;j++)Gm[o+j]+=gi*x[j];}}
+  function lnF(x){const d=x.length;let m=0;for(let i=0;i<d;i++)m+=x[i];m/=d;let s=0;for(let i=0;i<d;i++)s+=(x[i]-m)*(x[i]-m);s/=d;const r=1/Math.sqrt(s+EPS);const y=new Float64Array(d);for(let i=0;i<d;i++)y[i]=(x[i]-m)*r;return{y:y,r:r};}
+  function lnB(c,g){const y=c.y,r=c.r,d=y.length;let mg=0,mgy=0;for(let i=0;i<d;i++){mg+=g[i];mgy+=g[i]*y[i];}mg/=d;mgy/=d;const dx=new Float64Array(d);for(let i=0;i<d;i++)dx[i]=r*(g[i]-mg-y[i]*mgy);return dx;}
+  function rms(x){let s=0;for(let i=0;i<x.length;i++)s+=x[i]*x[i];return Math.sqrt(s/x.length);}
+  function add(a,b){const y=new Float64Array(a.length);for(let i=0;i<a.length;i++)y[i]=a[i]+b[i];return y;}
+  function scl(a,s){const y=new Float64Array(a.length);for(let i=0;i<a.length;i++)y[i]=a[i]*s;return y;}
+  function fro(a){let s=0;for(let i=0;i<a.length;i++)s+=a[i]*a[i];return s;}
+  function attnF(P,x){const v=mv(P.Wv,D,D,x);return{o:scl(mv(P.Wo,D,D,v),G),c:{x:x,v:v}};}
+  function attnB(P,c,go,Gr){const g=scl(go,G);outerAdd(Gr.Wo,D,D,g,c.v);const gv=mtv(P.Wo,D,D,g);outerAdd(Gr.Wv,D,D,gv,c.x);return mtv(P.Wv,D,D,gv);}
+  function ffnF(P,x){const h=mv(P.W1,H,D,x);const a=new Float64Array(H);for(let i=0;i<H;i++)a[i]=h[i]>0?h[i]:0;return{o:scl(mv(P.W2,D,H,a),G),c:{x:x,h:h,a:a}};}
+  function ffnB(P,c,go,Gr){const g=scl(go,G);outerAdd(Gr.W2,D,H,g,c.a);const ga=mtv(P.W2,D,H,g);for(let i=0;i<H;i++)if(c.h[i]<=0)ga[i]=0;outerAdd(Gr.W1,H,D,ga,c.x);return mtv(P.W1,H,D,ga);}
+  function buildNet(seed){
+    const r=mulberry32(hashStr("prepost-v2-"+seed)), layers=[];
+    for(let l=0;l<LMAX;l++) layers.push({A:{Wv:mat(r,D*D,1/Math.sqrt(D)),Wo:mat(r,D*D,1/Math.sqrt(D))},F:{W1:mat(r,H*D,Math.sqrt(2/D)),W2:mat(r,D*H,1/Math.sqrt(H))}});
+    const X=[],W=[]; for(let b=0;b<B;b++){X.push(mat(r,D,1));W.push(mat(r,D,1));}
+    return {layers:layers,X:X,W:W};
+  }
+  function runSim(net,kind,L){
+    const rmsX=new Float64Array(L+1),s1=new Float64Array(L),s2=new Float64Array(L),ratio=new Float64Array(L),gW=new Float64Array(L);
+    const Gs=[]; for(let l=0;l<L;l++) Gs.push({A:{Wv:new Float64Array(D*D),Wo:new Float64Array(D*D)},F:{W1:new Float64Array(H*D),W2:new Float64Array(D*H)}});
+    for(let b=0;b<B;b++){
+      let x=net.X[b]; const cs=[]; rmsX[0]+=rms(x)/B;
+      for(let l=0;l<L;l++){
+        const Ly=net.layers[l], c={};
+        if(kind==="pre"){
+          c.ln1=lnF(x); c.a=attnF(Ly.A,c.ln1.y); const x1=add(x,c.a.o); s1[l]+=rms(x1)/B;
+          c.ln2=lnF(x1); c.f=ffnF(Ly.F,c.ln2.y); ratio[l]+=rms(add(c.a.o,c.f.o))/rms(x)/B; x=add(x1,c.f.o); s2[l]+=rms(x)/B;
+        } else {
+          c.a=attnF(Ly.A,x); const p1=add(x,c.a.o); s1[l]+=rms(p1)/B; c.ln1=lnF(p1); const x1=c.ln1.y;
+          c.f=ffnF(Ly.F,x1); const p2=add(x1,c.f.o); s2[l]+=rms(p2)/B; c.ln2=lnF(p2);
+          ratio[l]+=0.5*(rms(c.a.o)/rms(x)+rms(c.f.o)/rms(x1))/B; x=c.ln2.y;
+        }
+        cs.push(c); rmsX[l+1]+=rms(x)/B;
+      }
+      const w=scl(net.W[b],1/B); let g=(kind==="pre")?lnB(lnF(x),w):w;
+      for(let l=L-1;l>=0;l--){
+        const Ly=net.layers[l],c=cs[l];
+        if(kind==="pre"){ const gf=ffnB(Ly.F,c.f.c,g,Gs[l].F); const gx1=add(g,lnB(c.ln2,gf)); const ga=attnB(Ly.A,c.a.c,gx1,Gs[l].A); g=add(gx1,lnB(c.ln1,ga)); }
+        else { const gs2=lnB(c.ln2,g); const gf=ffnB(Ly.F,c.f.c,gs2,Gs[l].F); const gx1=add(gs2,gf); const gs1=lnB(c.ln1,gx1); const ga=attnB(Ly.A,c.a.c,gs1,Gs[l].A); g=add(gs1,ga); }
+      }
+    }
+    for(let l=0;l<L;l++) gW[l]=Math.sqrt(fro(Gs[l].A.Wv)+fro(Gs[l].A.Wo)+fro(Gs[l].F.W1)+fro(Gs[l].F.W2));
+    return {rmsX:rmsX,s1:s1,s2:s2,ratio:ratio,gW:gW};
+  }
+  const NETS=[]; for(let s=0;s<NSEED;s++) NETS.push(buildNet(s));
+  const simCache=new Map();
+  function avgRuns(kind,L){
+    const rs=NETS.map(function(n){ return runSim(n,kind,L); }), out={};
+    ["rmsX","s1","s2","ratio","gW"].forEach(function(f){ out[f]=rs[0][f].map(function(_,i){ let s=0; rs.forEach(function(r){ s+=r[f][i]; }); return s/rs.length; }); });
+    return out;
+  }
+  function getSim(L){ let v=simCache.get(L); if(!v){ v={post:avgRuns("post",L),pre:avgRuns("pre",L)}; simCache.set(L,v); } return v; }
+
+  /* ================= state ================= */
+  const state={ L:16, morph:0, time:0, fwdT:16, bwdT:16, deepL:48, mode:"explore", guidedIndex:0, quizVariant:"post" };
+  const els={};
+  ["heroPlay","modeExplore","modeGuided","m1Post","m1Pre","m1Replay","moveCanvas","eqPost","eqPre","moveCallout",
+   "L1","L1v","fwdPlay","fwdCanvas","fwdCallout","L2","L2v","bwdPlay","bwdCanvas","bwdCallout",
+   "deepStatus","deepPlay","deepCanvas","deepCallout","tradeCards",
+   "qPost","qPre","quizScore","quizStage","quizArcs","quizCol","quizBank","quizCheck","quizHint","quizReset","quizReveal","quizFeedback","quizBonus","bonusFeedback",
+   "guidedBar","guidedTitle","guidedText","guidedDots","guidedPrev","guidedNext","guidedExit"].forEach(function(id){ els[id]=document.getElementById(id); });
+
+  /* ================= animation loop ================= */
+  const tweens=new Map(); let loopRunning=false;
+  function addTween(k,fn){ tweens.set(k,fn); ensureLoop(); }
+  function removeTween(k){ tweens.delete(k); }
+  function ensureLoop(){
+    if(loopRunning) return; loopRunning=true;
+    function frame(now){
+      tweens.forEach(function(fn,k){ if(!fn(16,now)) tweens.delete(k); });
+      renderDynamic();
+      if(tweens.size>0) requestAnimationFrame(frame); else loopRunning=false;
+    }
+    requestAnimationFrame(frame);
+  }
+  function tweenScalar(key,get,set,target,dur,ease,delay){
+    ease=ease||easeOutCubic; dur=reduceMotion?1:(dur||600); delay=reduceMotion?0:(delay||0);
+    let start=null, t0=null;
+    addTween(key,function(dt,now){
+      if(t0===null){ t0=now+delay; }
+      if(now<t0) return true;
+      if(start===null) start=get();
+      const t=Math.min(1,(now-t0)/dur); set(start+(target-start)*ease(t));
+      if(t>=1){ set(target); return false; } return true;
+    });
+  }
+  const linear=function(t){return t;};
+
+  /* ================= canvas helpers ================= */
+  function setup(canvas){
+    const w=canvas.clientWidth||600,h=canvas.clientHeight||400,dpr=window.devicePixelRatio||1;
+    if(canvas.width!==Math.round(w*dpr)||canvas.height!==Math.round(h*dpr)){canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);}
+    const ctx=canvas.getContext("2d"); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,w,h); return {ctx:ctx,w:w,h:h};
+  }
+  function rr(ctx,x,y,w,h,r){ r=Math.min(r,h/2,w/2); ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+  function head(ctx,x,y,ang,col,s){ s=s||8; ctx.fillStyle=col; ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x-s*Math.cos(ang-Math.PI/6),y-s*Math.sin(ang-Math.PI/6)); ctx.lineTo(x-s*Math.cos(ang+Math.PI/6),y-s*Math.sin(ang+Math.PI/6)); ctx.closePath(); ctx.fill(); }
+  function pill(ctx,text,x,y,col,align){
+    ctx.font="600 13px "+cv("--sans"); const w=ctx.measureText(text).width+18, h=24;
+    const x0 = align==="left"?x:align==="right"?x-w:x-w/2;
+    rr(ctx,x0,y-h/2,w,h,12); ctx.fillStyle=col; ctx.fill();
+    ctx.fillStyle="#fff"; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText(text,x0+w/2,y+0.5);
+  }
+
+  /* ================= 1. the move ================= */
+  const NODES=[
+    {id:"attn",type:"attn",label:"Attention",post:["b",.25],pre:["b",.31]},
+    {id:"add1",type:"add",post:["h",.36],pre:["h",.42]},
+    {id:"ln1",type:"ln",label:"LayerNorm",post:["h",.45],pre:["b",.19]},
+    {id:"ffn",type:"ffn",label:"FFN",post:["b",.65],pre:["b",.75]},
+    {id:"add2",type:"add",post:["h",.76],pre:["h",.87]},
+    {id:"ln2",type:"ln",label:"LayerNorm",post:["h",.86],pre:["b",.63]}
+  ];
+  const SPLITS={post:[.12,.54],pre:[.08,.53]};
+  function typeCol(t){ return cv(t==="attn"?"--attn-c":t==="ffn"?"--ffn-c":t==="ln"?"--ln-c":"--add-c"); }
+  function drawMove(){
+    const S=setup(els.moveCanvas),ctx=S.ctx,W=S.w,Hh=S.h, m=state.morph;
+    const hx=W*0.36, bx=W*0.66, boxW=Math.min(150,W*0.25), yOf=function(v){ return Hh-34-v*(Hh-84); };
+    const post=cv("--post-c"), pre=cv("--pre-c"), role=mix(post,pre,m), ink=cv("--ink"), soft=cv("--ink-soft"), hw=cv("--hw-c");
+    const P={}; NODES.forEach(function(n){
+      const a=n.post,b=n.pre, xa=a[0]==="h"?hx:bx, xb=b[0]==="h"?hx:bx;
+      // LN boxes arc outward while travelling so the move is easy to follow
+      const arc = (n.type==="ln") ? Math.sin(Math.PI*m)*28 : 0;
+      P[n.id]={x:lerp(xa,xb,m)+arc, y:yOf(lerp(a[1],b[1],m)), n:n, onHw:1-Math.abs(lerp(xa,xb,m)-hx)/(bx-hx)};
+    });
+    const splits=[lerp(SPLITS.post[0],SPLITS.pre[0],m),lerp(SPLITS.post[1],SPLITS.pre[1],m)].map(yOf);
+    // title
+    ctx.globalAlpha=clamp((0.5-m)/0.2,0,1); ctx.fillStyle=post; ctx.font="700 24px "+cv("--serif"); ctx.textAlign="left"; ctx.textBaseline="top"; ctx.fillText("Post-LN",14,10);
+    ctx.globalAlpha=clamp((m-0.5)/0.2,0,1); ctx.fillStyle=pre; ctx.fillText("Pre-LN",14,10); ctx.globalAlpha=1;
+    // highway
+    const yIn=yOf(-0.02), yOut=yOf(1.0);
+    ctx.strokeStyle=alpha(hw,0.35); ctx.lineWidth=18; ctx.lineCap="round"; ctx.beginPath(); ctx.moveTo(hx,yIn); ctx.lineTo(hx,yOut+6); ctx.stroke();
+    ctx.strokeStyle=hw; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(hx,yIn); ctx.lineTo(hx,yOut+8); ctx.stroke();
+    head(ctx,hx,yOut,-Math.PI/2,hw,11);
+    ctx.fillStyle=soft; ctx.font="600 12px "+cv("--sans"); ctx.textAlign="right"; ctx.textBaseline="middle"; ctx.fillText("HIGHWAY ↑",hx-16,yOf(0.03)); ctx.font="11px "+cv("--sans"); ctx.fillText("(residual)",hx-16,yOf(0.03)+15);
+    ctx.fillStyle=soft; ctx.font="12.5px "+cv("--sans"); ctx.textAlign="center"; ctx.textBaseline="top"; ctx.fillText("input",hx,yIn+6);
+    ctx.textAlign="left"; ctx.textBaseline="middle"; ctx.fillText("to next block",hx+14,yOut+2);
+    // branches
+    [["add1",0],["add2",1]].forEach(function(p){
+      const ys=splits[p[1]], ya=P[p[0]].y;
+      ctx.strokeStyle=soft; ctx.lineWidth=2; ctx.lineJoin="round";
+      ctx.beginPath(); ctx.moveTo(hx,ys); ctx.lineTo(bx,ys); ctx.lineTo(bx,ya); ctx.lineTo(hx+16,ya); ctx.stroke();
+      head(ctx,hx+15,ya,Math.PI,soft,8);
+      ctx.fillStyle=soft; ctx.beginPath(); ctx.arc(hx,ys,4,0,Math.PI*2); ctx.fill();
+    });
+    ctx.fillStyle=soft; ctx.font="600 12px "+cv("--sans"); ctx.textAlign="center"; ctx.textBaseline="bottom";
+    ctx.fillText("BRANCH",bx,splits[0]-6);
+    // particles on the highway
+    const n=5, period=3.6, ph=(state.time/period)%1;
+    const events=[];
+    NODES.forEach(function(nd){ const q=P[nd.id]; if(nd.type==="add") events.push({y:q.y,t:"add"}); if(nd.type==="ln" && q.onHw>0.02) events.push({y:q.y,t:"ln",w:q.onHw,id:nd.id}); });
+    const flash={};
+    for(let i=0;i<n;i++){
+      const u=(ph+i/n)%1, y=lerp(yIn,yOut,u); let r=5.5;
+      events.slice().sort(function(a,b){return b.y-a.y;}).forEach(function(e){
+        if(y<e.y){ if(e.t==="add") r*=1.32; else r=r+(5.5-r)*e.w; }
+        if(e.t==="ln" && Math.abs(y-e.y)<16) flash[e.id]=Math.max(flash[e.id]||0,e.w);
+      });
+      const fade=Math.min(1,u*10,(1-u)*10);
+      ctx.fillStyle=alpha(role.charAt(0)==="#"?role:rgbToHex(role),0.85*fade);
+      ctx.beginPath(); ctx.arc(hx,y,r,0,Math.PI*2); ctx.fill();
+    }
+    // nodes
+    NODES.forEach(function(nd){
+      const q=P[nd.id], col=typeCol(nd.type);
+      if(nd.type==="add"){
+        ctx.fillStyle=cv("--stage"); ctx.strokeStyle=col; ctx.lineWidth=2.4; ctx.beginPath(); ctx.arc(q.x,q.y,14,0,Math.PI*2); ctx.fill(); ctx.stroke();
+        ctx.strokeStyle=ink; ctx.lineWidth=2.4; ctx.beginPath(); ctx.moveTo(q.x-7,q.y); ctx.lineTo(q.x+7,q.y); ctx.moveTo(q.x,q.y-7); ctx.lineTo(q.x,q.y+7); ctx.stroke();
+        return;
+      }
+      const f=flash[nd.id]||0, bh=36;
+      if(nd.type==="ln"){ ctx.shadowColor=col; ctx.shadowBlur=8+22*f; }
+      rr(ctx,q.x-boxW/2,q.y-bh/2,boxW,bh,9); ctx.fillStyle=cv("--stage"); ctx.fill();
+      ctx.fillStyle=alpha(col,0.18+0.3*f); ctx.fill(); ctx.shadowBlur=0;
+      ctx.strokeStyle=col; ctx.lineWidth=nd.type==="ln"?3:2; ctx.stroke();
+      ctx.fillStyle=ink; ctx.font="600 14px "+cv("--sans"); ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText(nd.label,q.x,q.y+1);
+      if(nd.type==="ln" && q.onHw>0.6 && W>480){
+        ctx.fillStyle=cv("--warn"); ctx.font="600 11.5px "+cv("--sans"); ctx.textAlign="right"; ctx.fillText("gate on the highway",q.x-boxW/2-8,q.y);
+      }
+    });
+    if(m>0.8 && W>480){
+      ctx.globalAlpha=(m-0.8)/0.2; ctx.fillStyle=cv("--ok"); ctx.font="600 12px "+cv("--sans"); ctx.textAlign="right"; ctx.textBaseline="middle";
+      ctx.fillText("nothing blocks the highway ✓",hx-18,yOf(0.62)); ctx.globalAlpha=1;
+    }
+    els.eqPost.style.opacity=(1-m*0.75).toFixed(2); els.eqPre.style.opacity=(0.25+m*0.75).toFixed(2);
+    els.eqPost.classList.toggle("on",m<0.5); els.eqPre.classList.toggle("on",m>=0.5);
+    const txt = m<0.5 ? "Post-LN: LayerNorm sits <b>on the highway</b>. Every dot is squeezed back to size 1 at each gate."
+                      : "Pre-LN: LayerNorm moved <b>into the branch</b>. The highway is clear — dots pass freely and keep growing.";
+    if(els.moveCallout.__t!==txt){ els.moveCallout.__t=txt; els.moveCallout.innerHTML=txt; }
+  }
+  function rgbToHex(s){ const m=s.match(/\d+/g); if(!m) return "#888888"; return "#"+m.slice(0,3).map(function(v){ return (+v).toString(16).padStart(2,"0"); }).join(""); }
+  function setMorph(target,dur){ tweenScalar("morph",function(){return state.morph;},function(v){state.morph=v;},target,dur||1500,easeInOut);
+    els.m1Post.setAttribute("aria-pressed",target<0.5?"true":"false"); els.m1Pre.setAttribute("aria-pressed",target>=0.5?"true":"false"); }
+  function playMoveIntro(){ removeTween("morph"); state.morph=0; setMorph(0,1); tweenScalar("morph",function(){return state.morph;},function(v){state.morph=v;},1,1600,easeInOut,2200);
+    setTimeout(function(){ els.m1Post.setAttribute("aria-pressed","false"); els.m1Pre.setAttribute("aria-pressed","true"); }, reduceMotion?0:2200); }
+  let moveVisible=false;
+  function kickParticles(){ if(!moveVisible) return; addTween("particles",function(dt,now){ state.time=now/1000; return moveVisible; }); }
+
+  /* ================= towers shared ================= */
+  function towerGeom(W,Hh,L){
+    const TW=Math.min(210,W*0.3), yTop=92, yBot=Hh-54, slabH=(yBot-yTop)/L;
+    return {TW:TW, cx:[W*0.27,W*0.73], yTop:yTop, yBot:yBot, slabH:slabH, gap:Math.min(3,slabH*0.18)};
+  }
+  function drawSlabs(ctx,g,cx,L,fill){
+    for(let l=0;l<L;l++){
+      const y0=g.yBot-(l+1)*g.slabH+g.gap/2, h=g.slabH-g.gap;
+      rr(ctx,cx-g.TW/2,y0,g.TW,h,Math.min(6,h/2)); ctx.fillStyle=cv("--slab"); ctx.fill();
+      if(fill){ const f=fill(l); if(f){ ctx.fillStyle=f; ctx.fill(); } }
+    }
+  }
+  function towerTitles(ctx,g,sub){
+    ["post","pre"].forEach(function(k,i){
+      ctx.fillStyle=cv(k==="post"?"--post-c":"--pre-c"); ctx.font="700 20px "+cv("--serif"); ctx.textAlign="center"; ctx.textBaseline="top";
+      ctx.fillText(k==="post"?"Post-LN":"Pre-LN",g.cx[i],10);
+      if(sub){ ctx.fillStyle=cv("--ink-soft"); ctx.font="12.5px "+cv("--sans"); ctx.fillText(sub[i],g.cx[i],36); }
+    });
+  }
+
+  /* ================= 2. forward ================= */
+  function rmsAt(S,kind,p,L){
+    if(p>=L) return S.rmsX[L]; if(p<=0) return S.rmsX[0];
+    const l=Math.floor(p), f=p-l;
+    if(kind==="pre") return f<0.5 ? lerp(S.rmsX[l],S.s1[l],f/0.5) : lerp(S.s1[l],S.rmsX[l+1],(f-0.5)/0.5);
+    // post: grows at each ⊕, is squeezed back by each LN
+    if(f<0.3) return lerp(S.rmsX[l],S.s1[l],f/0.3);
+    if(f<0.5) return lerp(S.s1[l],1,(f-0.3)/0.2);
+    if(f<0.8) return lerp(1,S.s2[l],(f-0.5)/0.3);
+    return lerp(S.s2[l],S.rmsX[l+1],(f-0.8)/0.2);
+  }
+  function drawFwd(){
+    const S=setup(els.fwdCanvas),ctx=S.ctx,W=S.w,Hh=S.h,L=state.L,sim=getSim(L),g=towerGeom(W,Hh,L),p=clamp(state.fwdT,0,L);
+    let maxR=0; ["post","pre"].forEach(function(k){ sim[k].rmsX.forEach(function(v){maxR=Math.max(maxR,v);}); sim[k].s2.forEach(function(v){maxR=Math.max(maxR,v);}); });
+    const wOf=function(r){ return r/maxR*g.TW*0.94; };
+    towerTitles(ctx,g,["size is reset every layer","size piles up"]);
+    ["post","pre"].forEach(function(k,i){
+      const cx=g.cx[i], col=cv(k==="post"?"--post-c":"--pre-c"), Sx=sim[k];
+      drawSlabs(ctx,g,cx,L,null);
+      // trail: the size after each finished layer (forms the shape)
+      for(let l=0;l<L;l++){
+        if(p<l+1) break;
+        const y=g.yBot-(l+0.5)*g.slabH, w=wOf(Sx.rmsX[l+1]), h=Math.max(3,Math.min(10,g.slabH*0.45));
+        rr(ctx,cx-w/2,y-h/2,w,h,h/2); ctx.fillStyle=alpha(col,0.32); ctx.fill();
+        // "how much did this layer change the signal" tag
+        const every=Math.max(1,Math.ceil(16/Math.max(1,g.slabH)));
+        if((l%every===0||l===L-1) && W>420){
+          ctx.fillStyle=alpha(col,0.95); ctx.font=(g.slabH>=16?"12px ":"10.5px ")+cv("--mono"); ctx.textBaseline="middle";
+          ctx.textAlign=i===0?"right":"left";
+          ctx.fillText("Δ "+Math.round(Sx.ratio[l]*100)+"%", i===0?cx-g.TW/2-8:cx+g.TW/2+8, y);
+        }
+      }
+      // input bar
+      ctx.fillStyle=cv("--ink-soft"); ctx.font="12px "+cv("--sans"); ctx.textAlign="center"; ctx.textBaseline="top"; ctx.fillText("input",cx,g.yBot+22);
+      // moving signal
+      const r=rmsAt(Sx,k,p,L), y=g.yBot-p*g.slabH, w=wOf(r);
+      ctx.shadowColor=col; ctx.shadowBlur=18; rr(ctx,cx-w/2,y-7,w,14,7); ctx.fillStyle=col; ctx.fill(); ctx.shadowBlur=0;
+      pill(ctx,"size "+fmt(r),cx,68,col);
+    });
+    // legend for Δ
+    ctx.fillStyle=cv("--ink-soft"); ctx.font="12px "+cv("--sans"); ctx.textAlign="center"; ctx.textBaseline="bottom";
+    ctx.fillText("Δ = how much that layer changes the signal",W/2,Hh-6);
+    const P=sim.post, R=sim.pre, done=p>=L-0.001;
+    const t = done ? "After "+L+" layers: <span class='post'>Post-LN</span> is still size "+fmt(P.rmsX[L])+"; <span class='pre'>Pre-LN</span> grew to "+fmt(R.rmsX[L])+
+      ". The top <span class='pre'>Pre-LN</span> layer changes it by only "+Math.round(R.ratio[L-1]*100)+"% — it's getting drowned out."
+      : "Watch the bar width…";
+    if(els.fwdCallout.__t!==t){ els.fwdCallout.__t=t; els.fwdCallout.innerHTML=t; }
+  }
+  function playFwd(){ removeTween("fwdT"); state.fwdT=0; tweenScalar("fwdT",function(){return state.fwdT;},function(v){state.fwdT=v;},state.L,900+state.L*230,linear,250); }
+
+  /* ================= 3. backward ================= */
+  function drawBwd(){
+    const S=setup(els.bwdCanvas),ctx=S.ctx,W=S.w,Hh=S.h,L=state.L,sim=getSim(L),g=towerGeom(W,Hh,L),p=clamp(state.bwdT,0,L);
+    let lo=Infinity,hi=-Infinity; ["post","pre"].forEach(function(k){ sim[k].gW.forEach(function(v){ lo=Math.min(lo,Math.log(v)); hi=Math.max(hi,Math.log(v)); }); });
+    const norm=function(v){ return (Math.log(v)-lo)/((hi-lo)||1); };
+    towerTitles(ctx,g,["pushes stay big","pushes fade going up"]);
+    ["post","pre"].forEach(function(k,i){
+      const cx=g.cx[i], col=cv(k==="post"?"--post-c":"--pre-c"), gw=sim[k].gW;
+      const lit=function(l){ return clamp(p-(L-1-l),0,1); };
+      drawSlabs(ctx,g,cx,L,function(l){ const a=lit(l); return a>0 ? alpha(col,a*(0.08+0.85*norm(gw[l]))) : null; });
+      // side bars = size of the push
+      const barMax=Math.max(20,Math.min(90,g.cx[0]-g.TW/2-12)), gMax=Math.max(Math.max.apply(null,Array.from(sim.post.gW)),Math.max.apply(null,Array.from(sim.pre.gW)));
+      for(let l=0;l<L;l++){
+        const a=lit(l); if(a<=0) continue;
+        const y=g.yBot-(l+0.5)*g.slabH, h=Math.max(2,Math.min(9,g.slabH*0.5)), len=a*(gw[l]/gMax)*barMax;
+        const x0=i===0?cx-g.TW/2-6-len:cx+g.TW/2+6;
+        rr(ctx,x0,y-h/2,len,h,h/2); ctx.fillStyle=alpha(col,0.85); ctx.fill();
+      }
+      // gradient pulse
+      if(p<L){
+        const y=g.yTop+p*g.slabH;
+        const grd=ctx.createLinearGradient(0,y-26,0,y+10); grd.addColorStop(0,alpha(col,0)); grd.addColorStop(1,alpha(col,0.55));
+        ctx.fillStyle=grd; ctx.fillRect(cx-g.TW/2,y-26,g.TW,36);
+        ctx.fillStyle=col; ctx.font="700 16px "+cv("--sans"); ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText("▼",cx,y+2);
+      }
+      // top/bottom values
+      if(lit(L-1)>0.99) pill(ctx,"top "+fmt(gw[L-1]),cx,68,col);
+      if(lit(0)>0.99){ ctx.fillStyle=col; ctx.font="600 12.5px "+cv("--mono"); ctx.textAlign="center"; ctx.textBaseline="top"; ctx.fillText("bottom "+fmt(gw[0]),cx,g.yBot+8); }
+    });
+    ctx.fillStyle=cv("--ink-soft"); ctx.font="12px "+cv("--sans"); ctx.textAlign="center"; ctx.textBaseline="bottom";
+    ctx.fillText("side bars = size of the weight gradient (to scale)",W/2,Hh-6);
+    const P=sim.post.gW, R=sim.pre.gW, done=p>=L-0.001;
+    const t = done ? "<span class='post'>Post-LN</span>: every layer — even the top — gets a big push ("+fmt(P[L-1])+"). A big first step can blow training up, so it needs a gentle <b>warm-up</b>. "+
+      "<span class='pre'>Pre-LN</span>: pushes shrink toward the top ("+fmt(R[0])+" → "+fmt(R[L-1])+") — calm and stable, but top layers learn less."
+      : "The gradient enters at the top…";
+    if(els.bwdCallout.__t!==t){ els.bwdCallout.__t=t; els.bwdCallout.innerHTML=t; }
+  }
+  function playBwd(){ removeTween("bwdT"); state.bwdT=0; tweenScalar("bwdT",function(){return state.bwdT;},function(v){state.bwdT=v;},state.L,900+state.L*200,linear,250); }
+
+  /* ================= 4. deeper ================= */
+  const DEEP_LS=[]; for(let L=2;L<=48;L+=2) DEEP_LS.push(L);
+  const deep={};
+  (function precompute(){
+    let i=0;
+    function step(){
+      const L=DEEP_LS[i], s=getSim(L); deep[L]={post:s.post.gW[L-1],pre:s.pre.gW[L-1]}; i++;
+      els.deepStatus.textContent = i<DEEP_LS.length ? "computing "+i+"/"+DEEP_LS.length+"…" : "";
+      if(i<DEEP_LS.length) setTimeout(step,8); else { els.deepPlay.disabled=false; if(pendingDeep){ pendingDeep=false; playDeep(); } else renderDynamic(); }
+    }
+    els.deepPlay.disabled=true; setTimeout(step,200);
+  })();
+  let pendingDeep=false;
+  function drawDeep(){
+    const S=setup(els.deepCanvas),ctx=S.ctx,W=S.w,Hh=S.h;
+    const padL=54,padR=W<480?60:110,padT=26,padB=40,pw=W-padL-padR,ph=Hh-padT-padB;
+    const lo=Math.log(2.5),hi=Math.log(60);
+    const xf=function(L){return padL+pw*(L-2)/46;}, yf=function(v){return padT+ph*(1-(Math.log(v)-lo)/(hi-lo));};
+    ctx.font="11px "+cv("--mono"); ctx.lineWidth=1;
+    [3,5,10,20,50].forEach(function(v){ const y=yf(v); ctx.strokeStyle=cv("--grid"); ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(padL+pw,y); ctx.stroke(); ctx.fillStyle=cv("--ink-soft"); ctx.textAlign="right"; ctx.textBaseline="middle"; ctx.fillText(String(v),padL-6,y); });
+    [2,10,20,30,40,48].forEach(function(L){ const x=xf(L); ctx.fillStyle=cv("--ink-soft"); ctx.textAlign="center"; ctx.textBaseline="top"; ctx.fillText(String(L),x,padT+ph+6); });
+    ctx.font="12.5px "+cv("--sans"); ctx.fillText("number of layers →",padL+pw/2,Hh-18);
+    ctx.save(); ctx.translate(4,padT+ph/2); ctx.rotate(-Math.PI/2); ctx.textAlign="center"; ctx.textBaseline="top"; ctx.fillText("push on top layer (log)",0,0); ctx.restore();
+    const upto=state.deepL; let last={};
+    ["post","pre"].forEach(function(k){
+      const col=cv(k==="post"?"--post-c":"--pre-c"); ctx.strokeStyle=col; ctx.lineWidth=3.2; ctx.lineJoin="round"; ctx.beginPath(); let started=false, lp=null;
+      for(let j=0;j<DEEP_LS.length;j++){
+        const L=DEEP_LS[j]; if(!deep[L]||L>upto+1e-9) break;
+        const x=xf(L), y=yf(deep[L][k]); if(!started){ctx.moveTo(x,y);started=true;} else ctx.lineTo(x,y); lp=[x,y,deep[L][k],L];
+      }
+      // partial segment toward the next point for smooth growth
+      const nxt=DEEP_LS.find(function(L){return L>upto;}); if(lp&&nxt&&deep[nxt]){ const f=(upto-lp[3])/2; const x=lerp(lp[0],xf(nxt),f), y=lerp(lp[1],yf(deep[nxt][k]),f); ctx.lineTo(x,y); lp=[x,y,lerp(lp[2],deep[nxt][k],f)]; }
+      ctx.stroke();
+      if(lp){ ctx.fillStyle=col; ctx.beginPath(); ctx.arc(lp[0],lp[1],6,0,Math.PI*2); ctx.fill();
+        ctx.font="700 13px "+cv("--sans"); ctx.textAlign="left"; ctx.textBaseline="middle"; ctx.fillText((k==="post"?"Post ":"Pre ")+fmt(lp[2]),lp[0]+10,lp[1]); last[k]=lp; }
+    });
+    if(last.post&&last.pre){
+      const ratio=last.post[2]/last.pre[2], x=last.post[0];
+      ctx.strokeStyle=cv("--ink-soft"); ctx.setLineDash([4,4]); ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(x,last.post[1]+9); ctx.lineTo(x,last.pre[1]-9); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle=cv("--ink"); ctx.font="800 "+(W<480?18:26)+"px "+cv("--sans"); ctx.textAlign="right"; ctx.textBaseline="middle";
+      ctx.fillText(ratio.toFixed(1)+"×",x-10,(last.post[1]+last.pre[1])/2);
+      const t="At "+Math.round(upto)+" layers, <span class='post'>Post-LN</span>'s top layer gets a <b>"+ratio.toFixed(1)+"× bigger</b> push than <span class='pre'>Pre-LN</span>'s. The deeper the network, the wider the gap — which is why deep Post-LN models need warm-up.";
+      if(els.deepCallout.__t!==t){ els.deepCallout.__t=t; els.deepCallout.innerHTML=t; }
+    }
+  }
+  function playDeep(){ if(els.deepPlay.disabled){ pendingDeep=true; return; } removeTween("deepL"); state.deepL=2; tweenScalar("deepL",function(){return state.deepL;},function(v){state.deepL=v;},48,4200,linear,200); }
+
+  function renderDynamic(){ drawMove(); drawFwd(); drawBwd(); drawDeep(); }
+
+  /* ================= setters & controls ================= */
+  function setL(v){
+    v=clamp(Math.round(v),4,32); state.L=v;
+    els.L1.value=v; els.L2.value=v; els.L1v.textContent=v; els.L2v.textContent=v;
+    removeTween("fwdT"); removeTween("bwdT"); state.fwdT=v; state.bwdT=v;
+  }
+  els.L1.addEventListener("input",function(){ setL(+els.L1.value); renderDynamic(); });
+  els.L2.addEventListener("input",function(){ setL(+els.L2.value); renderDynamic(); });
+  els.m1Post.addEventListener("click",function(){ setMorph(0); });
+  els.m1Pre.addEventListener("click",function(){ setMorph(1); });
+  els.m1Replay.addEventListener("click",playMoveIntro);
+  els.fwdPlay.addEventListener("click",playFwd);
+  els.bwdPlay.addEventListener("click",playBwd);
+  els.deepPlay.addEventListener("click",playDeep);
+
+  /* autoplay each animation the first time it scrolls into view */
+  const played={};
+  if("IntersectionObserver" in window){
+    const io=new IntersectionObserver(function(ents){
+      ents.forEach(function(e){
+        const id=e.target.id;
+        if(id==="moveCanvas"){ moveVisible=e.isIntersecting; kickParticles(); }
+        if(!e.isIntersecting||played[id]||state.mode!=="explore") return;
+        played[id]=true;
+        if(id==="moveCanvas") playMoveIntro();
+        if(id==="fwdCanvas") playFwd();
+        if(id==="bwdCanvas") playBwd();
+        if(id==="deepCanvas") playDeep();
+        if(id==="tradeCards") showCards();
+      });
+    },{threshold:0.45});
+    ["moveCanvas","fwdCanvas","bwdCanvas","deepCanvas","tradeCards"].forEach(function(id){ io.observe(els[id]); });
+  } else { moveVisible=true; showCards(); }
+  function showCards(){ els.tradeCards.querySelectorAll(".card").forEach(function(c){ c.classList.remove("show"); void c.offsetWidth; c.classList.add("show"); }); }
+
+  /* ================= 6. puzzle ================= */
+  const TYPES={post:["attn","add","ln","ffn","add","ln"],pre:["ln","attn","add","ln","ffn","add"]};
+  const ADD_IDX={post:[1,4],pre:[2,5]};
+  const CHIPS=[{id:"ln1",kind:"ln",label:"LayerNorm"},{id:"attn",kind:"attn",label:"Attention"},{id:"add1",kind:"add",label:"⊕ Add"},
+               {id:"ln2",kind:"ln",label:"LayerNorm"},{id:"ffn",kind:"ffn",label:"FFN"},{id:"add2",kind:"add",label:"⊕ Add"}];
+  const SHUF=["add1","ffn","ln1","attn","add2","ln2"];
+  const quiz={post:{slots:[null,null,null,null,null,null],solved:false,revealed:false},pre:{slots:[null,null,null,null,null,null],solved:false,revealed:false},selected:null,marks:null,justSolved:false};
+  function chip(id){ return CHIPS.find(function(c){return c.id===id;}); }
+  function kcol(k){ return k==="ln"?"var(--ln-c)":k==="attn"?"var(--attn-c)":k==="ffn"?"var(--ffn-c)":"var(--add-c)"; }
+  function renderQuiz(){
+    const v=state.quizVariant, Q=quiz[v];
+    els.qPost.setAttribute("aria-pressed",v==="post"?"true":"false"); els.qPre.setAttribute("aria-pressed",v==="pre"?"true":"false");
+    const mk=function(q){ return q.solved?(q.revealed?"👁":"✔"):"○"; };
+    els.quizScore.textContent="Post "+mk(quiz.post)+"   Pre "+mk(quiz.pre);
+    let h='<div class="io">output ↑</div>';
+    for(let i=5;i>=0;i--){
+      const c=Q.slots[i]?chip(Q.slots[i]):null; let cls="slot"+(c?" filled":"");
+      if(quiz.marks&&quiz.marks[i]!=null) cls+=quiz.marks[i]?" right":" wrong";
+      if(!c&&quiz.selected) cls+=" target";
+      if(quiz.justSolved) cls+=" flow";
+      const glow = v==="post"?"var(--post-c)":"var(--pre-c)";
+      h+='<div class="'+cls+'" data-slot="'+i+'" style="--glow:'+glow+';animation-delay:'+(quiz.justSolved?(i*0.18)+'s':'0s')+'"><span class="num">'+(i+1)+'</span>'+(c?'<span class="chip-in" style="--c:'+kcol(c.kind)+'">'+c.label+'</span>':'slot '+(i+1))+'</div>';
+      if(i>0) h+='<div class="arrow-up">↑</div>';
+    }
+    h+='<div class="io">input x</div>';
+    els.quizCol.innerHTML=h;
+    let b=""; SHUF.forEach(function(id){ const c=chip(id); b+='<button class="chip'+(Q.slots.indexOf(id)>=0?" used":"")+(quiz.selected===id?" sel":"")+'" draggable="true" data-chip="'+id+'" style="--c:'+kcol(c.kind)+'">'+c.label+'</button>'; });
+    els.quizBank.innerHTML=b;
+    els.quizBonus.classList.toggle("show",Q.solved);
+    quiz.justSolved=false;
+    requestAnimationFrame(drawArcs);
+  }
+  function drawArcs(){
+    const Q=quiz[state.quizVariant]; if(!Q.solved){ els.quizArcs.innerHTML=""; return; }
+    const st=els.quizStage.getBoundingClientRect(), sl=function(i){ return els.quizCol.querySelector('[data-slot="'+i+'"]').getBoundingClientRect(); };
+    const col=cv(state.quizVariant==="post"?"--post-c":"--pre-c"), adds=ADD_IDX[state.quizVariant], inEl=els.quizCol.lastElementChild.getBoundingClientRect();
+    let o='<defs><marker id="qah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="'+col+'" style="animation:none;stroke-dasharray:none;stroke-dashoffset:0"/></marker></defs>';
+    [0,1].forEach(function(k){
+      const ys=(k===0?(inEl.top+sl(0).bottom)/2:(sl(2).top+sl(3).bottom)/2)-st.top, a=sl(adds[k]), ya=(a.top+a.bottom)/2-st.top, xr=a.right-st.left, lane=xr+30, xs=(a.left+a.right)/2-st.left;
+      o+='<circle cx="'+xs+'" cy="'+ys+'" r="4" fill="'+col+'"/>';
+      o+='<path d="M '+xs+' '+ys+' L '+lane+' '+ys+' L '+lane+' '+ya+' L '+(xr+4)+' '+ya+'" fill="none" stroke="'+col+'" stroke-width="2.6" stroke-linejoin="round" marker-end="url(#qah)" style="animation-delay:'+(k*0.4)+'s"/>';
+    });
+    els.quizArcs.setAttribute("viewBox","0 0 "+st.width+" "+st.height); els.quizArcs.innerHTML=o;
+  }
+  function fb(el,k,h){ el.className="feedback show "+k; el.innerHTML=h; }
+  function nofb(el){ el.className="feedback"; el.innerHTML=""; }
+  function place(i,id){ const Q=quiz[state.quizVariant]; if(Q.solved) return; const p=Q.slots.indexOf(id); if(p>=0) Q.slots[p]=null; Q.slots[i]=id; quiz.selected=null; quiz.marks=null; nofb(els.quizFeedback); renderQuiz(); }
+  els.quizBank.addEventListener("click",function(e){ const b=e.target.closest("[data-chip]"); if(!b) return; const id=b.getAttribute("data-chip"); quiz.selected=quiz.selected===id?null:id; renderQuiz(); });
+  els.quizBank.addEventListener("dragstart",function(e){ const b=e.target.closest("[data-chip]"); if(b){ e.dataTransfer.setData("text/plain",b.getAttribute("data-chip")); } });
+  els.quizCol.addEventListener("dragover",function(e){ if(e.target.closest("[data-slot]")) e.preventDefault(); });
+  els.quizCol.addEventListener("drop",function(e){ const s=e.target.closest("[data-slot]"); if(!s) return; e.preventDefault(); const id=e.dataTransfer.getData("text/plain"); if(chip(id)) place(+s.getAttribute("data-slot"),id); });
+  els.quizCol.addEventListener("click",function(e){ const s=e.target.closest("[data-slot]"); if(!s) return; const i=+s.getAttribute("data-slot"), Q=quiz[state.quizVariant]; if(Q.solved) return;
+    if(quiz.selected) place(i,quiz.selected); else if(Q.slots[i]){ Q.slots[i]=null; quiz.marks=null; nofb(els.quizFeedback); renderQuiz(); } });
+  els.quizCheck.addEventListener("click",function(){
+    const v=state.quizVariant,Q=quiz[v],ks=Q.slots.map(function(id){return id?chip(id).kind:null;}),ans=TYPES[v],oth=TYPES[v==="post"?"pre":"post"];
+    const empty=ks.filter(function(k){return !k;}).length;
+    if(empty){ quiz.marks=null; fb(els.quizFeedback,"info",empty+" slot"+(empty>1?"s":"")+" still empty."); renderQuiz(); return; }
+    quiz.marks=ks.map(function(k,i){return k===ans[i];}); const n=quiz.marks.filter(Boolean).length;
+    if(n===6){ Q.solved=true; quiz.marks=null; quiz.justSolved=true;
+      fb(els.quizFeedback,"good", v==="post" ? "✔ Correct! Sublayer → Add → Norm (“Add &amp; Norm”). The LayerNorm sits right on the highway."
+                                            : "✔ Correct! Norm → Sublayer → Add. The LayerNorm lives inside the branch, so the highway stays clear.");
+      renderQuiz(); return; }
+    let msg;
+    if(ks.every(function(k,i){return k===oth[i];})) msg="That's the <b>"+(v==="post"?"Pre-LN":"Post-LN")+"</b> order! "+(v==="post"?"Here LayerNorm comes <i>after</i> each Add.":"Here LayerNorm comes <i>before</i> each sublayer.");
+    else if(ks.indexOf("ffn")<ks.indexOf("attn")) msg="Attention comes first, then FFN.";
+    else if(ks[0]==="add") msg="Can't start with ⊕ — there's nothing to add yet.";
+    else msg=n+"/6 right. Fix the red ones.";
+    fb(els.quizFeedback,"bad",msg); renderQuiz();
+  });
+  els.quizHint.addEventListener("click",function(){ fb(els.quizFeedback,"info", state.quizVariant==="post"
+    ? "Hint: the original paper calls it <b>“Add &amp; Norm”</b>. Each sublayer is followed by Add, then Norm."
+    : "Hint: each sublayer gets its own LayerNorm <b>in front</b>: Norm → Sublayer → Add."); });
+  els.quizReset.addEventListener("click",function(){ const Q=quiz[state.quizVariant]; Q.slots=[null,null,null,null,null,null]; Q.solved=false; Q.revealed=false; quiz.marks=null; quiz.selected=null; nofb(els.quizFeedback); nofb(els.bonusFeedback); renderQuiz(); });
+  els.quizReveal.addEventListener("click",function(){ const v=state.quizVariant,Q=quiz[v],pool={ln:["ln1","ln2"],add:["add1","add2"],attn:["attn"],ffn:["ffn"]};
+    Q.slots=TYPES[v].map(function(k){return pool[k].shift();}); Q.solved=true; Q.revealed=true; quiz.marks=null; quiz.selected=null; quiz.justSolved=true;
+    fb(els.quizFeedback,"info","Here's the answer. Clear it and try again from memory!"); renderQuiz(); });
+  els.quizBonus.addEventListener("click",function(e){ const b=e.target.closest("[data-bonus]"); if(!b) return; const a=b.getAttribute("data-bonus"),v=state.quizVariant, ok=(v==="pre"&&a==="ln")||(v==="post"&&a==="none");
+    fb(els.bonusFeedback,ok?"good":"bad", v==="pre"
+      ? (ok?"✔ Right! Pre-LN's highway is never normalized — the signal has grown large (step 2), so one final LayerNorm tames it.":"✘ Remember step 2: Pre-LN's signal keeps growing. It needs one final LayerNorm.")
+      : (ok?"✔ Right! Every Post-LN block already ends with a LayerNorm.":"✘ Every Post-LN block already ends with a LayerNorm — nothing extra needed.")); });
+  function setQuiz(v){ state.quizVariant=v; quiz.selected=null; quiz.marks=null; nofb(els.quizFeedback); nofb(els.bonusFeedback); renderQuiz(); }
+  els.qPost.addEventListener("click",function(){ setQuiz("post"); });
+  els.qPre.addEventListener("click",function(){ setQuiz("pre"); });
+
+  /* ================= guided story ================= */
+  const SCENES=[
+    {title:"A Transformer block",text:"A straight highway carries the signal up. Side branches (Attention, FFN) compute something and add it back at ⊕.",focus:"sec-move",
+      run:function(){ removeTween("morph"); state.morph=0; setMorph(0,1); }},
+    {title:"Move one box",text:"Post-LN puts LayerNorm on the highway. Pre-LN slides it into the branch. That's the only difference.",focus:"sec-move",
+      run:function(){ setMorph(1,1800); }},
+    {title:"Going up",text:"Post-LN resets the signal's size every layer. Pre-LN's keeps piling up — so each new layer matters less (watch Δ shrink).",focus:"sec-fwd",
+      run:function(){ setL(16); playFwd(); }},
+    {title:"Going down",text:"Post-LN hands every layer a big push. Pre-LN's pushes fade toward the top.",focus:"sec-bwd",
+      run:function(){ setL(16); playBwd(); }},
+    {title:"Deeper = bigger gap",text:"As layers are added, Post-LN's top push stays big while Pre-LN's shrinks. That's why deep Post-LN needs warm-up.",focus:"sec-deep",
+      run:function(){ playDeep(); }},
+    {title:"The trade-off",text:"Post-LN protects each layer's voice. Pre-LN protects the highway.",focus:"sec-trade",
+      run:function(){ showCards(); }},
+    {title:"Your turn",text:"Build both blocks from the same six parts.",focus:"sec-quiz",
+      run:function(){ setQuiz("post"); }}
+  ];
+  function spotlight(id){ document.querySelectorAll(".spotlightable").forEach(function(el){ el.classList.toggle("dim",el.id!==id); });
+    const t=document.getElementById(id); if(t) t.scrollIntoView({behavior:reduceMotion?"auto":"smooth",block:"start"}); }
+  function clearSpot(){ document.querySelectorAll(".spotlightable").forEach(function(el){ el.classList.remove("dim"); }); }
+  function dots(){ els.guidedDots.innerHTML=""; SCENES.forEach(function(_,i){ const d=document.createElement("span"); d.className="guided-dot"+(i===state.guidedIndex?" active":""); els.guidedDots.appendChild(d); }); }
+  function runScene(i){
+    i=clamp(i,0,SCENES.length-1); state.guidedIndex=i; const sc=SCENES[i];
+    els.guidedTitle.textContent=(i+1)+" / "+SCENES.length+" · "+sc.title; els.guidedText.textContent=sc.text; dots();
+    spotlight(sc.focus);
+    setTimeout(function(){ sc.run(); renderDynamic(); }, reduceMotion?0:450);   // start once the section has scrolled in
+    els.guidedPrev.disabled=i===0; els.guidedNext.textContent=i===SCENES.length-1?"Finish":"Next →";
+  }
+  function enterGuided(){ state.mode="guided"; els.modeExplore.setAttribute("aria-pressed","false"); els.modeGuided.setAttribute("aria-pressed","true"); els.guidedBar.classList.remove("hidden"); runScene(0); }
+  function exitGuided(){ state.mode="explore"; els.modeExplore.setAttribute("aria-pressed","true"); els.modeGuided.setAttribute("aria-pressed","false"); els.guidedBar.classList.add("hidden"); clearSpot(); }
+  els.heroPlay.addEventListener("click",enterGuided);
+  els.modeGuided.addEventListener("click",function(){ if(state.mode==="explore") enterGuided(); });
+  els.modeExplore.addEventListener("click",function(){ if(state.mode==="guided") exitGuided(); });
+  els.guidedNext.addEventListener("click",function(){ if(state.guidedIndex>=SCENES.length-1){ exitGuided(); return; } runScene(state.guidedIndex+1); });
+  els.guidedPrev.addEventListener("click",function(){ runScene(state.guidedIndex-1); });
+  els.guidedExit.addEventListener("click",exitGuided);
+
+  let rt=null;
+  window.addEventListener("resize",function(){ clearTimeout(rt); rt=setTimeout(function(){ renderDynamic(); drawArcs(); },150); });
+  if(window.matchMedia){ const mq=window.matchMedia("(prefers-color-scheme: dark)"); const f=function(){ resetCss(); renderDynamic(); renderQuiz(); };
+    if(mq.addEventListener) mq.addEventListener("change",f); else if(mq.addListener) mq.addListener(f); }
+
+  window.__demo={state:state,getSim:getSim,runScene:runScene,enterGuided:enterGuided,exitGuided:exitGuided};
+  setL(state.L); renderDynamic(); renderQuiz();
+})();
+</script>
+</body>
+</html>
