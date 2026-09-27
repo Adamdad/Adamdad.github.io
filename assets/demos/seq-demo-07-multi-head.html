@@ -1,0 +1,1100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Multi-Head Attention</title>
+<style>
+/* ============================================================
+   VISUAL GRAMMAR v1  (project-wide, 2026-09-23)
+
+   T1 semantic colours : --reader red / --source blue / --value green
+   T2 motion (CSS only, one-shot, <=1.2s, fired only by user action):
+        M1 line draw      solid: stroke-dashoffset full->0 ; dashed: staged fade
+        M2 bar grow       transform:scaleX() with transform-box:fill-box
+        M3 light-up       from-state keyframes + fill-mode:backwards
+                          + animation-delay: calc(var(--i) * 60ms)
+        M4 breathing      current step only, opacity 1 <-> .65
+      only transform / opacity / stroke-dashoffset are animated;
+      pulse(kind) is NEVER called from setPosterState / reset / init;
+      prefers-reduced-motion also zeroes animation-delay.
+   T3 text sinking: only the 2-3 longest notes sink to the panel bottom
+   T4 hero panel : A7: panel 1, the head comparison. Its bar geometry is
+      pinned by the test (barX 72 / barW 190 / gPitch 106) and panel 3's
+      plane is pinned too, so the hero treatment is the card, the per-head
+      rules and the richest motion -- plus the clickable surface: token
+      names, bars, cells, column headers, value dots and legend rows.
+   ============================================================ */
+
+/* --- shared design system (interactive-teaching-demo/widget-base.css) --- */
+:root{
+  --ink:#30343a;--muted:#697078;--line:#d7dce0;--line-soft:#eef0f2;--paper:#f7f8fa;
+  --red:#9a1921;--red-soft:#f7e9eb;--blue:#1f4e79;--blue-soft:#eaf2f8;
+  --green:#0a8f22;--green-soft:#e8f5ea;
+  /* grammar v1 semantic aliases; the five token colours keep their identity */
+  --reader:var(--red);--source:var(--blue);--value:var(--green);
+  --fs-title:21px;--fs-formula:18px;--fs-body:18px;--fs-label:15px;--fs-micro:12.5px;
+  --fs-mono:17px;--fs-big:52px;
+  --pad-x:24px;--pad-y:16px;--gap:18px;--r-panel:10px;--r-row:8px;--r-bar:5px;
+  --dur:340ms;--step:620ms;--ease:cubic-bezier(.22,.61,.36,1);
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Helvetica Neue","Segoe UI",Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#fff}
+
+/* The figure is laid out once on a fixed 1160x650 canvas (1.78:1, so it maps
+   onto a 16:9 projector almost exactly) and then scaled uniformly to fill the
+   viewport. Scaling instead of reflowing keeps every hand-placed panel, arrow
+   and label in the exact relationship the geometry probe verified. */
+body{
+  display:flex;align-items:center;justify-content:center;
+  color:var(--ink);font:18px/1.3 var(--sans);
+}
+#stage{
+  flex:0 0 auto;width:1160px;height:650px;transform-origin:center center;
+  padding:16px 20px 18px;display:flex;flex-direction:column;background:#fff;
+}
+.w-head{display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding-bottom:11px;border-bottom:2px solid var(--line);margin-bottom:15px;flex:0 0 auto}
+.w-head-main{display:flex;align-items:baseline;gap:12px;min-width:0}
+.w-title{margin:0;color:var(--red);font-size:24px;font-weight:700;white-space:nowrap}
+.w-formula{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  color:var(--muted);font-family:var(--mono);font-size:16px}
+.w-actions{display:flex;gap:8px;align-items:center;flex:0 0 auto}
+.w-btn{appearance:none;border:2px solid var(--red);border-radius:7px;padding:5px 12px;
+  background:#fff;color:var(--red);font:inherit;font-size:16px;font-weight:700;cursor:pointer}
+.w-btn-primary{background:var(--red);color:#fff}
+.w-btn:active{transform:translateY(1px)}
+.w-btn:focus-visible,input:focus-visible{outline:3px solid rgba(154,25,33,.22);outline-offset:2px}
+
+/* three panels, left to right, in the order the story runs */
+.w-pipe{display:flex;align-items:stretch;flex:0 0 auto}
+.w-panel{flex:0 0 auto;display:flex;flex-direction:column;min-width:0}
+.w-cap{display:flex;align-items:baseline;gap:8px;margin-bottom:8px;
+  white-space:nowrap;overflow:hidden;min-width:0}
+.w-cap b{color:var(--red);font-size:17px;flex:0 0 auto}
+.w-cap span{color:var(--muted);font-size:13.5px;overflow:hidden;text-overflow:ellipsis}
+.w-arrow{flex:0 0 16px;display:flex;align-items:center;justify-content:center}
+.w-arrow svg{display:block}
+
+.w-ctl{display:flex;align-items:center;gap:10px;flex:0 0 auto;margin-top:19px;min-width:0}
+.w-ctl-lab{flex:0 0 auto;color:var(--muted);font-size:14px}
+.w-segment{display:flex;gap:6px;flex:0 0 auto}
+.w-segment button{border:1.5px solid var(--line);border-radius:6px;padding:4px 10px;background:#fff;
+  color:var(--ink);font:inherit;font-size:14px;font-weight:700;cursor:pointer}
+.w-segment button.on{border-color:var(--red);background:var(--red-soft);color:var(--red)}
+.w-segment button:disabled{opacity:.35;cursor:default}
+.w-hint{margin-left:auto;color:var(--muted);font-size:14px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+svg.pane{width:100%;height:auto;display:block}
+#p1,#p2,#p3{touch-action:none;cursor:pointer}
+/* T4 hero card: panel 1 is the claim (four heads disagree). Its bar geometry
+   is pinned by the test, so the hero treatment is the card + per-head rules. */
+#p1{background:var(--paper);border-radius:12px}
+
+.sv-num{font:700 12px var(--mono);fill:var(--muted);font-variant-numeric:tabular-nums}
+.sv-num.ink{fill:var(--ink)}
+.sv-tok{font:700 13px var(--sans)}
+.sv-mono{font:700 14px var(--mono)}
+.sv-micro{font:400 11.5px var(--sans);fill:var(--muted)}
+.sv-div{font:700 12px var(--sans);fill:var(--muted)}
+.sv-headlab{font:700 12px var(--sans)}
+.sv-headsub{font:400 11px var(--sans);fill:var(--muted)}
+.sv-reads{font:700 11px var(--sans)}
+.sv-cellnum{font:700 11px var(--mono);font-variant-numeric:tabular-nums}
+.sv-z{font:700 14px var(--mono);fill:var(--red);font-variant-numeric:tabular-nums}
+/* A label that sits on top of geometry gets a white outline: an opaque pad
+   behind it would hide the line from the eye but not from the geometry probe,
+   and an outline keeps both readable. */
+.sv-halo{paint-order:stroke;stroke:#ffffff;stroke-width:3px;stroke-linejoin:round}
+.sv-dot{transition:r var(--dur) var(--ease),fill-opacity var(--dur) var(--ease)}
+.sv-bar{transition:width var(--dur) var(--ease),fill-opacity var(--dur) var(--ease)}
+.sv-lit{transition:fill-opacity var(--dur) var(--ease),stroke-width var(--dur) var(--ease)}
+.sv-cell{transition:fill-opacity var(--dur) var(--ease)}
+.sv-band{transition:opacity var(--dur) var(--ease)}
+
+/* --- grammar v1 motion: CSS only, one-shot, fired by pulse(kind) --- */
+@keyframes w-fade{from{opacity:0}}
+@keyframes w-light{from{opacity:.12}}
+@keyframes w-grow{from{transform:scaleX(0)}}
+@keyframes w-rise{from{transform:scaleY(0)}}
+@keyframes w-breathe{0%,100%{opacity:1}50%{opacity:.68}}
+@keyframes w-draw{from{stroke-dashoffset:var(--len,0)}to{stroke-dashoffset:0}}
+.anim-fade{animation:w-fade 320ms var(--ease) backwards}
+.anim-light{animation:w-light 420ms var(--ease) backwards;animation-delay:calc(var(--i,0)*60ms)}
+.anim-grow{animation:w-grow 460ms var(--ease) backwards;transform-box:fill-box;transform-origin:var(--org,left center);animation-delay:calc(var(--i,0)*60ms)}
+.anim-rise{animation:w-rise 520ms var(--ease) backwards;transform-box:fill-box;transform-origin:bottom center;animation-delay:calc(var(--i,0)*60ms)}
+.anim-breathe{animation:w-breathe 1.6s ease-in-out infinite}
+.anim-draw{stroke-dasharray:var(--len,none);animation:w-draw 560ms var(--ease) backwards;animation-delay:calc(var(--i,0)*60ms)}
+
+@keyframes w-pulse{0%{transform:scale(1)}40%{transform:scale(1.06)}100%{transform:scale(1)}}
+.is-pulsing{animation:w-pulse 300ms var(--ease)}
+@media (prefers-reduced-motion:reduce){
+  :root{--dur:0ms;--step:0ms}
+  *,*::before,*::after{transition-duration:0ms!important;animation-duration:0ms!important;
+    animation-delay:0ms!important}
+  .is-pulsing,.anim-fade,.anim-light,.anim-grow,.anim-rise,.anim-breathe,.anim-draw{animation:none!important}
+}
+</style>
+</head>
+<body>
+
+<div id="stage">
+
+<header class="w-head">
+  <div class="w-head-main">
+    <h1 class="w-title">Different heads read differently</h1>
+    <span class="w-formula">MHA = Concat(head<sub>1</sub>&hellip;head<sub>h</sub>) W<sup>O</sup></span>
+  </div>
+  <div class="w-actions">
+    <button class="w-btn" id="step" type="button">Add a head</button>
+    <button class="w-btn w-btn-primary" id="play" type="button">Play</button>
+    <button class="w-btn" id="reset" type="button">Reset</button>
+  </div>
+</header>
+
+<main class="w-pipe">
+
+  <section class="w-panel" style="width:396px">
+    <div class="w-cap"><b>&#9312; Heads</b><span>one reader, every head</span></div>
+    <svg class="pane" id="p1" viewBox="0 0 396 474" role="img"
+         aria-label="For one reader token, the reading weights it assigns to every source token, drawn once per attention head. Head 1 reads the token itself, head 2 reads a quarter-turn away, and the heads disagree about which source matters most. Click a token name to make it the reader, click a bar to look at that head's view, click a group to select the head."></svg>
+  </section>
+
+  <div class="w-arrow" aria-hidden="true">
+    <svg width="16" height="22" viewBox="0 0 16 22"><path d="M4 4 L12 11 L4 18"
+      fill="none" stroke="#9a1921" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </div>
+
+  <section class="w-panel" style="width:412px">
+    <div class="w-cap"><b>&#9313; Weights</b><span>the selected head, every reader</span></div>
+    <svg class="pane" id="p2" viewBox="0 0 412 474" role="img"
+         aria-label="The full attention weight matrix of the selected head: rows are readers, columns are sources, and every row sums to one. Hover a cell to read its weight, click a row header to change the reader, click a column header to trace a source token, click a cell to pin it."></svg>
+  </section>
+
+  <div class="w-arrow" aria-hidden="true">
+    <svg width="16" height="22" viewBox="0 0 16 22"><path d="M4 4 L12 11 L4 18"
+      fill="none" stroke="#9a1921" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </div>
+
+  <section class="w-panel" style="width:280px">
+    <div class="w-cap"><b>&#9314; Combine</b><span>concat &rarr; W<sup>O</sup></span></div>
+    <svg class="pane" id="p3" viewBox="0 0 280 474" role="img"
+         aria-label="Each head turns the reader's weights into its own output vector, drawn as a dot inside the convex hull of the token values. The combined output is the recombination of the heads that are switched on. Click a value dot to trace a token, click a legend row to switch heads."></svg>
+  </section>
+
+</main>
+
+<div class="w-ctl">
+  <span class="w-ctl-lab">Heads</span>
+  <div class="w-segment" id="hcount" role="group" aria-label="Number of heads"></div>
+  <span class="w-ctl-lab">Reader</span>
+  <div class="w-segment" id="readers" role="group" aria-label="Reader token"></div>
+  <div class="w-segment" id="toggles" role="group" aria-label="Display options"></div>
+  <span class="w-hint" id="hint"></span>
+</div>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ------------------------------------------------------------------ *
+   * Fullscreen: author once on a fixed canvas, scale uniformly to fit.
+   * ------------------------------------------------------------------ */
+  var STAGE_W = 1160, STAGE_H = 650;
+  var stage = document.getElementById("stage");
+  function fit(){
+    var k = Math.min(window.innerWidth / STAGE_W, window.innerHeight / STAGE_H);
+    stage.style.transform = (Math.abs(k - 1) < 0.002) ? "none" : "scale(" + k + ")";
+  }
+  window.addEventListener("resize", fit);
+  window.addEventListener("orientationchange", fit);
+  fit();
+
+  /* ------------------------------------------------------------------ *
+   * Model.
+   *
+   * One-query attention computes, for a reader i, a distribution over the
+   * sources j and then mixes their values:
+   *
+   *   s(i,j) = q_i . k_j / sqrt(d_k)      a compatibility score
+   *   a(i,:) = softmax_j s(i,j)           weights, summing to one per row
+   *   z(i)   = sum_j a(i,j) v_j           a point inside the hull of the values
+   *
+   * Multi-head keeps that whole mechanism and runs it h times, each head with
+   * its OWN projections W_h^Q, W_h^K, W_h^V. The heads therefore disagree:
+   * they are not h copies of one reading, they are h different readings. The
+   * final output recombines them through W^O.
+   *
+   *   z(i) = W^O Concat(z_1(i) ... z_h(i))
+   *
+   * A head's projections are arbitrary learned matrices. Here each head's pair
+   * is a rotation, which is the one choice that can be drawn in the 2-D space
+   * we have and still be read off the picture:
+   *
+   *   W_h^Q = R(phi_h),  W_h^K = R(-phi_h)
+   *   => s_h(i,j) = [ cos(2 phi_h) (e_i . e_j) + sin(2 phi_h) (e_i x e_j) ] / sqrt(d_k)
+   *
+   * so head 1 scores by alignment, head 2 by signed angular offset (the 2-D
+   * cross product, whose diagonal is exactly zero -- head 2 can never read
+   * itself), and heads 3 and 4 are the two blends. Nothing else differs: same
+   * values, same softmax, same mixture. That is the whole of what multi-head
+   * adds, and it is enough to make the heads disagree.
+   *
+   * W^O is the mean over the heads that are switched on. A real W^O is learned;
+   * the mean keeps the recombination drawable and is stated on the panel.
+   *
+   * Deliberately a toy: 5 tokens, 2-D, h <= 4. It buys an exact picture.
+   * ------------------------------------------------------------------ */
+  var TOKENS = [
+    { tok: "The",    color: "#1f4e79", e: [-0.85,  0.55] },
+    { tok: "animal", color: "#0a8f22", e: [ 0.20,  0.95] },
+    { tok: "did",    color: "#a05a00", e: [ 0.95,  0.10] },
+    { tok: "not",    color: "#6a3d9a", e: [ 0.40, -0.90] },
+    { tok: "cross",  color: "#0e7490", e: [-0.90, -0.60] }
+  ];
+  /* Four heads, ordered so that every added head is a genuinely new view:
+     the two pure comparisons first, then the two blends. */
+  var HEADS = [
+    { name: "Head 1", what: "points the same way",       phi:   0 },
+    { name: "Head 2", what: "a quarter-turn off",        phi:  45 },
+    { name: "Head 3", what: "same way + quarter-turn",       phi:  22.5 },
+    { name: "Head 4", what: "same way \u2212 quarter-turn",  phi: -22.5 }
+  ];
+  /* Heads are four views of one mechanism, so they share a hue and differ in
+     lightness. That also keeps them clear of the five token colours. */
+  var HCOL = ["#4c1d95", "#6d28d9", "#9333ea", "#a855f7"];
+  var MAXH = HEADS.length;
+  var SQRT_DK = Math.sqrt(2);
+  var N = TOKENS.length;
+  var MINUS = "\u2212";
+
+  function fmt(v, d){
+    var z = Math.abs(v) < 0.5 * Math.pow(10, -d) ? 0 : v;
+    return z.toFixed(d).replace("-", MINUS);
+  }
+  function finite(v, lo, hi){
+    var n = Number(v);
+    if (!isFinite(n)) { return null; }
+    return Math.max(lo, Math.min(hi, n));
+  }
+  function softmax(zs){
+    var mx = Math.max.apply(null, zs), es = [], s = 0, i;
+    for (i = 0; i < zs.length; i++) { es.push(Math.exp(zs[i] - mx)); s += es[i]; }
+    for (i = 0; i < es.length; i++) { es[i] /= s; }
+    return es;
+  }
+  /* Round a probability row to d decimals while keeping the DISPLAYED sum at
+     exactly 1.000. Plain toFixed() can print weights that add to 0.999, which
+     reads as an arithmetic error on a slide. Largest-remainder apportionment
+     moves at most one unit in the last place per entry. */
+  function roundRow(vals, d){
+    var scale = Math.pow(10, d);
+    var scaled = vals.map(function (v) { return v * scale; });
+    var out = scaled.map(Math.floor);
+    var used = out.reduce(function (a, b) { return a + b; }, 0);
+    var order = scaled.map(function (v, i) { return { i: i, r: v - Math.floor(v) }; });
+    order.sort(function (a, b) { return b.r - a.r; });
+    var need = Math.round(scale) - used;
+    for (var k = 0; k < need && k < order.length; k++) { out[order[k].i] += 1; }
+    return out.map(function (v) { return v / scale; });
+  }
+  function convexHull(pts){
+    var p = pts.slice().sort(function (a, b) { return a[0] - b[0] || a[1] - b[1]; });
+    function cross(o, a, b){
+      return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+    }
+    var lower = [], upper = [], i;
+    for (i = 0; i < p.length; i++) {
+      while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p[i]) <= 0) { lower.pop(); }
+      lower.push(p[i]);
+    }
+    for (i = p.length - 1; i >= 0; i--) {
+      while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p[i]) <= 0) { upper.pop(); }
+      upper.push(p[i]);
+    }
+    lower.pop(); upper.pop();
+    return lower.concat(upper);
+  }
+
+  /* s_h(i,j): the compatibility score of one head, straight from the
+     definitions. cos(2phi) weights the alignment term, sin(2phi) the signed
+     angular-offset term. */
+  function score(h, i, j){
+    var a = TOKENS[i].e, b = TOKENS[j].e;
+    var dot = a[0] * b[0] + a[1] * b[1];
+    var crs = a[0] * b[1] - a[1] * b[0];
+    var t = HEADS[h].phi * Math.PI / 180;
+    return (Math.cos(2 * t) * dot + Math.sin(2 * t) * crs) / SQRT_DK;
+  }
+  /* Every head's full weight matrix, recomputed from the definitions on each
+     render so an edited state can never drift from what is drawn. */
+  function allRows(){
+    var out = [], h, i, j, row;
+    for (h = 0; h < MAXH; h++) {
+      var mat = [];
+      for (i = 0; i < N; i++) {
+        row = [];
+        for (j = 0; j < N; j++) { row.push(score(h, i, j)); }
+        mat.push(softmax(row));
+      }
+      out.push(mat);
+    }
+    return out;
+  }
+  function mix(row){
+    var x = 0, y = 0;
+    for (var j = 0; j < N; j++) { x += row[j] * TOKENS[j].e[0]; y += row[j] * TOKENS[j].e[1]; }
+    return [x, y];
+  }
+  function argmaxOf(row){
+    var k = 0;
+    for (var j = 1; j < row.length; j++) { if (row[j] > row[k]) { k = j; } }
+    return k;
+  }
+  function compute(){
+    var R = allRows();
+    var active = [], h, i;
+    for (h = 0; h < MAXH; h++) { active.push(h < state.heads); }
+    var zHead = [], zx = 0, zy = 0, cnt = 0;
+    for (h = 0; h < MAXH; h++) {
+      var z = mix(R[h][state.reader]);
+      zHead.push(z);
+      if (active[h]) { zx += z[0]; zy += z[1]; cnt++; }
+    }
+    if (cnt === 0) { cnt = 1; }
+    return { R: R, active: active, zHead: zHead, z: [zx / cnt, zy / cnt] };
+  }
+
+  /* ------------------------------------------------------------------ *
+   * State
+   * ------------------------------------------------------------------ */
+  var state = { heads: MAXH, head: 0, reader: 4, numbers: false,
+                pin: null, hover: null, focus: null, playing: false };
+  var raf = null;
+
+  /* ------------------------------------------------------------------ *
+   * Geometry — one layout object per panel; each panel is its own SVG.
+   * ------------------------------------------------------------------ */
+  var P1 = { w: 396, h: 474, gTop: 38, gPitch: 106,
+             labX: 6, barX: 72, barW: 190, numX: 392,
+             rowOff: 24, rowPitch: 15, barH: 11 };
+  var P2 = { w: 412, h: 474, x0: 64, y0: 62, cell: 54, gap: 5, pitch: 59,
+             labX: 58, sumX: 366, sumW: 32, sumH: 12,
+             legendY: 404, legendH: 11, readY: 452 };
+  /* Soft attention is diffuse, so every head's output lands fairly near the
+     centroid of the values. The plane is magnified as far as the panel allows
+     so that the spread between the heads is actually visible. */
+  var P3 = { w: 280, h: 474, cx: 140, cy: 194, S: 126, LABOFF: 15,
+             readY: 366, legY: 396, legPitch: 18 };
+
+  var NS = "http://www.w3.org/2000/svg";
+  function el(tag, attrs){
+    var n = document.createElementNS(NS, tag);
+    for (var k in attrs) { if (Object.prototype.hasOwnProperty.call(attrs, k)) { n.setAttribute(k, attrs[k]); } }
+    return n;
+  }
+  function txt(x, y, cls, content, anchor, fill){
+    var n = el("text", { x: x, y: y, "class": cls, "text-anchor": anchor || "middle" });
+    if (fill) { n.setAttribute("fill", fill); }
+    if (content !== undefined) { n.textContent = content; }
+    return n;
+  }
+  /* Weight -> cell ink. A weight of zero still has to read as "a cell with a
+     value", so the floor keeps a faint tint rather than pure white. */
+  function cellInk(a){ return 0.05 + 0.95 * Math.max(0, Math.min(1, a)); }
+  function cellTextColor(a){ return a > 0.55 ? "#ffffff" : "#30343a"; }
+
+  /* ------------------------------------------------------------------ *
+   * Panel 1 — one reader, every head.
+   *
+   * The four head groups are always present; switching a head off greys its
+   * group instead of removing it, so the panel shows the SAME reader through a
+   * fixed set of views and the comparison never reflows.
+   * ------------------------------------------------------------------ */
+  var svg1 = document.getElementById("p1");
+  var u1 = { note: null, lab: [], sub: [], reads: [], tokLab: [], bar: [], num: [] };
+
+  function buildPanel1(){
+    u1.note = txt(P1.w / 2, 20, "sv-micro", "", "middle");
+    svg1.appendChild(u1.note);
+
+    HEADS.forEach(function (hd, h) {
+      var top = P1.gTop + h * P1.gPitch;
+      var lab = txt(P1.labX, top + 10, "sv-headlab", hd.name, "start", HCOL[h]);
+      var sub = txt(P1.labX + 46, top + 10, "sv-headsub", "\u00B7 " + hd.what, "start");
+      var reads = txt(P1.numX, top + 10, "sv-reads", "", "end", HCOL[h]);
+      svg1.appendChild(lab); svg1.appendChild(sub); svg1.appendChild(reads);
+      u1.lab.push(lab);
+      u1.sub.push(sub);
+      u1.reads.push(reads);
+      TOKENS.forEach(function (tk, j) {
+        var y = top + P1.rowOff + j * P1.rowPitch;
+        var t = txt(P1.labX, y + P1.barH - 1, "sv-tok", tk.tok, "start", tk.color);
+        svg1.appendChild(t);
+        u1.tokLab.push(t);
+        svg1.appendChild(el("rect", { x: P1.barX, y: y, width: P1.barW, height: P1.barH,
+          rx: 3, fill: "#f2f4f6" }));
+        var b = el("rect", { x: P1.barX, y: y, width: 0, height: P1.barH, rx: 3,
+          fill: tk.color, "class": "sv-bar" });
+        svg1.appendChild(b);
+        u1.bar.push(b);
+        var n = txt(P1.numX, y + P1.barH - 1, "sv-num", "", "end");
+        svg1.appendChild(n);
+        u1.num.push(n);
+      });
+      /* a hairline under each head group so the four views read as four cards */
+      svg1.appendChild(el("line", { x1: P1.labX, y1: top + P1.rowOff + N * P1.rowPitch + 2,
+        x2: P1.numX, y2: top + P1.rowOff + N * P1.rowPitch + 2,
+        stroke: "#eef0f2", "stroke-width": 1 }));
+    });
+    /* one shared scale for every bar in the panel, so a longer bar really is a
+       bigger weight and not just a bigger row */
+    svg1.appendChild(txt(P1.barX, P1.gTop - 10, "sv-div", "0", "start"));
+    svg1.appendChild(txt(P1.numX, P1.gTop - 10, "sv-div", "weight  0 \u2192 1", "end"));
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Panel 2 — the selected head's weight matrix, every reader.
+   * ------------------------------------------------------------------ */
+  var svg2 = document.getElementById("p2");
+  var u2 = { head: null, colLab: [], rowLab: [], box: [], cell: [], num: [],
+             sumBar: [], bandR: [], bandC: [], read: null };
+
+  function cellX(j){ return P2.x0 + j * P2.pitch; }
+  function cellY(i){ return P2.y0 + i * P2.pitch; }
+  function cellAt(ev){
+    var m = svg2.getScreenCTM().inverse();
+    var p = new DOMPoint(ev.clientX, ev.clientY).matrixTransform(m);
+    var j = Math.floor((p.x - P2.x0) / P2.pitch);
+    var i = Math.floor((p.y - P2.y0) / P2.pitch);
+    if (i < 0 || i >= N || j < 0 || j >= N) { return null; }
+    /* reject the gaps between cells so a hover never lights the wrong cell */
+    if (p.x - cellX(j) > P2.cell || p.y - cellY(i) > P2.cell) { return null; }
+    return { i: i, j: j };
+  }
+
+  function buildPanel2(){
+    u2.head = txt(P2.x0, 24, "sv-headlab", "", "start");
+    svg2.appendChild(u2.head);
+    u2.read = txt(P2.w / 2, P2.readY, "sv-mono", "", "middle");
+    svg2.appendChild(u2.read);
+
+    /* hover bands sit under the cells and mark the hovered row and column */
+    u2.bandR.push(el("rect", { x: P2.x0, y: 0, width: N * P2.pitch - P2.gap,
+      height: P2.cell, rx: 4, fill: "#9a1921", "fill-opacity": 0.09, opacity: 0,
+      "class": "sv-band", "pointer-events": "none" }));
+    u2.bandC.push(el("rect", { x: 0, y: P2.y0, width: P2.cell,
+      height: N * P2.pitch - P2.gap, rx: 4, fill: "#9a1921", "fill-opacity": 0.09,
+      opacity: 0, "class": "sv-band", "pointer-events": "none" }));
+    svg2.appendChild(u2.bandR[0]);
+    svg2.appendChild(u2.bandC[0]);
+
+    TOKENS.forEach(function (tk, j) {
+      var t = txt(cellX(j) + P2.cell / 2, P2.y0 - 10, "sv-tok", tk.tok, "middle", tk.color);
+      svg2.appendChild(t);
+      u2.colLab.push(t);
+    });
+    TOKENS.forEach(function (tk, i) {
+      var t = txt(P2.labX, cellY(i) + P2.cell / 2 + 5, "sv-tok", tk.tok, "end", tk.color);
+      svg2.appendChild(t);
+      u2.rowLab.push(t);
+      /* every reader row sums to one; the bar is the visual proof of it */
+      svg2.appendChild(el("rect", { x: P2.sumX, y: cellY(i) + (P2.cell - P2.sumH) / 2,
+        width: P2.sumW, height: P2.sumH, rx: 3, fill: "#f2f4f6" }));
+      var sb = el("rect", { x: P2.sumX, y: cellY(i) + (P2.cell - P2.sumH) / 2,
+        width: P2.sumW, height: P2.sumH, rx: 3, fill: "#0a8f22", "class": "sv-bar" });
+      svg2.appendChild(sb);
+      u2.sumBar.push(sb);
+      TOKENS.forEach(function (tkj, j) {
+        var r = el("rect", { x: cellX(j), y: cellY(i), width: P2.cell, height: P2.cell,
+          rx: 4, fill: "#9a1921", "fill-opacity": 0.05, "class": "sv-cell",
+          cursor: "pointer" });
+        svg2.appendChild(r);
+        u2.box.push(r);
+        var n = txt(cellX(j) + P2.cell / 2, cellY(i) + P2.cell / 2 + 4, "sv-cellnum", "", "middle");
+        svg2.appendChild(n);
+        u2.num.push(n);
+      });
+    });
+    svg2.appendChild(txt(P2.sumX + P2.sumW / 2, P2.y0 - 10, "sv-div", "\u03A3 = 1", "middle"));
+
+    /* colour legend, on the same ramp as the cells */
+    var LX = P2.x0, LW = 132, SW = LW / 12;
+    for (var k = 0; k < 12; k++) {
+      svg2.appendChild(el("rect", { x: LX + k * SW, y: P2.legendY, width: SW,
+        height: P2.legendH, fill: "#9a1921",
+        "fill-opacity": cellInk((k + 0.5) / 12).toFixed(3) }));
+    }
+    svg2.appendChild(txt(LX - 4, P2.legendY + P2.legendH - 1, "sv-div", "0.00", "end"));
+    svg2.appendChild(txt(LX + LW + 6, P2.legendY + P2.legendH - 1, "sv-div", "1.00", "start"));
+    svg2.appendChild(txt(P2.w / 2, P2.legendY - 10, "sv-micro",
+      "cell colour = reading weight", "middle"));
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Panel 3 — combine: every head's own output, then the recombination.
+   * ------------------------------------------------------------------ */
+  var svg3 = document.getElementById("p3");
+  var u3 = { hull: null, vDot: [], vLab: [], zDot: [], zLab: [], zLink: [],
+             zHalo: null, zDotC: null, zRead: null, legDot: [], legLab: [] };
+
+  function p3(v){ return { x: P3.cx + v[0] * P3.S, y: P3.cy - v[1] * P3.S }; }
+
+  function buildPanel3(){
+    u3.hull = el("polygon", { fill: "#1f4e79", "fill-opacity": 0.05,
+      stroke: "#c9d6e2", "stroke-width": 1.4, "stroke-dasharray": "5 5" });
+    svg3.appendChild(u3.hull);
+
+    TOKENS.forEach(function (tk) {
+      var p = p3(tk.e);
+      var c = el("circle", { cx: p.x, cy: p.y, r: 5, fill: tk.color,
+        stroke: "#fff", "stroke-width": 1.6 });
+      svg3.appendChild(c);
+      u3.vDot.push(c);
+      var l = txt(0, 0, "sv-tok sv-halo", tk.tok, "middle", tk.color);
+      svg3.appendChild(l);
+      u3.vLab.push(l);
+    });
+    /* one dashed leader per head, from its own output to the recombined one */
+    HEADS.forEach(function (hd, h) {
+      var ln = el("line", { stroke: HCOL[h], "stroke-width": 1.6,
+        "stroke-dasharray": "3 3", "stroke-opacity": 0.5, "class": "sv-arrow" });
+      svg3.appendChild(ln);
+      u3.zLink.push(ln);
+    });
+    HEADS.forEach(function (hd, h) {
+      var c = el("circle", { r: 6, fill: HCOL[h], stroke: "#fff", "stroke-width": 1.8,
+        "class": "sv-dot" });
+      svg3.appendChild(c);
+      u3.zDot.push(c);
+    });
+    u3.zHalo = el("circle", { r: 15, fill: "#9a1921", "fill-opacity": 0.13 });
+    svg3.appendChild(u3.zHalo);
+    u3.zDotC = el("circle", { r: 8, fill: "#9a1921", stroke: "#fff", "stroke-width": 2.6 });
+    svg3.appendChild(u3.zDotC);
+
+    svg3.appendChild(txt(P3.w / 2, 20, "sv-micro", "each head's own output z", "middle"));
+    u3.zRead = txt(P3.w / 2, P3.readY, "sv-z", "", "middle");
+    svg3.appendChild(u3.zRead);
+    HEADS.forEach(function (hd, h) {
+      var y = P3.legY + h * P3.legPitch;
+      var c = el("circle", { cx: 16, cy: y - 4, r: 5, fill: HCOL[h], stroke: "#fff",
+        "stroke-width": 1.5, "class": "sv-lit" });
+      svg3.appendChild(c);
+      u3.legDot.push(c);
+      var l = txt(30, y, "sv-headsub", hd.name, "start");
+      svg3.appendChild(l);
+      u3.legLab.push(l);
+    });
+    svg3.appendChild(txt(P3.w - 10, P3.legY + 10, "sv-micro", "on / off", "end"));
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Motion — visual grammar v1. pulse(kind) is fired only by a user action;
+   * render() clears every class first, so nothing lingers and the poster
+   * (setPosterState -> reset -> render) is always static.
+   * ------------------------------------------------------------------ */
+  var ANIM_CLS = ["anim-fade", "anim-light", "anim-grow", "anim-rise", "anim-breathe", "anim-draw"];
+  function clearAnims(){
+    var ns = stage.querySelectorAll("." + ANIM_CLS.join(",."));
+    for (var i = 0; i < ns.length; i++) {
+      for (var c = 0; c < ANIM_CLS.length; c++) { ns[i].classList.remove(ANIM_CLS[c]); }
+    }
+  }
+  function kick(node, cls, i){
+    if (!node) { return; }
+    node.classList.remove(cls);
+    void node.getBoundingClientRect();
+    if (i !== undefined && i !== null) { node.style.setProperty("--i", String(i)); }
+    node.classList.add(cls);
+  }
+  function pulse(kind, idx){
+    var i, j, h, H, J, P;
+    if (kind === "head") {
+      H = (idx === undefined || idx === null) ? state.head : idx;
+      kick(u1.lab[H], "anim-light"); kick(u1.sub[H], "anim-light"); kick(u1.reads[H], "anim-light");
+      for (j = 0; j < N; j++) { kick(u1.bar[H * N + j], "anim-light", j); }
+      kick(u2.head, "anim-light");
+      kick(u3.legDot[H], "anim-light"); kick(u3.legLab[H], "anim-light");
+      kick(u3.zDot[H], "anim-breathe"); kick(u3.zLink[H], "anim-fade");
+      kick(u3.zDotC, "anim-breathe");
+    } else if (kind === "reader") {
+      for (h = 0; h < MAXH; h++) { kick(u1.bar[h * N + state.reader], "anim-light", h); }
+      kick(u1.tokLab[state.reader], "anim-light");
+      kick(u2.rowLab[state.reader], "anim-light");
+      kick(u2.sumBar[state.reader], "anim-grow");
+      kick(u2.bandR[0], "anim-fade");
+      kick(u2.read, "anim-fade");
+      kick(u3.zDotC, "anim-breathe"); kick(u3.zHalo, "anim-fade");
+    } else if (kind === "focus") {
+      J = (idx === undefined || idx === null) ? state.focus : idx;
+      if (J === null || J === undefined) { return; }
+      for (h = 0; h < MAXH; h++) { kick(u1.bar[h * N + J], "anim-light", h); }
+      kick(u1.tokLab[J], "anim-light");
+      kick(u2.colLab[J], "anim-light");
+      for (i = 0; i < N; i++) { kick(u2.box[i * N + J], "anim-light", i); }
+      kick(u3.vDot[J], "anim-light"); kick(u3.vLab[J], "anim-light");
+      kick(u3.zDotC, "anim-breathe");
+    } else if (kind === "pin") {
+      P = (idx === undefined || idx === null) ? -1 : idx;
+      if (P >= 0 && u2.box[P]) { kick(u2.box[P], "anim-light"); }
+      kick(u2.read, "anim-fade");
+    } else if (kind === "numbers") {
+      for (i = 0; i < u1.num.length; i++) { kick(u1.num[i], "anim-light", i % 6); }
+      for (i = 0; i < u2.num.length; i++) { kick(u2.num[i], "anim-light", i % 6); }
+    }
+  }
+  /* focus = the source token being traced; clicking it again clears it */
+  function setFocus(j){
+    var n = (j === null || j === undefined) ? null : finite(j, 0, N - 1);
+    state.focus = (n === null) ? null : Math.round(n);
+    render();
+  }
+  function userFocus(j){
+    if (state.focus === j) { setFocus(null); return; }
+    setFocus(j);
+    if (state.focus !== null) { pulse("focus", state.focus); }
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Render
+   * ------------------------------------------------------------------ */
+  function render(){
+    clearAnims();
+    var M = compute();
+    var R = M.R;
+    /* everything outside the traced token steps back, so one token's
+       treatment across the four heads can be read at a glance */
+    var F = state.focus;
+    function dim(j){ return (F === null || j === F) ? 1 : 0.3; }
+
+    /* ---- panel 1 ---- */
+    u1.note.textContent = "reader \u201C" + TOKENS[state.reader].tok +
+      "\u201D reads \u2014 once per head";
+    HEADS.forEach(function (hd, h) {
+      var on = M.active[h], row = R[h][state.reader], am = argmaxOf(row);
+      u1.lab[h].setAttribute("fill-opacity", on ? "1" : "0.32");
+      u1.sub[h].setAttribute("fill-opacity", on ? "1" : "0.32");
+      u1.reads[h].textContent = on ? "reads " + TOKENS[am].tok : "switched off";
+      u1.reads[h].setAttribute("fill-opacity", on ? "1" : "0.32");
+      TOKENS.forEach(function (tk, j) {
+        var idx = h * N + j;
+        var w = row[j];
+        u1.bar[idx].setAttribute("width", (w * P1.barW).toFixed(2));
+        u1.bar[idx].setAttribute("fill-opacity", ((on ? (0.35 + 0.65 * w) : 0.10) * dim(j)).toFixed(3));
+        u1.bar[idx].setAttribute("stroke", (on && j === am) ? tk.color : "none");
+        u1.bar[idx].setAttribute("stroke-width", (on && j === am) ? 1.6 : 0);
+        u1.tokLab[idx].setAttribute("fill-opacity", dim(j).toFixed(2));
+        u1.num[idx].textContent = (state.numbers && on) ? fmt(w, 3) : "";
+      });
+    });
+
+    /* ---- panel 2 ---- */
+    u2.head.textContent = HEADS[state.head].name + " \u00B7 " + HEADS[state.head].what;
+    u2.head.setAttribute("fill", HCOL[state.head]);
+    var mat = R[state.head];
+    for (var i = 0; i < N; i++) {
+      for (var j = 0; j < N; j++) {
+        var idx = i * N + j, a = mat[i][j];
+        var pinned = state.pin && state.pin.i === i && state.pin.j === j;
+        u2.box[idx].setAttribute("fill-opacity", cellInk(a).toFixed(3));
+        u2.box[idx].setAttribute("stroke", pinned ? "#30343a" : "none");
+        u2.box[idx].setAttribute("stroke-width", pinned ? 2.2 : 0);
+        var showNum = state.numbers || pinned ||
+          (state.hover && state.hover.i === i && state.hover.j === j);
+        u2.num[idx].textContent = showNum ? fmt(a, 2) : "";
+        u2.num[idx].setAttribute("fill", cellTextColor(a));
+      }
+      /* every row is a distribution: the bar is always exactly full */
+      u2.sumBar[i].setAttribute("width", (mat[i].reduce(function (a, b) { return a + b; }, 0) * P2.sumW).toFixed(2));
+      var hot = state.hover && state.hover.i === i;
+      u2.rowLab[i].setAttribute("fill-opacity", (i === state.reader || hot) ? "1" : "0.55");
+    }
+    TOKENS.forEach(function (tk, j) {
+      var hot = state.hover && state.hover.j === j;
+      u2.colLab[j].setAttribute("fill-opacity", ((hot ? 1 : 0.55) * dim(j)).toFixed(2));
+    });
+    /* hover bands: the reader's row always stays lit, the hovered pair is drawn
+       on top of it so the two are never confused */
+    u2.bandR[0].setAttribute("y", cellY(state.reader));
+    u2.bandR[0].setAttribute("opacity", "1");
+    var bandJ = state.hover ? state.hover.j : (F === null ? null : F);
+    if (bandJ === null) {
+      u2.bandC[0].setAttribute("opacity", "0");
+    } else {
+      u2.bandC[0].setAttribute("x", cellX(bandJ));
+      u2.bandC[0].setAttribute("opacity", "1");
+    }
+    var focus = state.pin || state.hover;
+    u2.read.textContent = focus
+      ? TOKENS[focus.i].tok + " \u2192 " + TOKENS[focus.j].tok + "  =  " +
+        fmt(mat[focus.i][focus.j], 3)
+      : "hover a cell to read its weight";
+    u2.read.setAttribute("fill", focus ? "#30343a" : "#697078");
+
+    /* ---- panel 3 ---- */
+    var hull = convexHull(TOKENS.map(function (tk) { return tk.e; }));
+    u3.hull.setAttribute("points", hull.map(function (v) {
+      var p = p3(v); return p.x.toFixed(1) + "," + p.y.toFixed(1);
+    }).join(" "));
+    TOKENS.forEach(function (tk, j) {
+      var p = p3(tk.e);
+      /* Place each token name just outside its own dot, flipped inward when it
+         would leave the panel. These five are fixed, so the placement is done
+         once here rather than searched for on every frame. */
+      var dx = p.x - P3.cx, dy = p.y - P3.cy;
+      var L = Math.hypot(dx, dy) || 1;
+      var ux = dx / L, uy = dy / L;
+      var len = (u3.vLab[j].getComputedTextLength ? u3.vLab[j].getComputedTextLength() : 0) || 30;
+      var lx = p.x + ux * P3.LABOFF, ly = p.y + uy * P3.LABOFF + 4;
+      var anchor = Math.abs(ux) < 0.35 ? "middle" : (ux > 0 ? "start" : "end");
+      if (anchor === "end" && lx - len < 2) { anchor = "start"; lx = p.x - ux * P3.LABOFF; }
+      else if (anchor === "start" && lx + len > P3.w - 2) { anchor = "end"; lx = p.x - ux * P3.LABOFF; }
+      if (anchor === "middle") { lx = Math.max(2 + len / 2, Math.min(P3.w - 2 - len / 2, lx)); }
+      u3.vLab[j].setAttribute("x", lx.toFixed(1));
+      u3.vLab[j].setAttribute("y", ly.toFixed(1));
+      u3.vLab[j].setAttribute("text-anchor", anchor);
+      u3.vDot[j].setAttribute("fill-opacity", dim(j).toFixed(2));
+      u3.vLab[j].setAttribute("fill-opacity", dim(j).toFixed(2));
+    });
+    var zp = p3(M.z);
+    HEADS.forEach(function (hd, h) {
+      var on = M.active[h], q = p3(M.zHead[h]);
+      u3.zDot[h].setAttribute("cx", q.x.toFixed(1));
+      u3.zDot[h].setAttribute("cy", q.y.toFixed(1));
+      u3.zDot[h].setAttribute("fill-opacity", on ? "1" : "0.16");
+      u3.zLink[h].setAttribute("x1", q.x.toFixed(1));
+      u3.zLink[h].setAttribute("y1", q.y.toFixed(1));
+      u3.zLink[h].setAttribute("x2", zp.x.toFixed(1));
+      u3.zLink[h].setAttribute("y2", zp.y.toFixed(1));
+      u3.zLink[h].setAttribute("opacity", on ? "1" : "0");
+      u3.legDot[h].setAttribute("fill-opacity", on ? "1" : "0.16");
+      u3.legLab[h].setAttribute("fill-opacity", on ? "1" : "0.35");
+      u3.legLab[h].setAttribute("fill", HCOL[h]);
+    });
+    u3.zHalo.setAttribute("cx", zp.x.toFixed(1));
+    u3.zHalo.setAttribute("cy", zp.y.toFixed(1));
+    u3.zDotC.setAttribute("cx", zp.x.toFixed(1));
+    u3.zDotC.setAttribute("cy", zp.y.toFixed(1));
+    u3.zRead.textContent = "z = (" + fmt(M.z[0], 2) + ", " + fmt(M.z[1], 2) + ")";
+
+    /* ---- controls ---- */
+    hBtns.forEach(function (b, k) {
+      b.className = (state.heads === k + 1) ? "on" : "";
+    });
+    rBtns.forEach(function (b, k) {
+      b.className = (state.reader === k) ? "on" : "";
+    });
+    toggleBtns[0].className = state.numbers ? "on" : "";
+    hint.textContent = (state.heads === 1
+      ? "one head \u2014 one view of the sentence"
+      : state.heads + " heads read " + state.heads + " different views at once") +
+      (state.focus === null ? "" : " \u00B7 tracing \u201C" + TOKENS[state.focus].tok + "\u201D");
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Controls
+   * ------------------------------------------------------------------ */
+  var hBox = document.getElementById("hcount");
+  var rBox = document.getElementById("readers");
+  var toggleBox = document.getElementById("toggles");
+  var hint = document.getElementById("hint");
+  var btnStep = document.getElementById("step");
+  var btnPlay = document.getElementById("play");
+  var btnReset = document.getElementById("reset");
+
+  var hBtns = [];
+  for (var hh = 1; hh <= MAXH; hh++) {
+    (function (k) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = String(k);
+      b.addEventListener("click", function () { stop(); setHeadCount(k); pulse("head", k - 1); });
+      hBox.appendChild(b);
+      hBtns.push(b);
+    })(hh);
+  }
+  var rBtns = TOKENS.map(function (tk, k) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.textContent = tk.tok;
+    b.addEventListener("click", function () { stop(); setReader(k); pulse("reader", k); });
+    rBox.appendChild(b);
+    return b;
+  });
+  var toggleBtns = [
+    { label: "numbers", kind: "numbers", act: function () { state.numbers = !state.numbers; } }
+  ].map(function (t) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.textContent = t.label;
+    b.addEventListener("click", function () { stop(); t.act(); render(); pulse(t.kind); });
+    toggleBox.appendChild(b);
+    return b;
+  });
+
+  function setHeadCount(k){
+    var n = finite(k, 1, MAXH);
+    if (n === null) { return; }
+    state.heads = Math.round(n);
+    if (state.head > state.heads - 1) { state.head = 0; }
+    render();
+  }
+  function setReader(k){
+    var n = finite(k, 0, N - 1);
+    if (n === null) { return; }
+    state.reader = Math.round(n);
+    render();
+  }
+  function setHead(k){
+    var n = finite(k, 0, MAXH - 1);
+    if (n === null) { return; }
+    state.head = Math.round(n);
+    render();
+  }
+  function setPin(i, j){
+    if (i === null || i === undefined) { state.pin = null; }
+    else {
+      var a = finite(i, 0, N - 1), b = finite(j, 0, N - 1);
+      state.pin = (a === null || b === null) ? null : { i: Math.round(a), j: Math.round(b) };
+    }
+    render();
+  }
+
+  /* ---- matrix interaction: hover to read, click a row header to switch
+     reader, click a cell to pin it ---- */
+  svg2.addEventListener("pointermove", function (ev) {
+    var c = cellAt(ev);
+    var same = (c === null && state.hover === null) ||
+               (c && state.hover && c.i === state.hover.i && c.j === state.hover.j);
+    if (same) { return; }
+    state.hover = c;
+    render();
+  });
+  svg2.addEventListener("pointerleave", function () {
+    if (state.hover) { state.hover = null; render(); }
+  });
+  svg2.addEventListener("click", function (ev) {
+    var m = svg2.getScreenCTM().inverse();
+    var p = new DOMPoint(ev.clientX, ev.clientY).matrixTransform(m);
+    var i = Math.floor((p.y - P2.y0) / P2.pitch);
+    /* row header -> make that token the reader */
+    if (p.x < P2.x0 && p.y >= P2.y0 && i >= 0 && i < N &&
+        p.y - cellY(i) <= P2.cell) { stop(); setReader(i); pulse("reader", i); return; }
+    /* column header -> trace that source token through every panel */
+    if (p.y < P2.y0 && p.x >= P2.x0) {
+      var j = Math.floor((p.x - P2.x0) / P2.pitch);
+      if (j >= 0 && j < N && p.x - cellX(j) <= P2.cell) { userFocus(j); return; }
+    }
+    /* a cell -> pin it and read the matrix from that reader's row */
+    var c = cellAt(ev);
+    if (c) {
+      stop();
+      setReader(c.i);
+      var same = state.pin && state.pin.i === c.i && state.pin.j === c.j;
+      setPin(same ? null : c.i, c.j);
+      pulse("pin", c.i * N + c.j);
+    }
+  });
+  /* panel 1: click a token name to make it the reader, click a bar to look at
+     that head's view of the token, click elsewhere in a group to select it */
+  function p1Hit(p){
+    var h = Math.floor((p.y - P1.gTop) / P1.gPitch);
+    if (h < 0 || h >= MAXH) { return null; }
+    var top = P1.gTop + h * P1.gPitch;
+    var j = Math.floor((p.y - top - P1.rowOff) / P1.rowPitch);
+    if (j < 0 || j >= N) { return null; }
+    if (p.y - (top + P1.rowOff + j * P1.rowPitch) > P1.barH) { return null; }
+    if (p.x > P1.numX + 2) { return null; }
+    return { h: h, j: j, label: p.x < P1.barX - 4 };
+  }
+  svg1.addEventListener("click", function (ev) {
+    var m = svg1.getScreenCTM().inverse();
+    var p = new DOMPoint(ev.clientX, ev.clientY).matrixTransform(m);
+    var hit = p1Hit(p);
+    if (hit) {
+      if (hit.label) { stop(); setReader(hit.j); pulse("reader", hit.j); }
+      else { stop(); setHead(hit.h); userFocus(hit.j); }
+      return;
+    }
+    var h = Math.floor((p.y - P1.gTop) / P1.gPitch);
+    if (h >= 0 && h < MAXH && p.y - (P1.gTop + h * P1.gPitch) <= P1.gPitch - 6) {
+      stop(); setHead(h); pulse("head", h);
+    }
+  });
+
+  /* panel 3: click a value dot to trace that token, click a legend row to
+     switch panel 2 to that head */
+  function p3Hit(p){
+    for (var j = 0; j < N; j++) {
+      var q = p3(TOKENS[j].e);
+      if (Math.hypot(p.x - q.x, p.y - q.y) <= 15) { return { kind: "tok", j: j }; }
+    }
+    for (var h = 0; h < MAXH; h++) {
+      var y = P3.legY + h * P3.legPitch - 4;
+      if (p.x <= 130 && Math.abs(p.y - y) <= 11) { return { kind: "head", h: h }; }
+    }
+    return null;
+  }
+  svg3.addEventListener("click", function (ev) {
+    var m = svg3.getScreenCTM().inverse();
+    var p = new DOMPoint(ev.clientX, ev.clientY).matrixTransform(m);
+    var hit = p3Hit(p);
+    if (!hit) { return; }
+    if (hit.kind === "tok") { userFocus(hit.j); }
+    else { stop(); setHead(hit.h); pulse("head", hit.h); }
+  });
+
+  /* ---- playback: add the heads one at a time ---- */
+  function stop(){
+    if (raf !== null) { cancelAnimationFrame(raf); raf = null; }
+    state.playing = false;
+  }
+  function reduced(){
+    return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }
+  function play(){
+    stop();
+    if (reduced()) { setHeadCount(MAXH); return; }
+    state.playing = true;
+    state.heads = 1;
+    render();
+    pulse("head", 0);
+    var t0 = performance.now(), dur = 4200;
+    (function frame(now){
+      if (!state.playing) { return; }
+      var f = Math.min(1, (now - t0) / dur);
+      var want = 1 + Math.floor(f * MAXH);
+      if (want > MAXH) { want = MAXH; }
+      if (want !== state.heads) { state.heads = want; render(); pulse("head", want - 1); }
+      if (f >= 1) { state.heads = MAXH; stop(); render(); return; }
+      raf = requestAnimationFrame(frame);
+    })(t0);
+  }
+  function reset(){
+    stop();
+    state.numbers = false;
+    state.heads = MAXH;
+    state.head = 0;
+    state.reader = N - 1;
+    state.pin = null;
+    state.hover = null;
+    state.focus = null;
+    render();
+  }
+  function setPosterState(){ reset(); }
+
+  btnStep.addEventListener("click", function () {
+    stop();
+    /* cycle 1 -> 2 -> 3 -> 4 -> 1, and follow the newest head */
+    var next = state.heads >= MAXH ? 1 : state.heads + 1;
+    setHeadCount(next);
+    setHead(next - 1);
+    pulse("head", next - 1);
+  });
+  btnPlay.addEventListener("click", play);
+  btnReset.addEventListener("click", reset);
+
+  window.addEventListener("keydown", function (ev) {
+    var k = ev.key;
+    if (k === "ArrowRight") { stop(); setHead(state.head + 1); pulse("head", state.head); ev.preventDefault(); }
+    else if (k === "ArrowLeft") { stop(); setHead(state.head - 1); pulse("head", state.head); ev.preventDefault(); }
+    else if (k === "ArrowDown") { stop(); setReader(state.reader + 1); pulse("reader", state.reader); ev.preventDefault(); }
+    else if (k === "ArrowUp") { stop(); setReader(state.reader - 1); pulse("reader", state.reader); ev.preventDefault(); }
+    else if (k >= "1" && k <= String(MAXH)) { stop(); setHeadCount(Number(k)); pulse("head", Number(k) - 1); ev.preventDefault(); }
+    else if (k === " ") { if (state.playing) { stop(); render(); } else { play(); } ev.preventDefault(); }
+    else if (k === "Escape") { stop(); setPin(null); setFocus(null); ev.preventDefault(); }
+  });
+
+  /* ------------------------------------------------------------------ *
+   * Test hook. The model is exposed so a reference implementation can be
+   * compared against the numbers actually rendered, not against the widget's
+   * own arithmetic.
+   * ------------------------------------------------------------------ */
+  window.__widget = {
+    getStep: function () { return state.heads; },
+    getState: function () { return JSON.parse(JSON.stringify(state)); },
+    reset: reset,
+    setPosterState: setPosterState,
+    setStep: function (i) { stop(); setHeadCount(i); },
+    seekStep: function (i) { window.__widget.setStep(i); },
+    setPhase: function (i) { window.__widget.setStep(i); },
+    setReader: function (i) { stop(); setReader(i); },
+    setTab: function (i) { window.__widget.setReader(i); },
+    setAngle: function (i) { stop(); setHead(i); },
+    setTarget: function (m) { stop(); window.__widget.setMode(m); },
+    setMode: function (m) {
+      stop();
+      if (m === "single" || m === "one") { setHeadCount(1); }
+      else if (m === "multi" || m === "all") { setHeadCount(MAXH); }
+    },
+    setActivation: function (b) { stop(); setHeadCount(b ? MAXH : 1); },
+    setView: function () { /* the layout has one view; kept for the probe */ },
+    setLength: function () { /* no continuous length parameter */ },
+    setPosition: function () { /* no draggable point */ },
+    setPin: function (n) {
+      stop();
+      var v = finite(n, -1, N * N - 1);
+      if (v === null) { return; }
+      setPin(v < 0 ? null : Math.floor(v / N), v < 0 ? null : v % N);
+    },
+    setFocus: function (j) {
+      stop();
+      var v = (j === null || j === undefined) ? null : finite(j, 0, N - 1);
+      setFocus(v === null ? null : Math.round(v));
+    },
+    setNumbers: function (b) { stop(); state.numbers = !!b; render(); },
+    setHover: function (n) {
+      var v = finite(n, -1, N * N - 1);
+      if (v === null) { return; }
+      state.hover = v < 0 ? null : { i: Math.floor(v / N), j: v % N };
+      render();
+    },
+    designSize: function () { return [STAGE_W, STAGE_H]; },
+    getModel: function () {
+      var M = compute(), R = M.R, out = { heads: [], active: M.active,
+        headCount: state.heads, head: state.head, reader: state.reader,
+        readerTok: TOKENS[state.reader].tok,
+        tokens: TOKENS.map(function (t) { return t.tok; }),
+        emb: TOKENS.map(function (t) { return t.e.slice(); }),
+        headNames: HEADS.map(function (h) { return h.name; }),
+        phi: HEADS.map(function (h) { return h.phi; }),
+        z: [M.z[0], M.z[1]], zHead: M.zHead };
+      for (var h = 0; h < MAXH; h++) {
+        /* The raw compatibility scores are exposed as well as the weights. The
+           structural claims the demo rests on -- head 1's score matrix is
+           symmetric, head 2's diagonal is exactly zero -- are claims about the
+           scores, not about the softmaxed rows, and softmax destroys both
+           properties. Without this a test could only assert them in Python. */
+        var sc = [];
+        for (var si = 0; si < N; si++) {
+          var sr = [];
+          for (var sj = 0; sj < N; sj++) { sr.push(score(h, si, sj)); }
+          sc.push(sr);
+        }
+        out.heads.push({
+          name: HEADS[h].name,
+          score: sc,
+          alpha: R[h].map(function (r) { return r.slice(); }),
+          shown: R[h].map(function (r) { return roundRow(r, 3); }),
+          argmax: R[h].map(function (r) { return TOKENS[argmaxOf(r)].tok; }),
+          rowSum: R[h].map(function (r) { return r.reduce(function (a, b) { return a + b; }, 0); })
+        });
+      }
+      return out;
+    }
+  };
+
+  buildPanel1();
+  buildPanel2();
+  buildPanel3();
+  setPosterState();
+})();
+</script>
+</body>
+</html>

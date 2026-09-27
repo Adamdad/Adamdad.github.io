@@ -17,7 +17,7 @@ layout: default
 
     <div class="demo-frame-card">
       <div class="demo-frame-wrap" data-demo-frame>
-        <iframe src="{{ page.demo_src | relative_url }}" title="{{ page.title }} interactive demo" loading="lazy"></iframe>
+        <iframe src="{{ page.demo_src | relative_url }}" title="{{ page.title }} interactive demo" loading="lazy" data-demo-height="{{ page.demo_height | default: 430 }}" style="height: {{ page.demo_height | default: 430 }}px"></iframe>
       </div>
     </div>
 
@@ -39,7 +39,7 @@ layout: default
       if (!isFinite(scale) || scale <= 0) scale = 1;
       scale = Math.min(scale, 1);
       iframe.style.transform = "scale(" + scale + ")";
-      wrap.style.height = Math.round(430 * scale) + "px";
+      wrap.style.height = Math.round(Number(iframe.getAttribute("data-demo-height")) * scale) + "px";
     }
     function fitAll() {
       document.querySelectorAll("[data-demo-frame]").forEach(fit);

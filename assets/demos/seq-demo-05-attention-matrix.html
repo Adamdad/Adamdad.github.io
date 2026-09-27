@@ -1,0 +1,1189 @@
+<!doctype html>
+<html lang="en" data-page-node-id="5QUtMyHjxLRRkR4CHgVIVO">
+<head data-page-node-id="zwQjGORAAhCJCazI6lpHz9">
+<meta charset="utf-8" data-page-node-id="H939ruPNSk4j3y8HDTu5oJ">
+<meta name="viewport" content="width=device-width, initial-scale=1" data-page-node-id="lBlyL9P8GA2EvVmcQrfGR5">
+<title>Self-Attention Matrix</title>
+<style>
+/* ============================================================
+   VISUAL GRAMMAR v1  (pilot: A3 + A5, 2026-09-23)
+   T1  semantic colours : --reader red / --source blue / --value green
+   T2  motion (CSS only, one-shot, <=1.2s, fired only by user action):
+       M1 line draw   solid: stroke-dashoffset full->0 ; dashed: staged fade
+       M2 bar grow    transform:scaleX() with transform-box:fill-box
+       M3 light-up    from-state keyframes + fill-mode:backwards
+                      + animation-delay: calc(var(--i) * 60ms)
+       M4 breathing   current step only, opacity 1 <-> .65
+       only transform / opacity / stroke-dashoffset are animated;
+       pulse(kind) is NEVER called from setPosterState / reset / init;
+       prefers-reduced-motion also zeroes animation-delay.
+   T3  text sinking: only the 2-3 longest notes sink to the panel bottom
+   T4  hero panel : one enlarged hero per widget (A5: panel 2, the matrix)
+   ============================================================ */
+/* --- shared design system (interactive-teaching-demo/widget-base.css) --- */
+:root{
+  --ink:#30343a;--muted:#697078;--line:#d7dce0;--line-soft:#eef0f2;--paper:#f7f8fa;
+  --red:#9a1921;--red-soft:#f7e9eb;--blue:#1f4e79;--blue-soft:#eaf2f8;
+  --green:#0a8f22;--green-soft:#e8f5ea;
+  --reader:var(--red);--source:var(--blue);--value:var(--green);
+  --fs-title:21px;--fs-formula:18px;--fs-body:18px;--fs-label:15px;--fs-micro:12.5px;
+  --fs-mono:17px;--fs-big:52px;
+  --pad-x:24px;--pad-y:16px;--gap:18px;--r-panel:10px;--r-row:8px;--r-bar:5px;
+  --dur:340ms;--step:620ms;--ease:cubic-bezier(.22,.61,.36,1);
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Helvetica Neue","Segoe UI",Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#fff}
+
+/* The figure is laid out once on a fixed 1160x650 canvas (1.78:1, so it maps
+   onto a 16:9 projector almost exactly) and then scaled uniformly to fill the
+   viewport. Scaling instead of reflowing keeps every hand-placed panel, cell
+   and label in the exact relationship the geometry probe verified. */
+body{
+  display:flex;align-items:center;justify-content:center;
+  color:var(--ink);font:18px/1.3 var(--sans);
+}
+#stage{
+  flex:0 0 auto;width:1160px;height:650px;transform-origin:center center;
+  padding:16px 20px 18px;display:flex;flex-direction:column;background:#fff;
+}
+.w-head{display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding-bottom:11px;border-bottom:2px solid var(--line);margin-bottom:15px;flex:0 0 auto}
+.w-head-main{display:flex;align-items:baseline;gap:12px;min-width:0}
+.w-title{margin:0;color:var(--red);font-size:24px;font-weight:700;white-space:nowrap}
+.w-formula{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  color:var(--muted);font-family:var(--mono);font-size:18px}
+.w-actions{display:flex;gap:8px;align-items:center;flex:0 0 auto}
+.w-btn{appearance:none;border:2px solid var(--red);border-radius:7px;padding:5px 12px;
+  background:#fff;color:var(--red);font:inherit;font-size:16px;font-weight:700;cursor:pointer}
+.w-btn-primary{background:var(--red);color:#fff}
+.w-btn:active{transform:translateY(1px)}
+.w-btn:focus-visible,input:focus-visible{outline:3px solid rgba(154,25,33,.22);outline-offset:2px}
+
+.w-pipe{display:flex;align-items:stretch;flex:0 0 auto}
+.w-panel{flex:0 0 auto;display:flex;flex-direction:column;min-width:0}
+.w-cap{display:flex;align-items:baseline;gap:8px;margin-bottom:8px;
+  white-space:nowrap;overflow:hidden;min-width:0}
+.w-cap b{color:var(--red);font-size:17px;flex:0 0 auto}
+.w-cap span{color:var(--muted);font-size:13.5px;overflow:hidden;text-overflow:ellipsis}
+.w-arrow{flex:0 0 14px;display:flex;align-items:center;justify-content:center}
+.w-arrow svg{display:block}
+
+.w-ctl{display:flex;align-items:center;gap:9px;flex:0 0 auto;margin-top:19px;min-width:0}
+.w-ctl-lab{flex:0 0 auto;color:var(--muted);font-size:14px}
+.w-segment{display:flex;gap:5px;flex:0 0 auto}
+.w-segment button{border:1.5px solid var(--line);border-radius:6px;padding:4px 9px;background:#fff;
+  color:var(--ink);font:inherit;font-size:14px;font-weight:700;cursor:pointer}
+.w-segment button.on{border-color:var(--red);background:var(--red-soft);color:var(--red)}
+.w-hint{margin-left:auto;color:var(--muted);font-size:14px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+svg.pane{width:100%;height:auto;display:block}
+#mat{touch-action:none}
+
+.sv-num{font:700 12px var(--mono);fill:var(--muted);font-variant-numeric:tabular-nums}
+.sv-num.ink{fill:var(--ink)}
+.sv-tok{font:700 12.5px var(--sans)}
+.sv-mono{font:700 14px var(--mono)}
+.sv-micro{font:400 11.5px var(--sans);fill:var(--muted)}
+.sv-key{font:700 12px var(--sans);fill:var(--muted)}
+.sv-div{font:700 12px var(--sans);fill:var(--muted)}
+.sv-cell{font:700 12.5px var(--mono);font-variant-numeric:tabular-nums;
+  transition:fill-opacity var(--dur) var(--ease)}
+/* Labels that sit on top of geometry get a white outline: a white pad behind a
+   label hides the line from the eye but not from the geometry probe, and an
+   outline keeps both readable. */
+.sv-halo{paint-order:stroke;stroke:#ffffff;stroke-width:3px;stroke-linejoin:round}
+.sv-barlab{font:700 11px var(--sans)}
+.sv-barnum{font:700 10px var(--mono);fill:#fff;font-variant-numeric:tabular-nums}
+.sv-z{font:700 13.5px var(--mono);fill:var(--red);font-variant-numeric:tabular-nums}
+.sv-stage{font:700 13px var(--sans)}
+.sv-stagef{font:700 11px var(--mono);fill:var(--muted)}
+
+.sv-cellbox{transition:fill-opacity var(--dur) var(--ease)}
+.sv-bar{transition:width var(--dur) var(--ease)}
+.sv-seg{transition:x var(--dur) var(--ease),width var(--dur) var(--ease)}
+.sv-link{transition:x1 var(--dur) var(--ease),y1 var(--dur) var(--ease),
+  x2 var(--dur) var(--ease),y2 var(--dur) var(--ease),
+  stroke-opacity var(--dur) var(--ease),stroke-width var(--dur) var(--ease)}
+.sv-focus{transition:x var(--dur) var(--ease),y var(--dur) var(--ease)}
+
+/* T2 motion: one-shot, fired only by a user action (pulse()). Nothing here
+   runs in the poster state, and every mode finishes inside the 1.2 s budget.
+   Only transform / opacity are animated. */
+@keyframes w-fade{from{opacity:0}}
+@keyframes w-light{from{opacity:.12}}
+@keyframes w-grow{from{transform:scaleX(0)}}
+@keyframes w-rise{from{transform:scaleY(0)}}
+@keyframes w-breathe{0%,100%{opacity:1}50%{opacity:.68}}
+.anim-fade{animation:w-fade 320ms var(--ease) backwards}
+.anim-light{animation:w-light 420ms var(--ease) backwards;animation-delay:calc(var(--i,0)*60ms)}
+.anim-grow{animation:w-grow 460ms var(--ease) backwards;transform-box:fill-box;transform-origin:var(--org,left center);animation-delay:calc(var(--i,0)*60ms)}
+.anim-rise{animation:w-rise 520ms var(--ease) backwards;transform-box:fill-box;transform-origin:bottom center;animation-delay:calc(var(--i,0)*60ms)}
+.anim-breathe{animation:w-breathe 1.6s ease-in-out infinite}
+
+@keyframes w-pulse{0%{transform:scale(1)}40%{transform:scale(1.06)}100%{transform:scale(1)}}
+.is-pulsing{animation:w-pulse 300ms var(--ease)}
+@media (prefers-reduced-motion:reduce){
+  :root{--dur:0ms;--step:0ms}
+  *,*::before,*::after{transition-duration:0ms!important;animation-duration:0ms!important;animation-delay:0ms!important}
+  .is-pulsing,.anim-fade,.anim-light,.anim-grow,.anim-rise,.anim-breathe{animation:none!important}
+}
+</style>
+</head>
+<body data-page-node-id="UVFfmzc9sYxOe4BHum8mRj">
+
+<div id="stage" data-page-node-id="vf8VYl0VRPBxcsf0xHmnQm">
+
+<header class="w-head" data-page-node-id="BN5lvfrteV7s852SlPvO0R">
+  <div class="w-head-main" data-page-node-id="yItmeGrAhtyOTzu8Ilakuj">
+    <h1 class="w-title" data-page-node-id="cNTFq68S6GzcMxlfliDesb">Every token becomes a reader</h1>
+    <span class="w-formula" data-page-node-id="pFC6OGJ9oH0clXHzlinkKZ">A = softmax<sub data-page-node-id="swVjy5QzCnGe2PMRuFu2HX">row</sub>( Q K<sup data-page-node-id="zH1c8R7sYQ3XdKUbwMfEh8">&#8868;</sup> / &radic;d<sub data-page-node-id="LJja5pv7ZlNDACJSvIp8Sv">k</sub> )
+      &nbsp;&nbsp;&nbsp;Z = A V</span>
+  </div>
+  <div class="w-actions" data-page-node-id="Ibd449iXXOQ4V4GJ9gkQbj">
+    <button class="w-btn" id="step" type="button" data-page-node-id="4e06FrHzlHHmLZXOMg6FEV">Next reader</button>
+    <button class="w-btn w-btn-primary" id="play" type="button" data-page-node-id="HhJxEU7sfrSfSl4hh49WOs">Play</button>
+    <button class="w-btn" id="reset" type="button" data-page-node-id="nzYZQN6bALqOeuTNVAJez6">Reset</button>
+  </div>
+</header>
+
+<main class="w-pipe" data-page-node-id="aEeFW5n6zGsKAcTJPhdWOn">
+
+  <section class="w-panel" style="width:120px" data-page-node-id="gIbv41DMnqBmbkGWFkcRBh">
+    <div class="w-cap" data-page-node-id="JPyH15ihs7TVtdDD3U2P8o"><b data-page-node-id="f4VEzyQ377awRPAma3Zquk">&#9312; Stages</b></div>
+    <svg class="pane" id="p1" viewBox="0 0 120 474" role="img"
+         aria-label="The four steps of self-attention: match, scale, normalize, gather, as a clickable list." data-page-node-id="axkkFi6lVzWpxMeSAhvGre"></svg>
+  </section>
+
+  <div class="w-arrow" aria-hidden="true" data-page-node-id="EADUI9C2qUjRBCmJmU3qTS">
+    <svg width="14" height="22" viewBox="0 0 16 22" data-page-node-id="7KIHX2af4AOTG7R89lV02p"><path d="M4 4 L12 11 L4 18"
+      fill="none" stroke="#9a1921" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="SDk44DA9o7v7gKQ5Kxz3Va"/></svg>
+  </div>
+
+  <section class="w-panel" style="width:588px" data-page-node-id="onzz2IzSZ4eE9ulTAVRbU2">
+    <div class="w-cap" data-page-node-id="GnlEyTcbGA6n6xn2wrZtDk"><b data-page-node-id="RNIBVaOw8ZUgaulFNxUBEl">&#9313; Attention matrix</b><span data-page-node-id="FGOI6OXJ3rNQeFZnuRTbOW">reader &#8595; &nbsp;source &#8594;</span></div>
+    <svg class="pane" id="mat" viewBox="0 0 588 474" role="img"
+         aria-label="A square matrix of every reader against every source. Row i is one reader, column j is one source, and the cell where they meet is how much that reader reads that source. Every row is normalized on its own and adds up to one. Drag a cell up or down to change its score and watch only its own row re-normalize." data-page-node-id="JBvnzt1U3ncmae60Gz1EI4"></svg>
+  </section>
+
+  <div class="w-arrow" aria-hidden="true" data-page-node-id="E3tbnjWG8vTmCXThl8cwGA">
+    <svg width="14" height="22" viewBox="0 0 16 22" data-page-node-id="NgNoC5y8Gp22jEWBy3CX1W"><path d="M4 4 L12 11 L4 18"
+      fill="none" stroke="#9a1921" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="ffJdBMocR0DQRYb5xpJVt1"/></svg>
+  </div>
+
+  <section class="w-panel" style="width:412px" data-page-node-id="zOxUe4rOsZjsH7u25nmEmL">
+    <div class="w-cap" data-page-node-id="LyaG22XRSQQJtZZvqLvDxe"><b data-page-node-id="wlvBGzdSz3jnx1QjNspuMT">&#9314; One reader</b><span data-page-node-id="fjvgl17Dnr7cKZXKQ6UHQ4">weights &rarr; mixture</span></div>
+    <svg class="pane" id="p3" viewBox="0 0 412 474" role="img"
+         aria-label="The focused reader's row as bars, then the same weights applied to the values and laid end to end as a chain of arrows whose end point is that reader's output." data-page-node-id="wrcy6jGuEKoGD1AdzKguyw"></svg>
+  </section>
+
+</main>
+
+<div class="w-ctl" data-page-node-id="8enxg2pEHyXjnCwiJgq43H">
+  <span class="w-ctl-lab" data-page-node-id="xwSEwP52FVsrHs1ASAD1Fh">Reader</span>
+  <div class="w-segment" id="readers" role="group" aria-label="Focused reader" data-page-node-id="YV5UnQE9dDW7F5vXRZVkqy"></div>
+  <span class="w-ctl-lab" data-page-node-id="oaFa8sNPFP0myaO1IDDahR">View</span>
+  <div class="w-segment" id="views" role="group" aria-label="How many readers to show" data-page-node-id="IBHTBpO37kJztT3DV1sVLq"></div>
+  <div class="w-segment" id="toggles" role="group" aria-label="Display options" data-page-node-id="E8keOyP1dZ3i9B1ApE15Kj"></div>
+  <span class="w-hint" id="hint" data-page-node-id="UyMCV9CKhxhcGW7sFBPzgH"></span>
+</div>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ------------------------------------------------------------------ *
+   * Fullscreen: author once on a fixed canvas, scale uniformly to fit.
+   * ------------------------------------------------------------------ */
+  var STAGE_W = 1160, STAGE_H = 650;
+  var stage = document.getElementById("stage");
+  function fit(){
+    var k = Math.min(window.innerWidth / STAGE_W, window.innerHeight / STAGE_H);
+    stage.style.transform = (Math.abs(k - 1) < 0.002) ? "none" : "scale(" + k + ")";
+  }
+  window.addEventListener("resize", fit);
+  window.addEventListener("orientationchange", fit);
+  fit();
+
+  /* ------------------------------------------------------------------ *
+   * Model.
+   *
+   * Five tokens, and EVERY token is a reader. The whole computation is one
+   * T x T matrix:
+   *
+   *   S_raw[i][j] = q_i . k_j              a signed compatibility score
+   *   S[i][j]     = S_raw[i][j] / sqrt(d_k)   one scalar, applied to all of it
+   *   A[i][j]     = softmax over j of S[i][j] NORMALIZED WITHIN ROW i
+   *   Z[i]        = sum_j A[i][j] v_j         row i mixes the values
+   *
+   * Row i is always the reader, column j is always the source. The row-wise
+   * softmax is the part people get wrong, so the widget lets you edit a single
+   * cell and watch the other four rows refuse to move.
+   *
+   * The values v_j are the same 2-D toy values used in A4 and A6, so the colour
+   * and value contract carries across the whole deck.
+   * ------------------------------------------------------------------ */
+  var TOK = [
+    { tok: "The",    color: "#1f4e79", v: [-0.85,  0.55] },
+    { tok: "animal", color: "#0a8f22", v: [ 0.20,  0.95] },
+    { tok: "did",    color: "#a05a00", v: [ 0.95,  0.10] },
+    { tok: "not",    color: "#6a3d9a", v: [ 0.40, -0.90] },
+    { tok: "cross",  color: "#0e7490", v: [-0.90, -0.60] }
+  ];
+  var T = TOK.length;
+  var D_K = 4, SQRT_DK = 2;
+
+  /* The scaled score matrix S. Chosen so the story is legible: every token
+     reads itself most, but "cross" reads "animal" hardest (the thing that
+     crosses is the animal) and "not" reads the verb it negates. */
+  var S0 = [
+    [ 1.10,  0.30,  0.10,  0.05, -0.20],
+    [ 0.35,  1.30,  0.25,  0.15, -0.15],
+    [ 0.10,  0.45,  1.20,  0.30, -0.10],
+    [ 0.05,  0.20,  0.55,  1.25,  0.10],
+    [-0.35,  1.55,  0.20,  0.05,  1.00]
+  ];
+
+  var STAGES = [
+    { name: "match",     form: "S = Q K\u1D40",
+      note: "Every reader is compared with every source. The scores are signed and mean nothing yet.",
+      hint: "Every reader is compared with every source. Scores are signed." },
+    { name: "scale",     form: "\u00F7 \u221A d\u2096",
+      note: "One scalar divides every score. Nothing is reordered \u2014 only the loudness changes.",
+      hint: "One scalar divides every score. Nothing is reordered." },
+    { name: "normalize", form: "softmax / row",
+      note: "Each row is normalized on its own, across the sources. This is the step people get wrong.",
+      hint: "Each row is normalized on its own, across the sources." },
+    { name: "gather",    form: "Z = A V",
+      note: "Row i mixes the values into output i. Every token now has a context-dependent output.",
+      hint: "Row i mixes the values into output i." }
+  ];
+  var SUBS = ["\u2081", "\u2082", "\u2083", "\u2084", "\u2085"];
+
+  var MINUS = "\u2212";
+  function fmt(v, d){
+    var z = Math.abs(v) < 0.5 * Math.pow(10, -d) ? 0 : v;
+    return z.toFixed(d).replace("-", MINUS);
+  }
+  function softmax(zs){
+    var mx = Math.max.apply(null, zs), es = [], s = 0, i;
+    for (i = 0; i < zs.length; i++) { es.push(Math.exp(zs[i] - mx)); s += es[i]; }
+    for (i = 0; i < es.length; i++) { es[i] /= s; }
+    return es;
+  }
+  /* Round a probability row to d decimals while keeping the DISPLAYED sum at
+     exactly 1.000. Plain toFixed() prints rows that add to 0.99 or 1.01, which
+     reads as an arithmetic error on a slide. Largest-remainder apportionment
+     moves at most one unit in the last place per entry. */
+  function roundRow(vals, d){
+    var scale = Math.pow(10, d);
+    var scaled = vals.map(function (v) { return v * scale; });
+    var out = scaled.map(Math.floor);
+    var used = out.reduce(function (a, b) { return a + b; }, 0);
+    var order = scaled.map(function (v, i) { return { i: i, r: v - Math.floor(v) }; });
+    order.sort(function (a, b) { return b.r - a.r; });
+    var need = Math.round(scale) - used;
+    for (var k = 0; k < need && k < order.length; k++) { out[order[k].i] += 1; }
+    return out.map(function (v) { return v / scale; });
+  }
+
+  /* ------------------------------------------------------------------ *
+   * State
+   * ------------------------------------------------------------------ */
+  var state = { stage: 3, reader: 4, cell: null, hover: null, dragHint: "",
+                view: "every", numbers: false, scale: true, playing: false };
+  var scores = S0.map(function (r) { return r.slice(); });   // the editable data
+  var raf = null;
+
+  /* ------------------------------------------------------------------ *
+   * Geometry
+   * ------------------------------------------------------------------ */
+  var P1 = { w: 120, h: 474, cardX: 6, cardW: 108, cardH: 50,
+             cardPitch: 58, cardY0: 28, boxY: 340, boxH: 118 };
+  var P2 = { w: 588, h: 474, x0: 56, y0: 32, cell: 77, gap: 4, pitch: 81,
+             sumX: 463, sumW: 72, legendY: 440, legendH: 8 };
+  var P3 = { w: 412, h: 474, labX: 8, barX: 56, barW: 92, numX: 194,
+             row0: 48, pitch: 32, rowH: 16,
+             stack: { x: 8, y: 230, w: 188, h: 24 },
+             /* The chain is a tall, narrow figure — the partial sums of five
+                unit-ish vectors weighted to sum to one — so it gets a tall,
+                narrow column rather than a wide strip it would rattle around
+                in. */
+             acc: { x: 208, y: 60, w: 196, h: 370 } };
+  function cellX(j){ return P2.x0 + j * P2.pitch; }
+  function cellY(i){ return P2.y0 + i * P2.pitch; }
+  function colCX(j){ return cellX(j) + P2.cell / 2; }
+  function rowCY(i){ return cellY(i) + P2.cell / 2; }
+
+  var NS = "http://www.w3.org/2000/svg";
+  function el(tag, attrs){
+    var n = document.createElementNS(NS, tag);
+    for (var k in attrs) { if (Object.prototype.hasOwnProperty.call(attrs, k)) { n.setAttribute(k, attrs[k]); } }
+    return n;
+  }
+  function txt(x, y, cls, content, anchor, fill){
+    var n = el("text", { x: x, y: y, "class": cls, "text-anchor": anchor || "middle" });
+    if (fill) { n.setAttribute("fill", fill); }
+    if (content !== undefined) { n.textContent = content; }
+    return n;
+  }
+  function richText(x, y, cls, parts, anchor, fill){
+    var n = txt(x, y, cls, undefined, anchor, fill), off = 0;
+    function run(dy, size, content){
+      var s = el("tspan", { dy: String(dy - off), "font-size": size });
+      s.textContent = content;
+      off = dy;
+      n.appendChild(s);
+    }
+    parts.forEach(function (p) {
+      if (typeof p === "string") { run(0, "1em", p); }
+      else if (p.sub !== undefined) { run(3, "0.74em", p.sub); }
+      else if (p.sup !== undefined) { run(-4, "0.74em", p.sup); }
+    });
+    return n;
+  }
+  /* Segment vs axis-aligned rectangle. Used to place the chain's labels: a
+     chain that doubles back on itself has no universally free side, so each
+     label tries both sides and is DROPPED rather than drawn across an edge. */
+  function segInRect(ax, ay, bx, by, r){
+    function inside(x, y){ return x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h; }
+    if (inside(ax, ay) || inside(bx, by)) { return true; }
+    var corners = [[r.x, r.y], [r.x + r.w, r.y], [r.x + r.w, r.y + r.h], [r.x, r.y + r.h]];
+    function o(px, py, qx, qy, rx, ry){
+      var d = (qx - px) * (ry - py) - (qy - py) * (rx - px);
+      return d > 0 ? 1 : (d < 0 ? -1 : 0);
+    }
+    for (var i = 0; i < 4; i++) {
+      var p = corners[i], q = corners[(i + 1) % 4];
+      var s1 = o(ax, ay, bx, by, p[0], p[1]), s2 = o(ax, ay, bx, by, q[0], q[1]);
+      var s3 = o(p[0], p[1], q[0], q[1], ax, ay), s4 = o(p[0], p[1], q[0], q[1], bx, by);
+      if (s1 !== s2 && s3 !== s4) { return true; }
+    }
+    return false;
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Computation — single source of truth for all three panels
+   * ------------------------------------------------------------------ */
+  function compute(){
+    var raw = [], scaled = [], alpha = [], shown = [], i, j;
+    for (i = 0; i < T; i++) {
+      raw.push(scores[i].map(function (v) { return v * 2; }));
+      scaled.push(scores[i].map(function (v) { return state.scale ? v : v * 2; }));
+      alpha.push(softmax(scaled[i]));
+      shown.push(roundRow(alpha[i], 2));
+    }
+    var maxRaw = 0, maxScaled = 0, maxAlpha = 0;
+    for (i = 0; i < T; i++) {
+      for (j = 0; j < T; j++) {
+        maxRaw = Math.max(maxRaw, Math.abs(raw[i][j]));
+        maxScaled = Math.max(maxScaled, Math.abs(scaled[i][j]));
+        maxAlpha = Math.max(maxAlpha, alpha[i][j]);
+      }
+    }
+    var z = [];
+    for (i = 0; i < T; i++) {
+      var sx = 0, sy = 0;
+      for (j = 0; j < T; j++) { sx += alpha[i][j] * TOK[j].v[0]; sy += alpha[i][j] * TOK[j].v[1]; }
+      z.push([sx, sy]);
+    }
+    var rowSum = alpha.map(function (r) { return r.reduce(function (a, b) { return a + b; }, 0); });
+    return { raw: raw, scaled: scaled, alpha: alpha, shown: shown, z: z, rowSum: rowSum,
+             maxRaw: maxRaw || 1, maxScaled: maxScaled || 1, maxAlpha: maxAlpha || 1 };
+  }
+  /* Cell colour. Signed scores get the deck's signed semantics (red positive,
+     blue negative); weights are non-negative and get red intensity only. The
+     legend under the matrix states which scale is live, because the two scales
+     are different quantities and must not be read as one. */
+  function cellStyle(M, i, j){
+    var stageNow = state.stage;
+    if (stageNow <= 0) {
+      var v = M.raw[i][j], a = 0.06 + 0.78 * Math.abs(v) / M.maxRaw;
+      return { fill: v >= 0 ? "#9a1921" : "#1f4e79", op: a, v: v, txt: fmt(v, 2) };
+    }
+    if (stageNow === 1) {
+      var v2 = M.scaled[i][j], a2 = 0.06 + 0.78 * Math.abs(v2) / M.maxScaled;
+      return { fill: v2 >= 0 ? "#9a1921" : "#1f4e79", op: a2, v: v2, txt: fmt(v2, 2) };
+    }
+    var w = M.alpha[i][j], a3 = 0.05 + 0.82 * w / M.maxAlpha;
+    return { fill: "#9a1921", op: a3, v: w, txt: fmt(M.shown[i][j], 2) };
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Panel 1 — the four stages, as a clickable list
+   * ------------------------------------------------------------------ */
+  var svg1 = document.getElementById("p1");
+  var u1 = { card: [], badge: [], num: [], name: [], form: [], noteKey: null };
+
+  function buildPanel1(){
+    STAGES.forEach(function (s, i) {
+      var y = P1.cardY0 + i * P1.cardPitch;
+      var r = el("rect", { x: P1.cardX, y: y, width: P1.cardW, height: P1.cardH,
+        rx: 8, fill: "#fff", stroke: "#d7dce0", "stroke-width": 1.5, cursor: "pointer" });
+      svg1.appendChild(r);
+      u1.card.push(r);
+      var b = el("circle", { cx: P1.cardX + 16, cy: y + 16, r: 10, fill: "#fff",
+        stroke: "#d7dce0", "stroke-width": 1.5, "pointer-events": "none" });
+      svg1.appendChild(b);
+      u1.badge.push(b);
+      var n = txt(P1.cardX + 16, y + 20, "sv-stage", String(i + 1), "middle", "#697078");
+      n.setAttribute("pointer-events", "none");
+      svg1.appendChild(n);
+      u1.num.push(n);
+      var nm = txt(P1.cardX + 32, y + 20, "sv-stage", s.name, "start");
+      nm.setAttribute("pointer-events", "none");
+      svg1.appendChild(nm);
+      u1.name.push(nm);
+      var fm = txt(P1.cardX + 8, y + 40, "sv-stagef", s.form, "start");
+      fm.setAttribute("pointer-events", "none");
+      svg1.appendChild(fm);
+      u1.form.push(fm);
+      r.addEventListener("click", function () { userSetStage(i); });
+    });
+
+    svg1.appendChild(el("line", { x1: P1.cardX, y1: 278, x2: P1.cardX + P1.cardW, y2: 278,
+      stroke: "#e3e7ea", "stroke-width": 1.2 }));
+    u1.noteKey = txt(P1.cardX, 298, "sv-div", "", "start");
+    svg1.appendChild(u1.noteKey);
+    /* the invariant, stated once and never restated */
+    svg1.appendChild(el("rect", { x: P1.cardX, y: P1.boxY, width: P1.cardW, height: P1.boxH,
+      rx: 8, fill: "#f7f8fa", stroke: "#d7dce0", "stroke-width": 1.4 }));
+    svg1.appendChild(txt(P1.cardX + 8, P1.boxY + 26, "sv-div", "every row", "start"));
+    svg1.appendChild(txt(P1.cardX + 8, P1.boxY + 42, "sv-div", "sums to 1", "start"));
+    svg1.appendChild(el("rect", { x: P1.cardX + 8, y: P1.boxY + 54, width: P1.cardW - 16,
+      height: 9, rx: 3, fill: "#e6e9ec" }));
+    svg1.appendChild(el("rect", { x: P1.cardX + 8, y: P1.boxY + 54, width: P1.cardW - 16,
+      height: 9, rx: 3, fill: "#9a1921", "fill-opacity": 0.55 }));
+    svg1.appendChild(txt(P1.cardX + 8, P1.boxY + 82, "sv-micro", "one row = one", "start"));
+    svg1.appendChild(txt(P1.cardX + 8, P1.boxY + 96, "sv-micro", "reader's plan", "start"));
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Panel 2 — the matrix
+   * ------------------------------------------------------------------ */
+  var svg2 = document.getElementById("mat");
+  var u2 = { cell: [], cellTxt: [], colHdr: [], rowHdr: [], rowSum: [], rowSumTxt: [],
+             focus: null, hoverRow: null, hoverCol: null, legend: [], legTxt: [],
+             legendNote: null, crossKey: null };
+
+  function buildPanel2(){
+    var i, j;
+    svg2.appendChild(txt(0, 26, "sv-div", "reader \u2193", "start"));
+    svg2.appendChild(txt(P2.sumX + P2.sumW / 2, 26, "sv-div", "\u03A3 = 1", "middle"));
+
+    /* hover bands: drawn under the cells so a cross-highlight reads as context */
+    u2.hoverRow = el("rect", { x: P2.x0 - 8, y: 0, width: 0, height: 0, rx: 8,
+      fill: "#1f4e79", "fill-opacity": 0.06 });
+    svg2.appendChild(u2.hoverRow);
+    u2.hoverCol = el("rect", { x: 0, y: P2.y0 - 8, width: 0, height: 0, rx: 8,
+      fill: "#1f4e79", "fill-opacity": 0.06 });
+    svg2.appendChild(u2.hoverCol);
+
+    for (j = 0; j < T; j++) {
+      var h = txt(colCX(j), 26, "sv-tok", TOK[j].tok, "middle", TOK[j].color);
+      svg2.appendChild(h);
+      u2.colHdr.push(h);
+    }
+    for (i = 0; i < T; i++) {
+      var rh = txt(P2.x0 - 8, rowCY(i) + 5, "sv-tok", TOK[i].tok, "end", TOK[i].color);
+      rh.setAttribute("cursor", "pointer");
+      (function (idx) {
+        rh.addEventListener("click", function () { userSetReader(idx); });
+      })(i);
+      svg2.appendChild(rh);
+      u2.rowHdr.push(rh);
+
+      var t = el("rect", { x: P2.sumX, y: rowCY(i) - 6, width: P2.sumW, height: 12, rx: 3,
+        fill: "#eef0f2" });
+      svg2.appendChild(t);
+      var f = el("rect", { x: P2.sumX, y: rowCY(i) - 6, width: 0, height: 12, rx: 3,
+        fill: "#9a1921", "fill-opacity": 0.5, "class": "sv-bar" });
+      svg2.appendChild(f);
+      u2.rowSum.push(f);
+      var st = txt(P2.sumX + P2.sumW + 5, rowCY(i) + 4, "sv-num", "", "start");
+      svg2.appendChild(st);
+      u2.rowSumTxt.push(st);
+    }
+    for (i = 0; i < T; i++) {
+      for (j = 0; j < T; j++) {
+        var r = el("rect", { x: cellX(j), y: cellY(i), width: P2.cell, height: P2.cell,
+          rx: 6, fill: "#9a1921", "fill-opacity": 0.1, "class": "sv-cellbox" });
+        svg2.appendChild(r);
+        u2.cell.push(r);
+        var ct = txt(colCX(j), rowCY(i) + 4.5, "sv-cell", "", "middle");
+        svg2.appendChild(ct);
+        u2.cellTxt.push(ct);
+      }
+    }
+    u2.focus = el("rect", { x: P2.x0 - 8, y: 0, width: 0, height: 0, rx: 9,
+      fill: "none", stroke: "#9a1921", "stroke-width": 2.4, "class": "sv-focus" });
+    svg2.appendChild(u2.focus);
+
+    /* A colour legend is not decoration here: the signed scores and the
+       non-negative weights are different quantities, and the ramp has to say
+       which one is on screen. */
+    for (i = 0; i < 8; i++) {
+      var sw = el("rect", { x: P2.x0 + i * (P2.cell * T + P2.gap * (T - 1)) / 8,
+        y: P2.legendY, width: (P2.cell * T + P2.gap * (T - 1)) / 8 - 2, height: P2.legendH,
+        rx: 2, fill: "#9a1921", "fill-opacity": 0.1 });
+      svg2.appendChild(sw);
+      u2.legend.push(sw);
+    }
+    u2.legTxt.push(txt(P2.x0, P2.legendY + 24, "sv-micro", "", "start"));
+    u2.legTxt.push(txt(P2.x0 + P2.cell * T + P2.gap * (T - 1), P2.legendY + 24, "sv-micro", "", "end"));
+    u2.legendNote = txt(P2.x0 + (P2.cell * T + P2.gap * (T - 1)) / 2, P2.legendY + 24, "sv-micro", "", "middle");
+    u2.legTxt.concat([u2.legendNote]).forEach(function (n) { svg2.appendChild(n); });
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Panel 3 — the focused row: weights, then the mixture
+   * ------------------------------------------------------------------ */
+  var svg3 = document.getElementById("p3");
+  var u3 = { head: null, stackSum: null, lab: [], bar: [], num: [], seg: [], segLab: [],
+             segNum: [], divLab: null, accNote: null, link: [], linkLab: [],
+             result: null, origin: null, zDot: null, zLab: null, zRead: null };
+
+  function buildPanel3(){
+    var defs = el("defs", {});
+    TOK.forEach(function (k, i) {
+      var m = el("marker", { id: "p3mk" + i, viewBox: "0 0 10 10", refX: "9", refY: "5",
+        markerWidth: "4.4", markerHeight: "4.4", orient: "auto-start-reverse" });
+      m.appendChild(el("path", { d: "M0,0 L10,5 L0,10 z", fill: k.color }));
+      defs.appendChild(m);
+    });
+    var mz = el("marker", { id: "p3mz", viewBox: "0 0 10 10", refX: "9", refY: "5",
+      markerWidth: "4.2", markerHeight: "4.2", orient: "auto-start-reverse" });
+    mz.appendChild(el("path", { d: "M0,0 L10,5 L0,10 z", fill: "#9a1921" }));
+    defs.appendChild(mz);
+    svg3.appendChild(defs);
+
+    u3.head = txt(8, 26, "sv-mono", "", "start", "#9a1921");
+    svg3.appendChild(u3.head);
+    svg3.appendChild(el("line", { x1: 202, y1: 22, x2: 202, y2: 470,
+      stroke: "#e3e7ea", "stroke-width": 1.2 }));
+
+    TOK.forEach(function (k, i) {
+      var y = P3.row0 + i * P3.pitch;
+      svg3.appendChild(txt(P3.labX, y + 12.5, "sv-tok", k.tok, "start", k.color));
+      svg3.appendChild(el("rect", { x: P3.barX, y: y, width: P3.barW, height: P3.rowH,
+        rx: 3, fill: "#f2f4f6" }));
+      var b = el("rect", { x: P3.barX, y: y, width: 0, height: P3.rowH, rx: 3,
+        fill: k.color, "class": "sv-bar" });
+      svg3.appendChild(b);
+      u3.bar.push(b);
+      var n = txt(P3.numX, y + 12.5, "sv-num", "", "end");
+      svg3.appendChild(n);
+      u3.num.push(n);
+    });
+
+    svg3.appendChild(el("line", { x1: 8, y1: 206, x2: 196, y2: 206,
+      stroke: "#e3e7ea", "stroke-width": 1.2 }));
+    svg3.appendChild(txt(8, 220, "sv-div", "the same weights, end to end", "start"));
+    svg3.appendChild(el("rect", { x: P3.stack.x, y: P3.stack.y, width: P3.stack.w,
+      height: P3.stack.h, rx: 4, fill: "#eef0f2" }));
+    TOK.forEach(function (k, i) {
+      var s = el("rect", { x: P3.stack.x, y: P3.stack.y, width: 0, height: P3.stack.h,
+        rx: 4, fill: k.color, "class": "sv-seg" });
+      svg3.appendChild(s);
+      u3.seg.push(s);
+      var sn = txt(0, P3.stack.y + 16, "sv-barnum", "", "middle");
+      svg3.appendChild(sn);
+      u3.segNum.push(sn);
+      var sl = txt(0, P3.stack.y + P3.stack.h + 16, "sv-barlab", k.tok, "middle", k.color);
+      svg3.appendChild(sl);
+      u3.segLab.push(sl);
+    });
+    u3.stackSum = txt(8, 292, "sv-num ink", "\u03A3 \u03B1 = 1.000", "start");
+    svg3.appendChild(u3.stackSum);
+    svg3.appendChild(el("line", { x1: 8, y1: 312, x2: 196, y2: 312,
+      stroke: "#e3e7ea", "stroke-width": 1.2 }));
+    svg3.appendChild(txt(8, 332, "sv-micro", "keys route;", "start"));
+    svg3.appendChild(txt(8, 348, "sv-micro", "values transport.", "start"));
+    svg3.appendChild(el("line", { x1: 8, y1: 370, x2: 196, y2: 370,
+      stroke: "#e3e7ea", "stroke-width": 1.2 }));
+    svg3.appendChild(txt(8, 390, "sv-micro", "the chain is scaled to fit \u2014", "start"));
+    svg3.appendChild(txt(8, 406, "sv-micro", "its shape and end point matter.", "start"));
+
+    svg3.appendChild(txt(P3.acc.x + P3.acc.w / 2, 30, "sv-micro",
+      "each value, shrunk by its weight,", "middle"));
+    svg3.appendChild(txt(P3.acc.x + P3.acc.w / 2, 46, "sv-micro",
+      "then laid end to end", "middle"));
+
+    u3.origin = el("circle", { r: 3.6, fill: "#30343a" });
+    svg3.appendChild(u3.origin);
+    TOK.forEach(function (k) {
+      var l = el("line", { stroke: k.color, "stroke-width": 2.4, "stroke-linecap": "round",
+        "marker-end": "url(#p3mk0)", "class": "sv-link" });
+      svg3.appendChild(l);
+      u3.link.push(l);
+      var lb = txt(0, 0, "sv-barlab sv-halo", "", "middle", k.color);
+      svg3.appendChild(lb);
+      u3.linkLab.push(lb);
+    });
+    /* the resultant: a straight line from the start to the end of the chain */
+    u3.result = el("line", { stroke: "#9a1921", "stroke-width": 1.6,
+      "stroke-dasharray": "4 3", "stroke-opacity": 0.55, "class": "sv-link",
+      "marker-end": "url(#p3mz)" });
+    svg3.appendChild(u3.result);
+    u3.zDot = el("circle", { r: 6.5, fill: "#9a1921", stroke: "#fff", "stroke-width": 2.4 });
+    svg3.appendChild(u3.zDot);
+    u3.zLab = txt(0, 0, "sv-z sv-halo", "z", "middle", "#9a1921");
+    svg3.appendChild(u3.zLab);
+    u3.zRead = txt(P3.acc.x + P3.acc.w / 2, 452, "sv-z", "", "middle");
+    svg3.appendChild(u3.zRead);
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Motion (T2). One-shot classes, added AFTER render by a user action.
+   * clearAnims() runs at the top of every render, so any API-driven state
+   * (poster, probe, reset, setStage/setReader) is always static.
+   * ------------------------------------------------------------------ */
+  var ANIM_CLS = ["anim-fade", "anim-light", "anim-grow", "anim-rise", "anim-breathe"];
+  function clearAnims(){
+    ANIM_CLS.forEach(function (c) {
+      var ns = document.querySelectorAll("." + c);
+      for (var i = 0; i < ns.length; i++) { ns[i].classList.remove(c); }
+    });
+  }
+  function kick(node, cls, i){
+    if (!node) { return; }
+    node.classList.remove(cls);
+    void node.getBoundingClientRect();
+    if (i !== undefined) { node.style.setProperty("--i", i); }
+    node.classList.add(cls);
+  }
+  /* kind: "stage" | "reader" | "view" | "numbers" | "scale".
+     The matrix light-up is row-staggered (--i = row) so the whole sweep
+     finishes in 240 ms + 420 ms, inside the 1.2 s budget. */
+  function pulse(kind){
+    var i, j;
+    if (kind === "stage") {
+      for (i = 0; i < T; i++) {
+        for (j = 0; j < T; j++) { kick(u2.cell[i * T + j], "anim-light", i); }
+      }
+      kick(u1.card[state.stage], "anim-light");
+      kick(u1.badge[state.stage], "anim-light");
+      kick(u1.name[state.stage], "anim-light");
+      for (i = 0; i < u2.legend.length; i++) { kick(u2.legend[i], "anim-fade", i); }
+      if (state.stage >= 3) {
+        for (j = 0; j < T; j++) { kick(u3.seg[j], "anim-fade", j); }
+        kick(u3.zDot, "anim-breathe");
+        kick(u3.zRead, "anim-fade");
+      }
+    } else if (kind === "reader") {
+      for (j = 0; j < T; j++) { kick(u2.cell[state.reader * T + j], "anim-light", j); }
+      kick(u2.rowSum[state.reader], "anim-grow");
+      kick(u2.rowHdr[state.reader], "anim-light");
+      kick(u3.head, "anim-light");
+      for (j = 0; j < T; j++) { kick(u3.bar[j], "anim-grow", j); }
+      kick(u3.zDot, "anim-breathe");
+    } else if (kind === "view") {
+      for (j = 0; j < T; j++) { kick(u2.cell[state.reader * T + j], "anim-light", j); }
+    } else if (kind === "numbers" || kind === "scale") {
+      for (i = 0; i < T; i++) {
+        for (j = 0; j < T; j++) { kick(u2.cell[i * T + j], "anim-light", i); }
+      }
+    }
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Render
+   * ------------------------------------------------------------------ */
+  function render(){
+    clearAnims();
+    var M = compute();
+    var i, j;
+
+    /* ---- panel 1 ---- */
+    STAGES.forEach(function (s, k) {
+      var on = k === state.stage, done = k < state.stage;
+      u1.card[k].setAttribute("fill", on ? "#f7e9eb" : "#fff");
+      u1.card[k].setAttribute("stroke", on ? "#9a1921" : (done ? "#c9ced4" : "#d7dce0"));
+      u1.card[k].setAttribute("stroke-width", on ? 2.4 : 1.5);
+      u1.badge[k].setAttribute("stroke", on ? "#9a1921" : (done ? "#9aa2aa" : "#d7dce0"));
+      u1.badge[k].setAttribute("fill", on ? "#9a1921" : "#fff");
+      u1.num[k].setAttribute("fill", on ? "#ffffff" : (done ? "#697078" : "#30343a"));
+      u1.name[k].setAttribute("fill", on ? "#9a1921" : (done ? "#30343a" : "#697078"));
+      u1.form[k].setAttribute("fill", on ? "#9a1921" : "#697078");
+    });
+    u1.noteKey.textContent = "step " + (state.stage + 1) + " \u00B7 " + STAGES[state.stage].name;
+    u1.noteKey.setAttribute("fill", "#9a1921");
+
+    /* ---- panel 2 ---- */
+    var dim = state.view === "one" && !dragging;
+    var hover = state.hover;
+    for (i = 0; i < T; i++) {
+      for (j = 0; j < T; j++) {
+        var st = cellStyle(M, i, j);
+        var k = i * T + j;
+        var inRow = i === state.reader, inHover = hover && (hover.i === i || hover.j === j);
+        var op = st.op;
+        /* focus + context: outside the hovered cross everything quiets down */
+        if (hover && !inHover) { op *= 0.30; }
+        else if (dim && !inRow) { op *= 0.28; }
+        u2.cell[k].setAttribute("fill", st.fill);
+        u2.cell[k].setAttribute("fill-opacity", op.toFixed(3));
+        var showNum = (state.numbers || inRow) && !(hover && !inHover);
+        u2.cellTxt[k].textContent = showNum ? st.txt : "";
+        u2.cellTxt[k].setAttribute("fill", op > 0.55 ? "#ffffff" : "#30343a");
+        u2.cellTxt[k].setAttribute("fill-opacity", op > 0.55 ? 1 : (0.35 + 0.65 * Math.min(1, op / 0.5)));
+        u2.cellTxt[k].setAttribute("font-weight", inRow ? 700 : 400);
+      }
+      u2.rowHdr[i].setAttribute("fill-opacity", dim && i !== state.reader ? 0.45 : 1);
+      u2.rowHdr[i].setAttribute("font-weight", i === state.reader ? 700 : 400);
+      var s = M.rowSum[i];
+      u2.rowSum[i].setAttribute("width", (P2.sumW * s).toFixed(2));
+      u2.rowSum[i].setAttribute("fill-opacity", i === state.reader ? 0.85 : 0.42);
+      u2.rowSumTxt[i].textContent = state.numbers ? fmt(s, 2) : "";
+    }
+    u2.focus.setAttribute("x", P2.x0 - 8);
+    u2.focus.setAttribute("y", cellY(state.reader) - 7);
+    u2.focus.setAttribute("width", P2.cell * T + P2.gap * (T - 1) + 16);
+    u2.focus.setAttribute("height", P2.cell + 14);
+    if (hover) {
+      u2.hoverRow.setAttribute("y", cellY(hover.i) - 7);
+      u2.hoverRow.setAttribute("height", P2.cell + 14);
+      u2.hoverRow.setAttribute("width", P2.cell * T + P2.gap * (T - 1) + 16);
+      u2.hoverCol.setAttribute("x", cellX(hover.j) - 7);
+      u2.hoverCol.setAttribute("width", P2.cell + 14);
+      u2.hoverCol.setAttribute("height", P2.cell * T + P2.gap * (T - 1) + 16);
+    } else {
+      u2.hoverRow.setAttribute("width", 0);
+      u2.hoverCol.setAttribute("height", 0);
+    }
+    /* legend */
+    var span = P2.cell * T + P2.gap * (T - 1);
+    for (i = 0; i < u2.legend.length; i++) {
+      var t = (i + 0.5) / u2.legend.length;
+      var stg = state.stage <= 0 ? "raw" : (state.stage === 1 ? "scaled" : "weight");
+      var col, opa;
+      if (stg === "weight") {
+        col = "#9a1921"; opa = 0.05 + 0.82 * t;
+      } else {
+        var mx = stg === "raw" ? M.maxRaw : M.maxScaled;
+        var v = (t * 2 - 1) * mx;
+        col = v >= 0 ? "#9a1921" : "#1f4e79";
+        opa = 0.06 + 0.78 * Math.abs(v) / mx;
+      }
+      u2.legend[i].setAttribute("fill", col);
+      u2.legend[i].setAttribute("fill-opacity", opa.toFixed(3));
+    }
+    if (state.stage <= 0) {
+      u2.legTxt[0].textContent = fmt(-M.maxRaw, 1);
+      u2.legTxt[1].textContent = "+" + fmt(M.maxRaw, 1);
+      u2.legendNote.textContent = "cell colour = signed score  (not yet a weight)";
+    } else if (state.stage === 1) {
+      u2.legTxt[0].textContent = fmt(-M.maxScaled, 2);
+      u2.legTxt[1].textContent = "+" + fmt(M.maxScaled, 2);
+      u2.legendNote.textContent = state.scale
+        ? "cell colour = scaled score  (\u00F7 \u221A d\u2096)"
+        : "cell colour = raw score  (scaling is off)";
+    } else {
+      u2.legTxt[0].textContent = "0.00";
+      u2.legTxt[1].textContent = fmt(M.maxAlpha, 2);
+      u2.legendNote.textContent = "cell colour = reading weight  (0 \u2192 1)";
+    }
+
+    /* ---- panel 3 ---- */
+    var R = state.reader, a = M.alpha[R];
+    u3.head.textContent = "reader \u201C" + TOK[R].tok + "\u201D";
+    var amax = Math.max.apply(null, a), amin = Math.min.apply(null, a);
+    var asp = Math.max(1e-9, amax - amin);
+    function emph(j){ return (a[j] - amin) / asp; }
+    for (j = 0; j < T; j++) {
+      var y = P3.row0 + j * P3.pitch;
+      u3.bar[j].setAttribute("width", (a[j] * P3.barW).toFixed(2));
+      u3.bar[j].setAttribute("fill-opacity", (0.35 + 0.65 * emph(j)).toFixed(3));
+      u3.num[j].textContent = state.numbers ? fmt(M.shown[R][j], 2) : "";
+      var sel = state.cell && state.cell[0] === R && state.cell[1] === j;
+      u3.num[j].setAttribute("fill", sel ? "#9a1921" : "#697078");
+    }
+    var acc = P3.stack.x;
+    for (j = 0; j < T; j++) {
+      var w = a[j] * P3.stack.w;
+      u3.seg[j].setAttribute("x", acc);
+      u3.seg[j].setAttribute("width", w.toFixed(2));
+      var selSeg = state.cell && state.cell[0] === R && state.cell[1] === j;
+      u3.seg[j].setAttribute("stroke", selSeg ? "#fff" : "none");
+      u3.seg[j].setAttribute("stroke-width", selSeg ? 1.8 : 0);
+      var cx = acc + w / 2;
+      u3.segLab[j].setAttribute("x", cx);
+      u3.segLab[j].setAttribute("opacity", w >= 26 ? 1 : 0);
+      u3.segNum[j].setAttribute("x", cx);
+      u3.segNum[j].textContent = (state.numbers && w >= 30) ? fmt(M.shown[R][j], 2) : "";
+      acc += w;
+    }
+
+    /* The chain: each value shrunk by its weight, then added tip to tail. The
+       scale is fitted to the chain's own bounding box, so the picture always
+       fills its band instead of hiding in a corner at one weight setting. */
+    var pts = [{ x: 0, y: 0 }], c = { x: 0, y: 0 };
+    for (j = 0; j < T; j++) {
+      c = { x: c.x + a[j] * TOK[j].v[0], y: c.y + a[j] * TOK[j].v[1] };
+      pts.push({ x: c.x, y: c.y });
+    }
+    var xmin = 0, xmax = 0, ymin = 0, ymax = 0;
+    pts.forEach(function (p) {
+      xmin = Math.min(xmin, p.x); xmax = Math.max(xmax, p.x);
+      ymin = Math.min(ymin, p.y); ymax = Math.max(ymax, p.y);
+    });
+    var bw = Math.max(xmax - xmin, 0.05), bh = Math.max(ymax - ymin, 0.05);
+    var S = Math.min(P3.acc.w * 0.86 / bw, P3.acc.h * 0.86 / bh);
+    var ACX = P3.acc.x + P3.acc.w / 2, ACY = P3.acc.y + P3.acc.h / 2;
+    var OX = ACX - (xmin + xmax) / 2 * S, OY = ACY + (ymin + ymax) / 2 * S;
+    function scr(p){ return { x: OX + p.x * S, y: OY - p.y * S }; }
+    var sp = pts.map(scr);
+    u3.origin.setAttribute("cx", sp[0].x);
+    u3.origin.setAttribute("cy", sp[0].y);
+    for (j = 0; j < T; j++) {
+      var q0 = sp[j], q1 = sp[j + 1];
+      u3.link[j].setAttribute("x1", q0.x);
+      u3.link[j].setAttribute("y1", q0.y);
+      u3.link[j].setAttribute("x2", q1.x);
+      u3.link[j].setAttribute("y2", q1.y);
+      u3.link[j].setAttribute("stroke-opacity", (0.35 + 0.65 * emph(j)).toFixed(3));
+      u3.link[j].setAttribute("stroke-width", (1.6 + 2.2 * emph(j)).toFixed(2));
+      u3.link[j].setAttribute("marker-end", "url(#p3mk" + j + ")");
+      var segLen = Math.hypot(q1.x - q0.x, q1.y - q0.y);
+      /* A segment too short to hold a name is left unnamed; the weight bars
+         above already carry every token's identity. */
+      u3.linkLab[j].textContent = segLen >= 44 ? TOK[j].tok : "";
+    }
+    var zEnd = sp[T];
+    u3.result.setAttribute("x1", sp[0].x);
+    u3.result.setAttribute("y1", sp[0].y);
+    u3.result.setAttribute("x2", zEnd.x);
+    u3.result.setAttribute("y2", zEnd.y);
+
+    /* Place the chain labels. Each one tries the outward side first, then the
+       inward side, and is dropped if neither is clear of every other segment
+       and of the labels already placed. */
+    var ccx = sp.reduce(function (a, p) { return a + p.x; }, 0) / sp.length;
+    var ccy = sp.reduce(function (a, p) { return a + p.y; }, 0) / sp.length;
+    var placedBoxes = [];
+    for (j = 0; j < T; j++) {
+      var lab = u3.linkLab[j];
+      if (!lab.textContent) { continue; }
+      var a0 = sp[j], a1 = sp[j + 1];
+      var L = Math.hypot(a1.x - a0.x, a1.y - a0.y);
+      var nx = -(a1.y - a0.y) / L, ny = (a1.x - a0.x) / L;
+      var mx = a0.x + (a1.x - a0.x) * 0.7, my = a0.y + (a1.y - a0.y) * 0.7;
+      var w = lab.getComputedTextLength ? lab.getComputedTextLength() : 30;
+      var outward = ((mx - ccx) * nx + (my - ccy) * ny) >= 0 ? 1 : -1;
+      var done = false;
+      for (var s = 0; s < 2 && !done; s++) {
+        var side = s === 0 ? outward : -outward;
+        var ox = nx * side, oy = ny * side;
+        var cxL = mx + ox * 15, cyL = my + oy * 15;
+        var anch = ox > 0.15 ? "start" : (ox < -0.15 ? "end" : "middle");
+        var bx0 = anch === "start" ? cxL : (anch === "end" ? cxL - w : cxL - w / 2);
+        var box = { x: bx0 - 2, y: cyL - 7.5, w: w + 4, h: 15 };
+        if (box.x < P3.acc.x + 2 || box.x + box.w > P3.acc.x + P3.acc.w - 2) { continue; }
+        var hit = false, k2;
+        for (k2 = 0; k2 < T && !hit; k2++) {
+          if (k2 === j) { continue; }
+          if (segInRect(sp[k2].x, sp[k2].y, sp[k2 + 1].x, sp[k2 + 1].y, box)) { hit = true; }
+        }
+        /* the resultant runs straight through the chain's interior */
+        if (!hit && segInRect(sp[0].x, sp[0].y, zEnd.x, zEnd.y, box)) { hit = true; }
+        for (k2 = 0; k2 < placedBoxes.length && !hit; k2++) {
+          var o = placedBoxes[k2];
+          if (box.x < o.x + o.w && o.x < box.x + box.w &&
+              box.y < o.y + o.h && o.y < box.y + box.h) { hit = true; }
+        }
+        if (hit) { continue; }
+        lab.setAttribute("x", cxL);
+        lab.setAttribute("y", cyL);
+        lab.setAttribute("text-anchor", anch);
+        lab.setAttribute("dominant-baseline", "middle");
+        placedBoxes.push(box);
+        done = true;
+      }
+      if (!done) { lab.textContent = ""; }
+    }
+    u3.zDot.setAttribute("cx", zEnd.x);
+    u3.zDot.setAttribute("cy", zEnd.y);
+    var zlx = zEnd.x + (zEnd.x >= sp[0].x ? 15 : -15);
+    u3.zLab.setAttribute("x", Math.max(P3.acc.x + 10, Math.min(P3.acc.x + P3.acc.w - 10, zlx)));
+    u3.zLab.setAttribute("y", Math.min(P3.acc.y + P3.acc.h - 4, zEnd.y + 20));
+    u3.zLab.setAttribute("text-anchor", zEnd.x >= sp[0].x ? "start" : "end");
+    /* The output is the payoff of the whole figure, so it stays on screen in
+       every state. The numbers toggle governs the intermediate weights. */
+    u3.zRead.textContent = "z" + sub(R) + " = (" + fmt(M.z[R][0], 2) + ", " + fmt(M.z[R][1], 2) + ")";
+
+    /* ---- controls ---- */
+    readerBtns.forEach(function (b, k) { b.classList.toggle("on", k === state.reader); });
+    viewBtns.forEach(function (b, k) { b.classList.toggle("on", (k === 0) === (state.view === "every")); });
+    toggleBtns.forEach(function (b, k) {
+      b.classList.toggle("on", k === 0 ? state.numbers : !state.scale);
+    });
+    hint.textContent = state.dragHint || STAGES[state.stage].hint;
+  }
+  function sub(i){ return SUBS[i]; }
+
+  /* ------------------------------------------------------------------ *
+   * Controls
+   * ------------------------------------------------------------------ */
+  var readerBox = document.getElementById("readers");
+  var viewBox = document.getElementById("views");
+  var toggleBox = document.getElementById("toggles");
+  var hint = document.getElementById("hint");
+  var btnStep = document.getElementById("step");
+  var btnPlay = document.getElementById("play");
+  var btnReset = document.getElementById("reset");
+
+  var readerBtns = TOK.map(function (t, i) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.textContent = t.tok;
+    b.addEventListener("click", function () { userSetReader(i); });
+    readerBox.appendChild(b);
+    return b;
+  });
+  var viewBtns = ["every reader", "one reader"].map(function (label, k) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.textContent = label;
+    b.addEventListener("click", function () {
+      stop();
+      state.view = k === 0 ? "every" : "one";
+      render();
+      pulse("view");
+    });
+    viewBox.appendChild(b);
+    return b;
+  });
+  var toggleBtns = [
+    { label: "numbers", kind: "numbers", act: function () { state.numbers = !state.numbers; } },
+    { label: "no scaling", kind: "scale", act: function () { state.scale = !state.scale; } }
+  ].map(function (t) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.textContent = t.label;
+    b.addEventListener("click", function () { stop(); t.act(); render(); pulse(t.kind); });
+    toggleBox.appendChild(b);
+    return b;
+  });
+
+  function setStage(i){
+    state.stage = Math.max(0, Math.min(STAGES.length - 1, i));
+    state.dragHint = "";
+    render();
+  }
+  function setReader(i){
+    state.reader = Math.max(0, Math.min(T - 1, i));
+    state.cell = null;
+    state.dragHint = "";
+    render();
+  }
+  /* User-facing wrappers: identical state, plus one motion pulse. The
+     __widget API and the drag path keep calling the silent setters. */
+  function userSetStage(i){ stop(); setStage(i); pulse("stage"); }
+  function userSetReader(i){ stop(); setReader(i); pulse("reader"); }
+
+  /* ---- drag a cell to edit the data, not just the display ---- */
+  var dragging = false, dragInfo = null;
+  function matPoint(ev){
+    var m = svg2.getScreenCTM().inverse();
+    return new DOMPoint(ev.clientX, ev.clientY).matrixTransform(m);
+  }
+  function cellAt(p){
+    for (var i = 0; i < T; i++) {
+      for (var j = 0; j < T; j++) {
+        if (p.x >= cellX(j) && p.x <= cellX(j) + P2.cell &&
+            p.y >= cellY(i) && p.y <= cellY(i) + P2.cell) { return { i: i, j: j }; }
+      }
+    }
+    /* the row header column selects a reader without editing anything */
+    for (var k = 0; k < T; k++) {
+      if (p.x < P2.x0 - 2 && p.y >= cellY(k) - 4 && p.y <= cellY(k) + P2.cell + 4) { return { i: k, j: -1 }; }
+    }
+    return null;
+  }
+  function beginDrag(ev){
+    var p = matPoint(ev), hit = cellAt(p);
+    if (!hit) { return; }
+    stop();
+    if (hit.j < 0) { state.hover = null; userSetReader(hit.i); return; }
+    dragging = true;
+    dragInfo = { i: hit.i, j: hit.j, y0: p.y, v0: scores[hit.i][hit.j], moved: 0 };
+    state.reader = hit.i;
+    state.cell = [hit.i, hit.j];
+    state.hover = { i: hit.i, j: hit.j };
+    svg2.setPointerCapture && svg2.setPointerCapture(ev.pointerId);
+    render();
+  }
+  function dragTo(ev){
+    var p = matPoint(ev);
+    var hit = cellAt(p);
+    var next = (hit && hit.j >= 0) ? { i: hit.i, j: hit.j } : null;
+    var hoverChanged = (!!next !== !!state.hover) ||
+      (next && state.hover && (next.i !== state.hover.i || next.j !== state.hover.j));
+    if (!dragging) {
+      if (hoverChanged) { state.hover = next; render(); }
+      return;
+    }
+    var dy = dragInfo.y0 - p.y;
+    dragInfo.moved = Math.max(dragInfo.moved, Math.abs(dy));
+    var v = Math.max(-4, Math.min(4, dragInfo.v0 + dy * 0.02));
+    scores[dragInfo.i][dragInfo.j] = v;
+    state.dragHint = "editing " + TOK[dragInfo.i].tok + " \u2192 " + TOK[dragInfo.j].tok +
+      ": only the \u201C" + TOK[dragInfo.i].tok + "\u201D row moved.";
+    render();
+  }
+  function endDrag(ev){
+    if (dragging && dragInfo) {
+      if (dragInfo.moved < 3) { state.dragHint = ""; }
+      dragging = false;
+      dragInfo = null;
+      render();
+    } else {
+      dragging = false;
+    }
+    if (svg2.releasePointerCapture && ev.pointerId !== undefined) {
+      try { svg2.releasePointerCapture(ev.pointerId); } catch (e) { /* already released */ }
+    }
+  }
+  function leaveMat(){
+    if (dragging) { return; }
+    if (state.hover) { state.hover = null; render(); }
+  }
+  svg2.addEventListener("pointerdown", beginDrag);
+  svg2.addEventListener("pointermove", dragTo);
+  svg2.addEventListener("pointerup", endDrag);
+  svg2.addEventListener("pointercancel", endDrag);
+  svg2.addEventListener("pointerleave", leaveMat);
+
+  /* ---- playback: walk the four stages in the order the maths runs ---- */
+  function stop(){
+    if (raf !== null) { cancelAnimationFrame(raf); raf = null; }
+    state.playing = false;
+  }
+  function reduced(){
+    return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }
+  function play(){
+    stop();
+    if (reduced()) { setStage(STAGES.length - 1); return; }
+    state.playing = true;
+    var k = 0;
+    setStage(0);
+    pulse("stage");
+    var t0 = performance.now(), dwell = 900;
+    (function frame(now){
+      if (!state.playing) { return; }
+      var want = Math.min(STAGES.length - 1, Math.floor((now - t0) / dwell));
+      if (want !== k) { k = want; setStage(k); pulse("stage"); }
+      if (k >= STAGES.length - 1 && now - t0 > dwell * STAGES.length) {
+        stop();
+        return;
+      }
+      raf = requestAnimationFrame(frame);
+    })(t0);
+  }
+  function reset(){
+    stop();
+    state.stage = 3;
+    state.reader = 4;
+    state.cell = null;
+    state.hover = null;
+    state.view = "every";
+    state.numbers = false;
+    state.scale = true;
+    state.dragHint = "";
+    scores = S0.map(function (r) { return r.slice(); });
+    render();
+  }
+  function setPosterState(){ reset(); }
+
+  btnStep.addEventListener("click", function () {
+    userSetReader((state.reader + 1) % T);
+  });
+  btnPlay.addEventListener("click", play);
+  btnReset.addEventListener("click", reset);
+
+  window.addEventListener("keydown", function (ev) {
+    if (dragging) { return; }
+    if (ev.key === "ArrowRight") { userSetStage(state.stage + 1); }
+    else if (ev.key === "ArrowLeft") { userSetStage(state.stage - 1); }
+    else if (ev.key === "ArrowDown") { userSetReader(state.reader + 1); }
+    else if (ev.key === "ArrowUp") { userSetReader(state.reader - 1); }
+    else if (ev.key === " ") { ev.preventDefault(); play(); }
+  });
+
+  /* ------------------------------------------------------------------ *
+   * Test / control hook
+   * ------------------------------------------------------------------ */
+  function finite(v, lo, hi){
+    var n = Number(v);
+    if (!isFinite(n)) { return null; }
+    return Math.max(lo, Math.min(hi, n));
+  }
+  window.__widget = {
+    getStep: function () { return state.stage; },
+    getState: function () { return JSON.parse(JSON.stringify(state)); },
+    reset: reset,
+    setPosterState: setPosterState,
+    setStage: function (i) {
+      stop();
+      var n = finite(i, 0, STAGES.length - 1);
+      if (n !== null) { setStage(Math.round(n)); }
+    },
+    seekStep: function (i) { window.__widget.setStage(i); },
+    setStep: function (i) { window.__widget.setStage(i); },
+    setPhase: function (i) { window.__widget.setStage(i); },
+    setReader: function (i) {
+      stop();
+      var n = finite(i, 0, T - 1);
+      if (n !== null) { setReader(Math.round(n)); }
+    },
+    setTab: function (i) { window.__widget.setReader(i); },
+    setTarget: function (i) { window.__widget.setReader(i); },
+    setCell: function (i, j, v) {
+      stop();
+      var a = finite(i, 0, T - 1), b = finite(j, 0, T - 1), c = finite(v, -4, 4);
+      if (a === null || b === null || c === null) { return; }
+      scores[Math.round(a)][Math.round(b)] = c;
+      render();
+    },
+    setMode: function (m) {
+      stop();
+      state.view = (m === "one" || m === "single") ? "one" : "every";
+      render();
+    },
+    setView: function (m) { window.__widget.setMode(m); },
+    setNumbers: function (b) { stop(); state.numbers = !!b; render(); },
+    setScale: function (b) { stop(); state.scale = !!b; render(); },
+    setHover: function (i, j) {
+      var a = finite(i, -1, T - 1), b = finite(j, -1, T - 1);
+      state.hover = (a === null || b === null || a < 0 || b < 0) ? null : { i: Math.round(a), j: Math.round(b) };
+      render();
+    },
+    designSize: function () { return [STAGE_W, STAGE_H]; },
+    // full model exposed so a reference implementation can be compared against
+    // the numbers actually rendered, not against the widget's own arithmetic
+    getModel: function () {
+      var M = compute();
+      return { tokens: TOK.map(function (t) { return t.tok; }),
+               values: TOK.map(function (t) { return t.v.slice(); }),
+               dk: D_K, sqrtDk: SQRT_DK, scale: state.scale,
+               scores: scores.map(function (r) { return r.slice(); }),
+               raw: M.raw, scaled: M.scaled, alpha: M.alpha, shown: M.shown,
+               rowSum: M.rowSum, z: M.z, maxRaw: M.maxRaw,
+               maxScaled: M.maxScaled, maxAlpha: M.maxAlpha,
+               reader: TOK[state.reader].tok, stage: state.stage };
+    }
+  };
+
+  buildPanel1();
+  buildPanel2();
+  buildPanel3();
+  setPosterState();
+})();
+</script>
+</body>
+</html>

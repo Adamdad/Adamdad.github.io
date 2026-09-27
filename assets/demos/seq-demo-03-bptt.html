@@ -1,0 +1,1249 @@
+<!doctype html>
+<html lang="en" data-page-node-id="QAZ2DIDLBfYCYV7ChNoUvg">
+<head data-page-node-id="gR6gQjxbfF8sTveFYifuGw">
+<meta charset="utf-8" data-page-node-id="qN3pJ7gi3m9bmrsAfgcZta">
+<meta name="viewport" content="width=device-width, initial-scale=1" data-page-node-id="c6ZfwTePhOXCKxAnxNlQ0B">
+<title>Backpropagation Through Time</title>
+<style>
+/* ============================================================
+   VISUAL GRAMMAR v1  (pilot: A3 + A5, 2026-09-23)
+   T1  semantic colours : --reader red / --source blue / --value green
+   T2  motion (CSS only, one-shot, <=1.2s, fired only by user action):
+       M1 line draw   solid: stroke-dashoffset full->0 ; dashed: staged fade
+       M2 bar grow    transform:scaleX() with transform-box:fill-box
+       M3 light-up    from-state keyframes + fill-mode:backwards
+                      + animation-delay: calc(var(--i) * 60ms)
+       M4 breathing   current step only, opacity 1 <-> .65
+       only transform / opacity / stroke-dashoffset are animated;
+       pulse(kind) is NEVER called from setPosterState / reset / init;
+       prefers-reduced-motion also zeroes animation-delay.
+   T3  text sinking: only the 2-3 longest notes sink to the panel bottom
+   T4  hero panel : one enlarged hero per widget (A3: panel 3)
+   ============================================================ */
+/* --- shared design system (interactive-teaching-demo/widget-base.css) --- */
+:root{
+  --ink:#30343a;--muted:#697078;--line:#d7dce0;--line-soft:#eef0f2;--paper:#f7f8fa;
+  --red:#9a1921;--red-soft:#f7e9eb;--blue:#1f4e79;--blue-soft:#eaf2f8;
+  --green:#0a8f22;--green-soft:#e8f5ea;
+  --reader:var(--red);--source:var(--blue);--value:var(--green);
+  --fs-title:21px;--fs-formula:18px;--fs-body:18px;--fs-label:15px;--fs-micro:12.5px;
+  --fs-mono:17px;--fs-big:52px;
+  --pad-x:24px;--pad-y:16px;--gap:18px;--r-panel:10px;--r-row:8px;--r-bar:5px;
+  --dur:340ms;--step:620ms;--ease:cubic-bezier(.22,.61,.36,1);
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Helvetica Neue","Segoe UI",Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#fff}
+
+/* The figure is authored once on a fixed 1160x650 canvas (1.78:1, so it maps
+   onto a 16:9 projector almost edge to edge) and then scaled uniformly to fill
+   whatever viewport it lands in. Scaling rather than reflowing is deliberate:
+   the panel geometry is hand-placed, and one uniform factor keeps every arrow,
+   node and label in the relationship the geometry probe verified. A legacy
+   1160x430 host box still shows the whole figure, just smaller. */
+body{
+  display:flex;align-items:center;justify-content:center;
+  color:var(--ink);font:18px/1.3 var(--sans);
+}
+#stage{
+  flex:0 0 auto;width:1160px;height:650px;transform-origin:center center;
+  padding:16px 20px 18px;display:flex;flex-direction:column;background:#fff;
+}
+.w-head{display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding-bottom:11px;border-bottom:2px solid var(--line);margin-bottom:15px;flex:0 0 auto}
+.w-head-main{display:flex;align-items:baseline;gap:12px;min-width:0}
+.w-title{margin:0;color:var(--red);font-size:24px;font-weight:700;white-space:nowrap}
+.w-formula{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  color:var(--muted);font-family:var(--mono);font-size:18px}
+.w-actions{display:flex;gap:8px;align-items:center;flex:0 0 auto}
+.w-btn{appearance:none;border:2px solid var(--red);border-radius:7px;padding:5px 12px;
+  background:#fff;color:var(--red);font:inherit;font-size:16px;font-weight:700;cursor:pointer}
+.w-btn-primary{background:var(--red);color:#fff}
+.w-btn:active{transform:translateY(1px)}
+.w-btn:focus-visible,input:focus-visible{outline:3px solid rgba(154,25,33,.22);outline-offset:2px}
+
+.w-pipe{display:flex;align-items:stretch;flex:0 0 auto}
+.w-panel{flex:0 0 auto;display:flex;flex-direction:column;min-width:0}
+.w-cap{display:flex;align-items:baseline;gap:8px;margin-bottom:8px;
+  white-space:nowrap;overflow:hidden;min-width:0}
+.w-cap b{color:var(--red);font-size:17px;flex:0 0 auto}
+.w-cap span{color:var(--muted);font-size:13.5px;overflow:hidden;text-overflow:ellipsis}
+.w-arrow{flex:0 0 16px;display:flex;align-items:center;justify-content:center}
+.w-arrow svg{display:block}
+
+.w-ctl{display:flex;align-items:center;gap:12px;flex:0 0 auto;margin-top:19px;min-width:0}
+.w-ctl-lab{flex:0 0 auto;color:var(--muted);font-size:14px}
+.w-segment{display:flex;gap:6px;flex:0 0 auto}
+.w-segment button{border:1.5px solid var(--line);border-radius:6px;padding:4px 10px;background:#fff;
+  color:var(--ink);font:inherit;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--mono)}
+.w-segment button.on{border-color:var(--red);background:var(--red-soft);color:var(--red)}
+.w-hint{margin-left:auto;color:var(--muted);font-size:14px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+svg.pane{width:100%;height:auto;display:block}
+
+.sv-num{font:700 12px var(--mono);fill:var(--ink);font-variant-numeric:tabular-nums}
+/* the value numerals sit in boxes whose width is set by the step pitch, so the
+   type shrinks as the chain gets longer rather than the numbers clipping */
+#p1.t5 .sv-num{font-size:9.5px}
+#p1.t3 .sv-num{font-size:11px}
+/* the gate slots narrow as the chain lengthens, so their value labels step down
+   with them rather than running together into one string of digits */
+#p3.n3 .sv-num,#p3.n4 .sv-num{font-size:10px}
+.sv-lab{font:700 12px var(--mono);fill:var(--ink)}
+.sv-lane{font:700 10px var(--mono);fill:var(--muted)}
+.sv-micro{font:400 11.5px var(--sans);fill:var(--muted)}
+.sv-tick{font:400 10.5px var(--mono);fill:var(--muted)}
+.sv-big{font:700 21px var(--mono);fill:var(--ink);font-variant-numeric:tabular-nums}
+.sv-eq{font:400 12px var(--mono);fill:var(--muted)}
+.sv-rule{stroke:#e3e7ea;stroke-width:1.2}
+.sv-bar{transition:width var(--dur) var(--ease),x var(--dur) var(--ease),y var(--dur) var(--ease),
+                   height var(--dur) var(--ease),fill var(--dur) var(--ease)}
+.sv-fade{transition:opacity var(--dur) var(--ease)}
+.sv-node{transition:fill var(--dur) var(--ease),stroke var(--dur) var(--ease)}
+
+/* T2 motion: one-shot, fired only by a user action (pulse()). Nothing here
+   runs in the poster state, and every mode finishes inside the 1.2 s budget.
+   Only transform / opacity are animated. */
+@keyframes w-fade{from{opacity:0}}
+@keyframes w-light{from{opacity:.12}}
+@keyframes w-grow{from{transform:scaleX(0)}}
+@keyframes w-rise{from{transform:scaleY(0)}}
+@keyframes w-breathe{0%,100%{opacity:1}50%{opacity:.68}}
+.anim-fade{animation:w-fade 320ms var(--ease) backwards}
+.anim-light{animation:w-light 420ms var(--ease) backwards;animation-delay:calc(var(--i,0)*60ms)}
+.anim-grow{animation:w-grow 460ms var(--ease) backwards;transform-box:fill-box;transform-origin:var(--org,left center);animation-delay:calc(var(--i,0)*60ms)}
+.anim-rise{animation:w-rise 520ms var(--ease) backwards;transform-box:fill-box;transform-origin:bottom center;animation-delay:calc(var(--i,0)*60ms)}
+.anim-breathe{animation:w-breathe 1.6s ease-in-out infinite}
+
+/* the recurrent edge dashes drift the way the gradient travels; the motion is
+   the claim ("this signal moves right to left"), not decoration */
+@keyframes w-flow{to{stroke-dashoffset:22}}
+.flow{animation:w-flow 1.1s linear infinite}
+
+@keyframes w-pulse{0%{transform:scale(1)}40%{transform:scale(1.05)}100%{transform:scale(1)}}
+.is-pulsing{animation:w-pulse 300ms var(--ease)}
+@media (prefers-reduced-motion:reduce){
+  :root{--dur:0ms;--step:0ms}
+  *,*::before,*::after{transition-duration:0ms!important;animation-duration:0ms!important;animation-delay:0ms!important}
+  .is-pulsing,.flow,.anim-fade,.anim-light,.anim-grow,.anim-rise,.anim-breathe{animation:none!important}
+}
+</style>
+</head>
+<body data-page-node-id="pKn2ByTWj4caT6aqwGHjGh">
+
+<div id="stage" data-page-node-id="G6ENJ6m07GKllf1akLPbfH">
+
+<header class="w-head" data-page-node-id="B2ae1s9d22YX90eQCDhoT0">
+  <div class="w-head-main" data-page-node-id="Om7hKAX0Uoq53njofLrVxq">
+    <h1 class="w-title" data-page-node-id="7jUI4jripd1GXwwa3khMtq">Unroll, then walk the same graph backwards</h1>
+    <span class="w-formula" data-page-node-id="hC7utLyDqYUkhUsGNhIg07">&part;&#8466;/&part;&theta; = &sum;<sub data-page-node-id="PgUgi66KH9RIpGdSACxGob">k</sub> &part;&#8466;<sub data-page-node-id="zwfxHBhAcLYrwTPLbuUgtg">k</sub>/&part;&theta;</span>
+  </div>
+  <div class="w-actions" data-page-node-id="wGgRYpySDkkHM0cuRVzkXX">
+    <button class="w-btn" id="step" type="button" data-page-node-id="471bPq5JBjZBm5ZsWYeN9H">Next</button>
+    <button class="w-btn w-btn-primary" id="play" type="button" data-page-node-id="RwOdpNIquFXomRu5LmUxAm">Play</button>
+    <button class="w-btn" id="reset" type="button" data-page-node-id="oPyebepZvPNLS9s3MTxct4">Reset</button>
+  </div>
+</header>
+
+<main class="w-pipe" data-page-node-id="vi20uIoFdw43T2HrudxkHD">
+
+  <section class="w-panel" style="width:316px" data-page-node-id="uvstzDa7XAp3Am9fBCO9GB">
+    <div class="w-cap" data-page-node-id="J4IoTi8W4o8DfEAwKlolZc"><b data-page-node-id="yWJaiEtOk8Qfe0HIDglikJ">&#9312; the graph</b><span data-page-node-id="KUYwLV7GNQIWywOVF0FRKB">one unroll, two directions</span></div>
+    <svg class="pane" id="p1" viewBox="0 0 316 474" role="img"
+         aria-label="A recurrent network unrolled over time: inputs at the bottom, hidden states in the middle, losses on top. Solid arrows run left to right and build the states and losses; dashed blue arrows run right to left and carry the gradient of the loss back through the same graph. Each state box shows its value and the gradient it receives." data-page-node-id="ZQ3Zy30GP2n5fnHWB5cAEo"></svg>
+  </section>
+
+  <div class="w-arrow" aria-hidden="true" data-page-node-id="qCO7NRiFTm6fnTpdOAW6lR">
+    <svg width="16" height="22" viewBox="0 0 16 22" data-page-node-id="wiaMP42Q3ZNAs8D5OkmqUD"><path d="M4 4 L12 11 L4 18"
+      fill="none" stroke="#9a1921" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="mnbOtxIT5V6iX9KSHG9Wj0"/></svg>
+  </div>
+
+  <section class="w-panel" style="width:298px" data-page-node-id="m2M2Fa2gceEiPSN2GjWro9">
+    <div class="w-cap" data-page-node-id="fR3HD0yhScbMGiwor6mC6B"><b data-page-node-id="gAMNa25cjybusKE3VkvJd8">&#9313; one step back</b><span id="cap2" data-page-node-id="zEOkaixM7K0qDNIwcsS6HG">&part;&#8467;<sub data-page-node-id="HVg56HFILFercove2YBQjY">k</sub>/&part;h<sub data-page-node-id="UxBsJEPRy3TArTlx8PSHWO">k</sub> + g<sub data-page-node-id="e1ZG9WpOnfBFBJ23grgevl">k+1</sub>J<sub data-page-node-id="8J1ysIt9yh5DMvh3wDP5r0">k+1</sub></span></div>
+    <svg class="pane" id="p2" viewBox="0 0 298 474" role="img"
+         aria-label="One backward step broken into four bars on a shared axis: the derivative of this step's own loss, the gradient that arrived from later steps, that same gradient after passing through the gate J, and finally their sum. Each bar runs from the zero line, so its length is the number printed beside it." data-page-node-id="ITvz9bOoMoGQAjYzGCpEzI"></svg>
+  </section>
+
+  <div class="w-arrow" aria-hidden="true" data-page-node-id="h671fxuxzUpaWatJdIgjR5">
+    <svg width="16" height="22" viewBox="0 0 16 22" data-page-node-id="AY1weiKXlWdhVhLKs6HjWh"><path d="M4 4 L12 11 L4 18"
+      fill="none" stroke="#9a1921" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="Fv1vpMApq9e0fdNzIjsxT3"/></svg>
+  </div>
+
+  <section class="w-panel" style="width:280px" data-page-node-id="VXqYq2qz58AbZGtVU1EBfy">
+    <div class="w-cap" data-page-node-id="JmxH3swT3rzVqln8MmRhgK"><b data-page-node-id="rwcf6vjuEUg5RLvtZkNCIW">&#9314; the chain</b><span id="cap3" data-page-node-id="FBv820K0UjJkJU7RLceYTw"></span></div>
+    <svg class="pane" id="p3" viewBox="0 0 280 474" role="img"
+         aria-label="Every gate J between the last loss and the selected state, drawn as a bar against a reference line at one, next to the bar for their product. All gates are below one, so the product shrinks as the chain gets longer." data-page-node-id="32xuVVr4njg86MOJX947Fl"></svg>
+  </section>
+
+  <div class="w-arrow" aria-hidden="true" data-page-node-id="QgH5ZOH1mxKBtwXjR1CP0U">
+    <svg width="16" height="22" viewBox="0 0 16 22" data-page-node-id="CiMEGkuCYuT2sbdRtfdeBj"><path d="M4 4 L12 11 L4 18"
+      fill="none" stroke="#9a1921" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="2jVzLJwavfGg9W72gojsDL"/></svg>
+  </div>
+
+  <section class="w-panel" style="width:170px" data-page-node-id="4EKkzcYSods10ZySTBlMGV">
+    <div class="w-cap" data-page-node-id="i0bT4j4FBf2L0b1xeXIBFG"><b data-page-node-id="s53XAI6rbKWe8FFARARYkp">&#9315; onto &theta;</b></div>
+    <svg class="pane" id="p4" viewBox="0 0 170 474" role="img"
+         aria-label="A waterfall chart: each time step's contribution to the gradient of the total loss with respect to the shared parameter is stacked onto the running total, which pours into one parameter block at the bottom." data-page-node-id="PHpbi9AIhK7ZnYq1UK3xdn"></svg>
+  </section>
+
+</main>
+
+<div class="w-ctl" data-page-node-id="0YUFoctKRbyMGAzWUeSHdk">
+  <span class="w-ctl-lab" data-page-node-id="ffYdnmJjO7a9nTU29m9E3k">sequence length</span>
+  <div class="w-segment" id="lens" role="group" aria-label="Sequence length" data-page-node-id="TE6IoDr2qJRlFE8DLUGFq3"></div>
+  <span class="w-ctl-lab" data-page-node-id="6cM6I8khe4kZFmXX4vi0Wl">phase</span>
+  <div class="w-segment" id="phases" role="group" aria-label="Phase" data-page-node-id="7qdGAkowucPJpRPD2gwSvA"></div>
+  <div class="w-segment" id="toggles" role="group" aria-label="Display options" data-page-node-id="OYMWdkPgbz3vcMnoND9dWE">
+    <button id="tg-num" type="button" data-page-node-id="xfk1jcXbeliogFbhedEZaY">numbers</button>
+  </div>
+  <span class="w-hint" id="hint" data-page-node-id="PwnXyT8OqDfYKoH0jHvw8T"></span>
+</div>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ------------------------------------------------------------------ *
+   * Fullscreen. Authored on a fixed canvas, scaled uniformly to fill the
+   * viewport, so nothing crops or reflows at any other size.
+   * ------------------------------------------------------------------ */
+  var STAGE_W = 1160, STAGE_H = 650;
+  var stage = document.getElementById("stage");
+  function fit(){
+    var k = Math.min(window.innerWidth / STAGE_W, window.innerHeight / STAGE_H);
+    stage.style.transform = (Math.abs(k - 1) < 0.002) ? "none" : "scale(" + k + ")";
+  }
+  window.addEventListener("resize", fit);
+  window.addEventListener("orientationchange", fit);
+  fit();
+
+  /* ------------------------------------------------------------------ *
+   * Model. Scalar vanilla RNN, real gradients from tanh' = 1 - h^2.
+   *
+   *   h_k = tanh( W_h h_{k-1} + W_x x_k + b ),   h_0 = H0
+   *   L_k = (h_k - y_k)^2,                       L = sum_k L_k
+   *   dl_k = dL_k/dh_k = 2 (h_k - y_k)
+   *   J_k  = dh_k/dh_{k-1} = W_h (1 - h_k^2)
+   *   g_k  = dL/dh_k = dl_k + g_{k+1} J_{k+1},   g_T = dl_T
+   *   C_k  = contribution of step k to dL/dW_h = g_k (1 - h_k^2) h_{k-1}
+   *   prodJ[k] = PROD_{j=k+1..T} J_j = dh_T/dh_k   (empty product = 1)
+   *
+   * The whole point of the figure is the third line: the gradient a state
+   * receives is the loss at that step PLUS whatever the later steps sent back,
+   * passed through one gate. Lengthening T lengthens that chain of gates, and
+   * every gate is below 1 here, so the signal reaching an early state decays.
+   * ------------------------------------------------------------------ */
+  var W_H = 0.8, W_X = 1.2, B_H = -0.1, H0 = 0.2;
+  var XS = { 2: [0.8, -0.5], 3: [0.8, -0.5, 0.9], 5: [0.8, -0.5, 0.9, 0.4, -0.7] };
+  var YS = { 2: [0.5, 0.5], 3: [0.5, 0.5, 0.5], 5: [0.5, 0.5, 0.5, 0.5, 0.5] };
+  var LENGTHS = [2, 3, 5];
+
+  var MINUS = "\u2212";
+  var SUBS = ["\u2080","\u2081","\u2082","\u2083","\u2084","\u2085","\u2086","\u2087","\u2088","\u2089"];
+  function sub(n){ return String(n).split("").map(function(c){ return SUBS[+c]; }).join(""); }
+  function fmt(v, d){
+    var dd = (d === undefined) ? 3 : d;
+    var z = Math.abs(v) < 0.5 * Math.pow(10, -dd) ? 0 : v;
+    return z.toFixed(dd).replace("-", MINUS);
+  }
+
+  var PAL = { ink:"#30343a", muted:"#697078", line:"#d7dce0", lineSoft:"#eef0f2",
+              mid:"#aeb6bd", red:"#9a1921", redSoft:"#f7e9eb",
+              blue:"#1f4e79", blueSoft:"#eaf2f8", bluePale:"#cfe0ee", blueEdge:"#8fb4d0",
+              green:"#0a8f22", paper:"#f7f8fa" };
+  /* Two colours carry two meanings for the whole page:
+     red  = the step under the microscope, blue = a gradient being carried. */
+  var C_CARRY = PAL.blue, C_CARRY_IN = "#c3d8e8", C_LOCAL = PAL.red;
+
+  function buildModel(T){
+    var X = XS[T], Y = YS[T];
+    var H = [H0], L = [0], DL = [0], J = [0];
+    for (var k = 1; k <= T; k++) {
+      H.push(Math.tanh(W_H * H[k - 1] + W_X * X[k - 1] + B_H));
+    }
+    for (k = 1; k <= T; k++) {
+      L.push(Math.pow(H[k] - Y[k - 1], 2));
+      DL.push(2 * (H[k] - Y[k - 1]));
+      J.push(W_H * (1 - H[k] * H[k]));
+    }
+    var G = new Array(T + 2).fill(0);
+    G[T] = DL[T];
+    for (k = T - 1; k >= 1; k--) { G[k] = DL[k] + G[k + 1] * J[k + 1]; }
+    var C = [0], run = [0];
+    for (k = 1; k <= T; k++) {
+      C.push(G[k] * (1 - H[k] * H[k]) * H[k - 1]);
+      run.push(run[k - 1] + C[k]);
+    }
+    var prodJ = new Array(T + 2).fill(1);
+    for (k = T - 1; k >= 0; k--) { prodJ[k] = prodJ[k + 1] * J[k + 1]; }
+    return { T:T, X:X, Y:Y, H:H, L:L, DL:DL, J:J, G:G, C:C, run:run, prodJ:prodJ, total:run[T] };
+  }
+
+  /* ------------------------------------------------------------------ *
+   * State. `step` is one monotonic counter across all three phases:
+   *   1..2T     forward   (state h_k, then loss L_k)
+   *   2T+1..3T  backward  (g_T down to g_1)
+   *   3T+1..4T  accumulate (C_1 .. C_T)
+   * ------------------------------------------------------------------ */
+  var state = { T: 3, step: 0, numbers: false, playing: false };
+  var M = buildModel(3);
+  var timer = null, lastStep = 0;
+  var STEP_MS = 560;
+
+  function totalSteps(T){ return 4 * T; }
+  function stageOf(T, s){
+    if (s <= 0) { return { phase: "idle", k: 1 }; }
+    if (s <= 2 * T) {
+      var i = s;
+      return { phase: "forward", k: Math.ceil(i / 2), part: (i % 2 === 1) ? "state" : "loss" };
+    }
+    if (s <= 3 * T) { return { phase: "backward", k: T + 1 - (s - 2 * T) }; }
+    return { phase: "accum", k: s - 3 * T };
+  }
+  function phaseIndex(T, s){
+    if (s <= 0) { return -1; }
+    if (s <= 2 * T) { return 0; }
+    if (s <= 3 * T) { return 1; }
+    return 2;
+  }
+  /* Which state panels 2 and 3 dissect. During the accumulation phase the
+     backward walk is already over, so they hold at k = 1 -- the far end of the
+     walk, where the chain to the loss is longest and the carried term is
+     non-degenerate. Pinning there also means the resting poster frame shows a
+     full chain instead of the empty one at k = T. */
+  function panelK(st){
+    return (st.phase === "forward" || st.phase === "backward") ? st.k : 1;
+  }
+  function revealed(T, s){
+    var st = stageOf(T, s), pi = phaseIndex(T, s);
+    return {
+      st: st, pi: pi,
+      fwdIdx:  (st.phase === "forward")  ? s : (pi > 0 ? 2 * T : 0),
+      backIdx: (st.phase === "backward") ? (T + 1 - st.k) : (pi > 1 ? T : 0),
+      accIdx:  (st.phase === "accum")    ? st.k : 0
+    };
+  }
+
+  /* ------------------------------------------------------------------ *
+   * SVG helpers
+   * ------------------------------------------------------------------ */
+  var NS = "http://www.w3.org/2000/svg";
+  function el(tag, attrs){
+    var n = document.createElementNS(NS, tag);
+    for (var k in attrs) { if (Object.prototype.hasOwnProperty.call(attrs, k)) n.setAttribute(k, attrs[k]); }
+    return n;
+  }
+  function txt(x, y, cls, content, anchor){
+    var n = el("text", { x: x, y: y, "class": cls, "text-anchor": anchor || "middle" });
+    if (content !== undefined) { n.textContent = content; }
+    return n;
+  }
+  /* parts: strings, {sub:"..."} or {sup:"..."}, with the baseline tracked. */
+  function setRich(node, parts){
+    while (node.firstChild) { node.removeChild(node.firstChild); }
+    var off = 0;
+    function run(dy, size, content){
+      var s = el("tspan", { dy: String(dy - off), "font-size": size });
+      s.textContent = content;
+      off = dy;
+      node.appendChild(s);
+    }
+    parts.forEach(function (p) {
+      if (typeof p === "string") { run(0, "1em", p); }
+      else if (p.sub !== undefined) { run(3, "0.74em", p.sub); }
+      else if (p.sup !== undefined) { run(-4, "0.74em", p.sup); }
+    });
+    return node;
+  }
+  function rich(x, y, cls, parts, anchor){
+    return setRich(txt(x, y, cls, undefined, anchor), parts);
+  }
+  function marker(id, fill){
+    var m = el("marker", { id: id, viewBox: "0 0 10 10", refX: "9", refY: "5",
+      markerWidth: "4.4", markerHeight: "4.4", orient: "auto-start-reverse" });
+    m.appendChild(el("path", { d: "M0,0 L10,5 L0,10 z", fill: fill }));
+    return m;
+  }
+  function rule(parent, x1, x2, y, cls){
+    parent.appendChild(el("line", { x1: x1, y1: y, x2: x2, y2: y, "class": cls || "sv-rule" }));
+  }
+  function rect(parent, x, y, w, h, fill, rx, cls){
+    var r = el("rect", { x: x, y: y, width: Math.max(0, w), height: h, rx: rx === undefined ? 2.5 : rx,
+      fill: fill, "class": cls || "sv-bar" });
+    parent.appendChild(r);
+    return r;
+  }
+  /* A bar from the zero line: the side carries the sign, the colour the role. */
+  function signedBar(parent, cx, y, h, v, pxu, fill){
+    var w = Math.abs(v) * pxu;
+    return rect(parent, v >= 0 ? cx : cx - w, y, w, h, fill);
+  }
+  /* A bar from a to b on the same axis (used for stacked segments). */
+  function spanBar(parent, cx, y, h, a, b, pxu, fill){
+    var x = cx + Math.min(a, b) * pxu, w = Math.abs(b - a) * pxu;
+    return rect(parent, x, y, w, h, fill);
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Panel geometry
+   * ------------------------------------------------------------------ */
+  var P1 = { W:316, H:474, LX:30, X0:34, X1:306,
+             LY:34, LH:42, SY:128, SH:74, IY:264, IH:42,
+             ARC:222, JY:238, RIB:342, RIB_R0:388, RIB_P:30 };
+  var P2 = { W:298, H:474, CX:118, HALF:100, RO:226 };
+  var P3 = { W:280, H:474, X0:20, X1:248, BASE:316, TOP:88, SYM:334, VAL:350 };
+  var P4 = { W:170, H:474, X0:18, X1:152, TOP:118, BASE:336 };
+
+  var svg1 = document.getElementById("p1");
+  var svg2 = document.getElementById("p2");
+  var svg3 = document.getElementById("p3");
+  var svg4 = document.getElementById("p4");
+
+  function defsFor(svg, p){
+    var d = el("defs", {});
+    d.appendChild(marker(p + "f", PAL.ink));
+    d.appendChild(marker(p + "fd", PAL.lineSoft));
+    d.appendChild(marker(p + "b", PAL.blue));
+    d.appendChild(marker(p + "bd", "#c9d6e2"));
+    d.appendChild(marker(p + "h", PAL.red));
+    d.appendChild(marker(p + "g", PAL.green));
+    d.appendChild(marker(p + "gd", "#c3ddc8"));
+    svg.appendChild(d);
+  }
+  function clear(svg){ while (svg.firstChild) { svg.removeChild(svg.firstChild); } }
+
+  function layout1(T){
+    var pitch = (P1.X1 - P1.X0) / T;
+    var cx = [];
+    for (var k = 1; k <= T; k++) { cx.push(P1.X0 + (k - 0.5) * pitch); }
+    return { pitch: pitch, cx: cx,
+             sw: Math.min(64, pitch - 16),
+             lw: Math.min(52, pitch - 22),
+             iw: Math.min(48, pitch - 22) };
+  }
+
+  var u1 = { state: [], loss: [], input: [], fwd: [], back: [], arc: [], jlab: [], rib: [] };
+  var u2 = {};
+  var u3 = { k: -1, gate: [], sym: [], val: [], prodBar: null, prodSym: null, ref: null, refLab: null };
+  var u4 = { seg: [], tick: [], zero: null, head: null, total: null, sig: null };
+
+  /* ------------------------------------------------------------------ *
+   * Panel 1 -- the unrolled graph, forward solid and backward dashed
+   * ------------------------------------------------------------------ */
+  function buildPanel1(){
+    clear(svg1);
+    defsFor(svg1, "a3f1-");
+    var T = state.T, L = layout1(T), cx = L.cx;
+    var sw = L.sw, sh = P1.SH, sy = P1.SY;
+    var lw = L.lw, lh = P1.LH, ly = P1.LY;
+    var iw = L.iw, ih = P1.IH, iy = P1.IY;
+    svg1.setAttribute("class", "pane t" + T);
+
+    u1 = { state: [], loss: [], input: [], fwd: [], back: [], arc: [], jlab: [], rib: [] };
+
+    svg1.appendChild(txt(P1.LX, ly + 26, "sv-lane", "loss", "end"));
+    svg1.appendChild(txt(P1.LX, sy + 40, "sv-lane", "state", "end"));
+    svg1.appendChild(txt(P1.LX, iy + 26, "sv-lane", "input", "end"));
+
+    for (var k = 1; k <= T; k++) {
+      var c = cx[k - 1];
+
+      // input
+      var ir = el("rect", { x: c - iw / 2, y: iy, width: iw, height: ih, rx: 8,
+        fill: PAL.paper, stroke: PAL.line, "stroke-width": 1.6, "class": "sv-node" });
+      var il = rich(c, iy + 17, "sv-lab", ["x", { sub: sub(k) }]);
+      var iv = txt(c, iy + 33, "sv-num", "");
+      svg1.appendChild(ir); svg1.appendChild(il); svg1.appendChild(iv);
+      u1.input.push({ rect: ir, lab: il, val: iv, k: k });
+
+      // forward: x_k -> h_k  (and, collinear above the box, h_k -> loss)
+      var xe = el("line", { x1: c - 11, y1: iy - 2, x2: c - 11, y2: sy + sh + 2,
+        stroke: PAL.lineSoft, "stroke-width": 2.2, "marker-end": "url(#a3f1-fd)" });
+      svg1.appendChild(xe);
+      u1.fwd.push({ el: xe, at: 2 * k - 1 });
+
+      var sr = el("rect", { x: c - sw / 2, y: sy, width: sw, height: sh, rx: 9,
+        fill: "#fff", stroke: PAL.lineSoft, "stroke-width": 2, "class": "sv-node" });
+      var sl = rich(c, sy + 22, "sv-lab", ["h", { sub: sub(k) }]);
+      var sv = txt(c, sy + 42, "sv-num", "");
+      var sg = txt(c, sy + 62, "sv-num", "");
+      svg1.appendChild(sr); svg1.appendChild(sl); svg1.appendChild(sv); svg1.appendChild(sg);
+      u1.state.push({ rect: sr, lab: sl, val: sv, grad: sg, k: k, cx: c });
+
+      if (k > 1) {
+        var fe = el("line", { x1: cx[k - 2] + sw / 2 + 2, y1: sy + sh / 2, x2: c - sw / 2 - 2, y2: sy + sh / 2,
+          stroke: PAL.lineSoft, "stroke-width": 2.2, "marker-end": "url(#a3f1-fd)" });
+        svg1.appendChild(fe);
+        u1.fwd.push({ el: fe, at: 2 * k - 1 });
+      }
+
+      var le = el("line", { x1: c - 11, y1: sy - 2, x2: c - 11, y2: ly + lh + 2,
+        stroke: PAL.lineSoft, "stroke-width": 2.2, "marker-end": "url(#a3f1-fd)" });
+      svg1.appendChild(le);
+      u1.fwd.push({ el: le, at: 2 * k });
+
+      var lr = el("rect", { x: c - lw / 2, y: ly, width: lw, height: lh, rx: 8,
+        fill: PAL.paper, stroke: PAL.line, "stroke-width": 1.6, "class": "sv-node" });
+      var ll = rich(c, ly + 17, "sv-lab", ["\u2113", { sub: sub(k) }]);
+      var lvv = txt(c, ly + 34, "sv-num", "");
+      svg1.appendChild(lr); svg1.appendChild(ll); svg1.appendChild(lvv);
+      u1.loss.push({ rect: lr, lab: ll, val: lvv, k: k });
+
+      // backward: loss -> state, offset right so it never sits under the forward edge
+      var be = el("line", { x1: c + 11, y1: ly + lh + 2, x2: c + 11, y2: sy - 2,
+        stroke: "#c9d6e2", "stroke-width": 2.2, "stroke-dasharray": "5 4",
+        "marker-end": "url(#a3f1-bd)" });
+      svg1.appendChild(be);
+      u1.back.push(be);
+    }
+
+    // backward arcs h_{k+1} -> h_k, each carrying one Jacobian
+    for (k = 1; k < T; k++) {
+      var x1 = cx[k] - sw / 2 - 4, x2 = cx[k - 1] + sw / 2 + 3;
+      var p = el("path", { d: "M " + x1 + "," + (sy + sh) + " C " + x1 + "," + P1.ARC + " " +
+                            x2 + "," + P1.ARC + " " + x2 + "," + (sy + sh + 2),
+        fill: "none", stroke: "#c9d6e2", "stroke-width": 2.2, "stroke-dasharray": "5 4",
+        "marker-end": "url(#a3f1-bd)" });
+      svg1.appendChild(p);
+      u1.arc.push(p);
+      var jl = rich((x1 + x2) / 2, P1.JY, "sv-lab", ["J", { sub: sub(k + 1) }], "middle");
+      jl.setAttribute("fill", PAL.muted);
+      svg1.appendChild(jl);
+      u1.jlab.push(jl);
+    }
+
+    // legend / phase ribbon: the line styles in the graph, named
+    rule(svg1, P1.X0, P1.X1, P1.RIB, "sv-rule");
+    svg1.appendChild(txt(P1.X0, P1.RIB + 18, "sv-micro", "what this step does", "start"));
+    var RIB = [
+      { label: "forward \u00b7 builds h and \u2113", stroke: PAL.ink, dir: 1, dash: "none", mk: "a3f1-f" },
+      { label: "backward \u00b7 carries \u2202\u2112/\u2202h", stroke: PAL.blue, dir: -1, dash: "5 4", mk: "a3f1-b" },
+      { label: "onto \u03b8 \u00b7 every step lands here", stroke: PAL.green, dir: 1, dash: "none", mk: "a3f1-g" }
+    ];
+    RIB.forEach(function (r, i) {
+      var y = P1.RIB_R0 + i * P1.RIB_P;
+      var bg = el("rect", { x: P1.X0, y: y - 15, width: P1.X1 - P1.X0, height: 22, rx: 6,
+        fill: PAL.redSoft, "class": "sv-fade" });
+      svg1.appendChild(bg);
+      var ln = el("line", { x1: r.dir > 0 ? 44 : 104, y1: y, x2: r.dir > 0 ? 104 : 44, y2: y,
+        stroke: r.stroke, "stroke-width": 2.4, "stroke-dasharray": r.dash,
+        "marker-end": "url(#" + r.mk + ")", "class": "sv-fade" });
+      svg1.appendChild(ln);
+      var tx = txt(114, y + 4, "sv-micro", r.label, "start");
+      tx.setAttribute("class", "sv-micro sv-fade");
+      svg1.appendChild(tx);
+      u1.rib.push({ bg: bg, ln: ln, tx: tx, idx: i });
+    });
+  }
+
+  function renderPanel1(){
+    var T = state.T, R = revealed(T, state.step), st = R.st, N = state.numbers;
+
+    u1.state.forEach(function (o) {
+      var known = R.fwdIdx >= 2 * o.k;
+      var cur = (st.phase === "forward" && st.part === "state" && st.k === o.k);
+      var gKnown = R.backIdx >= T + 1 - o.k;
+      var gCur = (st.phase === "backward" && st.k === o.k);
+      var focus = cur || gCur;
+      o.rect.setAttribute("stroke", focus ? PAL.red : (known ? PAL.line : PAL.lineSoft));
+      o.rect.setAttribute("stroke-width", focus ? 3 : 2);
+      o.rect.setAttribute("fill", focus ? PAL.redSoft : "#fff");
+      o.lab.setAttribute("fill", known ? PAL.ink : PAL.muted);
+      o.val.textContent = (known && N) ? fmt(M.H[o.k]) : "";
+      o.val.setAttribute("fill", focus ? PAL.red : PAL.ink);
+      o.grad.textContent = (gKnown && N) ? fmt(M.G[o.k], 2) : "";
+      o.grad.setAttribute("fill", gCur ? PAL.red : PAL.blue);
+    });
+
+    u1.loss.forEach(function (o) {
+      var known = R.fwdIdx >= 2 * o.k;
+      var cur = (st.phase === "forward" && st.part === "loss" && st.k === o.k);
+      o.rect.setAttribute("stroke", cur ? PAL.red : PAL.line);
+      o.rect.setAttribute("stroke-width", cur ? 3 : 1.6);
+      o.rect.setAttribute("fill", cur ? PAL.redSoft : PAL.paper);
+      o.lab.setAttribute("fill", known ? PAL.ink : PAL.muted);
+      o.val.textContent = (known && N) ? fmt(M.L[o.k]) : "";
+      o.val.setAttribute("fill", cur ? PAL.red : PAL.ink);
+    });
+
+    u1.input.forEach(function (o) {
+      var on = R.fwdIdx >= 2 * o.k - 1;
+      o.rect.setAttribute("stroke", on ? PAL.ink : PAL.line);
+      o.lab.setAttribute("fill", on ? PAL.ink : PAL.muted);
+      o.val.textContent = on ? fmt(M.X[o.k - 1], 1) : "";
+      o.val.setAttribute("fill", on ? PAL.ink : PAL.muted);
+    });
+
+    u1.fwd.forEach(function (o) {
+      var on = R.fwdIdx >= o.at;
+      o.el.setAttribute("stroke", on ? PAL.ink : PAL.lineSoft);
+      o.el.setAttribute("marker-end", on ? "url(#a3f1-f)" : "url(#a3f1-fd)");
+    });
+
+    u1.back.forEach(function (e, i) {
+      var k = i + 1;
+      var on = R.backIdx >= T + 1 - k;
+      var cur = (st.phase === "backward" && st.k === k);
+      e.setAttribute("stroke", cur ? PAL.red : (on ? PAL.blue : "#c9d6e2"));
+      e.setAttribute("stroke-width", cur ? 2.8 : 2.2);
+      e.setAttribute("marker-end", cur ? "url(#a3f1-h)" : (on ? "url(#a3f1-b)" : "url(#a3f1-bd)"));
+      e.setAttribute("class", cur ? "flow" : "");
+    });
+    u1.arc.forEach(function (e, i) {
+      var k = i + 1;                              // arc h_{k+1} -> h_k lights when g_k is known
+      var on = R.backIdx >= T + 1 - k;
+      var cur = (st.phase === "backward" && st.k === k);
+      e.setAttribute("stroke", cur ? PAL.red : (on ? PAL.blue : "#c9d6e2"));
+      e.setAttribute("stroke-width", on ? 2.6 : 2.2);
+      e.setAttribute("marker-end", cur ? "url(#a3f1-h)" : (on ? "url(#a3f1-b)" : "url(#a3f1-bd)"));
+      e.setAttribute("class", cur ? "flow" : "");
+      u1.jlab[i].setAttribute("fill", on ? (cur ? PAL.red : PAL.blue) : PAL.muted);
+    });
+
+    u1.rib.forEach(function (o) {
+      var on = (o.idx === R.pi);
+      o.bg.setAttribute("opacity", on ? 1 : 0);
+      o.ln.setAttribute("opacity", on ? 1 : 0.4);
+      o.tx.setAttribute("opacity", on ? 1 : 0.45);
+      o.tx.setAttribute("fill", on ? PAL.ink : PAL.muted);
+    });
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Panel 2 -- one backward step, as four bars on one axis
+   * ------------------------------------------------------------------ */
+  function buildPanel2(){
+    clear(svg2);
+    defsFor(svg2, "a3f2-");
+    var cx = P2.CX;
+    u2 = {};
+
+    svg2.appendChild(txt(14, 18, "sv-eq", "", "start"));
+    u2.cap = svg2.lastChild;
+
+    function row(yLabel, yBar, barH) {
+      var lab = txt(14, yLabel, "sv-micro", "", "start");
+      svg2.appendChild(lab);
+      var ro = txt(P2.RO, yBar + barH / 2 + 4, "sv-num", "", "start");
+      svg2.appendChild(ro);
+      /* A zero tick per row, not one long rule: a full-height rule would run
+         straight through the row labels, which start at the left margin. */
+      svg2.appendChild(el("line", { x1: cx, y1: yBar - 4, x2: cx, y2: yBar + barH + 4,
+        stroke: PAL.line, "stroke-width": 1.2 }));
+      return { lab: lab, ro: ro, yBar: yBar, barH: barH };
+    }
+    u2.A = row(44, 62, 20);
+    u2.B = row(100, 118, 20);
+    u2.C = row(152, 170, 20);
+    u2.D = row(216, 238, 26);
+
+    u2.barA = rect(svg2, cx, u2.A.yBar, 0, 20, C_LOCAL);
+    u2.barB = rect(svg2, cx, u2.B.yBar, 0, 20, C_CARRY_IN, 2.5);
+    u2.barB.setAttribute("stroke", PAL.blueEdge);
+    u2.barB.setAttribute("stroke-width", 1.4);
+    u2.barC = rect(svg2, cx, u2.C.yBar, 0, 20, C_CARRY);
+    /* The sum is drawn as ONE bar from the zero line, not as the two terms laid
+       tip to tail. The tip-to-tail version painted a span of |carried| whenever
+       the terms had opposite signs -- 3.14x the value printed beside it at the
+       poster frame -- and because the carried segment was appended second it
+       covered the red one completely, so the row whose whole point is "red plus
+       blue" showed only blue. One bar from zero keeps length equal to readout. */
+    u2.barD = rect(svg2, cx, u2.D.yBar, 0, 26, C_CARRY);
+
+    rule(svg2, 14, 284, 196);
+    rule(svg2, 14, 284, 278);
+    svg2.appendChild(txt(14, 300, "sv-eq", "", "start"));
+    u2.eq1 = svg2.lastChild;
+    svg2.appendChild(txt(28, 322, "sv-eq", "", "start"));
+    u2.eq2 = svg2.lastChild;
+    rule(svg2, 14, 284, 344);
+    u2.note = [];
+    /* T3 text sinking: the longest prose drops to the panel floor, 2 lines */
+    [424, 444].forEach(function (y) {
+      svg2.appendChild(txt(14, y, "sv-micro", "", "start"));
+      u2.note.push(svg2.lastChild);
+    });
+  }
+
+  function renderPanel2(){
+    var T = state.T, R = revealed(T, state.step), N = state.numbers;
+    var k = panelK(R.st);
+    var local = M.DL[k];                                    // dl_k  = dL_k/dh_k
+    var arrived = (k < T) ? M.G[k + 1] : 0;                 // g_{k+1}
+    var carried = (k < T) ? M.G[k + 1] * M.J[k + 1] : 0;    // g_{k+1} J_{k+1}
+    var result = M.G[k];                                    // g_k
+    var last = (k >= T);                                    // nothing arrives at the last step
+
+    var locKnown = R.fwdIdx >= 2 * k;
+    var arrKnown = R.backIdx >= T - k;
+    var resKnown = R.backIdx >= T + 1 - k;
+
+    /* One scale for the whole panel, sized so the longest bar just fits. The
+       scale follows k (the panel shows one k at a time), which keeps every bar
+       inside the axis instead of letting the largest step set the width. Row D
+       is the sum, so it is bounded by max(|local|, |arrived|) and never drives
+       the scale on its own. */
+    var mx = Math.max(Math.abs(local), Math.abs(arrived), Math.abs(result), 1e-6);
+    var pxu = P2.HALF / mx;
+    var cx = P2.CX;
+
+    /* The header states the identity the four bars below resolve: the gradient a
+       state passes on is its own loss term plus what later steps sent back,
+       carried through one gate. At the last step nothing arrives, so the
+       identity degenerates to g_T = dl_T and the header says so rather than
+       leaving a term that is identically zero. */
+    setRich(u2.cap, last
+      ? ["\u2202\u2112/\u2202h", { sub: sub(T) }, " = \u2202\u2113", { sub: sub(T) },
+         "/\u2202h", { sub: sub(T) }, "     (g", { sub: sub(T + 1) }, " = 0)"]
+      : ["\u2202\u2112/\u2202h", { sub: sub(k) }, " = \u2202\u2113", { sub: sub(k) }, "/\u2202h",
+         { sub: sub(k) }, " + g", { sub: sub(k + 1) }, "J", { sub: sub(k + 1) }]);
+
+    function place(node, v, known, fill){
+      var w = Math.abs(v) * pxu;
+      node.setAttribute("x", v >= 0 ? cx : cx - w);
+      node.setAttribute("width", w);
+      node.setAttribute("fill", fill);
+      node.setAttribute("opacity", known ? 1 : 0.18);
+    }
+
+    // A: the derivative of this step's own loss, written out
+    setRich(u2.A.lab, ["\u2202\u2113", { sub: sub(k) }, "/\u2202h", { sub: sub(k) },
+                       " = 2(h", { sub: sub(k) }, " \u2212 y", { sub: sub(k) }, ")"]);
+    place(u2.barA, local, locKnown, C_LOCAL);
+    u2.A.ro.textContent = (locKnown && N) ? fmt(local) : "";
+
+    // B: what later steps sent back, before the gate
+    setRich(u2.B.lab, last
+      ? ["g", { sub: sub(T + 1) }, " = 0     (no later step)"]
+      : ["g", { sub: sub(k + 1) }, " = \u2202\u2112/\u2202h", { sub: sub(k + 1) }]);
+    place(u2.barB, arrived, arrKnown && !last, C_CARRY_IN);
+    u2.B.ro.textContent = (arrKnown && N && !last) ? fmt(arrived) : "";
+
+    // C: the same signal after one gate, i.e. B multiplied by J_{k+1}
+    setRich(u2.C.lab, ["g", { sub: sub(k + 1) }, "J", { sub: sub(k + 1) }]);
+    place(u2.barC, carried, arrKnown && !last, C_CARRY);
+    u2.C.ro.textContent = (arrKnown && N && !last) ? fmt(carried) : "";
+
+    // D: the two of them added -- one bar from the zero line, so that its
+    // painted length is exactly the number printed beside it
+    setRich(u2.D.lab, last
+      ? ["\u2202\u2112/\u2202h", { sub: sub(T) }, " = \u2202\u2113", { sub: sub(T) },
+         "/\u2202h", { sub: sub(T) }]
+      : ["\u2202\u2112/\u2202h", { sub: sub(k) }, " = \u2202\u2113", { sub: sub(k) }, "/\u2202h",
+         { sub: sub(k) }, " + g", { sub: sub(k + 1) }, "J", { sub: sub(k + 1) }]);
+    place(u2.barD, result, resKnown, C_CARRY);
+    u2.D.ro.textContent = (resKnown && N) ? fmt(result) : "";
+
+    // the gate, written out: J is the local Jacobian of the recurrence
+    if (!last) {
+      setRich(u2.eq1, ["J", { sub: sub(k + 1) }, " = \u2202h", { sub: sub(k + 1) }, "/\u2202h",
+                       { sub: sub(k) }, " = W", { sub: "h" }, "(1 \u2212 h", { sub: sub(k + 1) },
+                       { sup: "2" }, ")"]);
+      u2.eq2.textContent = N
+        ? ("= " + fmt(W_H, 2) + " \u00b7 (1 \u2212 " + fmt(M.H[k + 1], 4) + "\u00b2) = " + fmt(M.J[k + 1]))
+        : "";
+    } else {
+      setRich(u2.eq1, ["g", { sub: sub(T) }, " = \u2202\u2113", { sub: sub(T) }, "/\u2202h",
+                       { sub: sub(T) }, "     (g", { sub: sub(T + 1) }, " = 0)"]);
+      u2.eq2.textContent = "";
+    }
+
+    u2.note[0].textContent = "Later steps send back g" + sub(k + 1) + "J" + sub(k + 1) + ", one gate below 1,";
+    u2.note[1].textContent = last
+      ? "and nothing arrives at the last step."
+      : ("so it shrinks; add it to \u2202\u2113" + sub(k) + "/\u2202h" + sub(k) + ".");
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Panel 3 -- the chain of gates between the last loss and state k
+   * ------------------------------------------------------------------ */
+  function buildPanel3(k){
+    clear(svg3);
+    defsFor(svg3, "a3f3-");
+    var T = state.T, n = T - k;
+    var x0 = P3.X0, x1 = P3.X1, span = P3.BASE - P3.TOP;
+    svg3.setAttribute("class", "pane n" + n);
+    u3 = { k: k, gate: [], sym: [], val: [], prodBar: null, prodSym: null, n: n, pxu: span };
+
+    svg3.appendChild(txt(14, 18, "sv-micro", "", "start"));
+    u3.cap1 = svg3.lastChild;
+    svg3.appendChild(txt(14, 36, "sv-micro", "", "start"));
+    u3.cap2 = svg3.lastChild;
+
+    // the reference: one, drawn across the whole chart
+    u3.ref = el("line", { x1: x0, y1: P3.TOP, x2: x1, y2: P3.TOP,
+      stroke: PAL.mid, "stroke-width": 1.2, "stroke-dasharray": "4 4" });
+    svg3.appendChild(u3.ref);
+    u3.refLab = txt(x1 + 6, P3.TOP + 4, "sv-tick", "1.0", "start");
+    svg3.appendChild(u3.refLab);
+
+    var slotW, gateCx = [], prodCx;
+    if (n === 0) {
+      prodCx = (x0 + x1) / 2;
+      slotW = x1 - x0;
+    } else {
+      slotW = (x1 - x0 - 14) / (n + 1);
+      for (var i = 0; i < n; i++) { gateCx.push(x0 + (i + 0.5) * slotW); }
+      prodCx = x0 + (n + 0.5) * slotW + 14;
+      svg3.appendChild(el("line", { x1: prodCx - slotW / 2 - 7, y1: P3.TOP - 8,
+        x2: prodCx - slotW / 2 - 7, y2: P3.BASE + 8, stroke: PAL.line, "stroke-width": 1.2, "stroke-dasharray": "3 3" }));
+    }
+    var barW = Math.min(34, n === 0 ? 40 : slotW - 12);
+
+    for (i = 0; i < n; i++) {
+      var j = T - i;                                  // gates run T, T-1, ... k+1
+      var gx = gateCx[i];
+      var b = rect(svg3, gx - barW / 2, P3.BASE, barW, 0, C_CARRY, 3);
+      u3.gate.push({ bar: b, j: j, cx: gx });
+      svg3.appendChild(rich(gx, P3.SYM, "sv-lab", ["J", { sub: sub(j) }]));
+      u3.sym.push(svg3.lastChild);
+      svg3.appendChild(txt(gx, P3.VAL, "sv-num", "", "middle"));
+      u3.val.push(svg3.lastChild);
+    }
+
+    u3.prodBar = rect(svg3, prodCx - barW / 2, P3.BASE, barW, 0, PAL.red, 3);
+    /* the product bar is labelled with the operator AND its operand, so a reader
+       who never reads the caption still knows this column is a product of gates
+       rather than a gate itself */
+    svg3.appendChild(rich(prodCx, P3.SYM, "sv-lab", ["\u03a0", " J", { sub: "j" }]));
+    u3.prodSym = svg3.lastChild;
+    u3.prodCx = prodCx;
+    u3.barW = barW;
+
+    rule(svg3, x0, x1, 372);
+    svg3.appendChild(txt((x0 + x1) / 2, 400, "sv-num sv-big", "", "middle"));
+    u3.big = svg3.lastChild;
+    svg3.appendChild(txt((x0 + x1) / 2, 420, "sv-micro", "", "middle"));
+    u3.sub = svg3.lastChild;
+    svg3.appendChild(txt(14, 442, "sv-micro", "", "start"));
+    u3.note = svg3.lastChild;
+  }
+
+  function renderPanel3(){
+    var T = state.T, R = revealed(T, state.step), N = state.numbers;
+    var k = panelK(R.st);
+    if (u3.k !== k) { buildPanel3(k); }
+    var n = T - k;
+
+    var allKnown = R.backIdx >= T - k;      // every gate in the path has been walked
+    var prodKnown = R.backIdx >= T + 1 - k;
+    var prod = M.prodJ[k];
+
+    setRich(u3.cap1, ["from \u2202\u2113", { sub: sub(T) }, "/\u2202h", { sub: sub(T) },
+                      " back to h", { sub: sub(k) }]);
+    u3.cap2.textContent = (n === 0)
+      ? "no gate to cross"
+      : (n + (n === 1 ? " gate in the chain" : " gates in the chain"));
+
+    u3.gate.forEach(function (o, i) {
+      var known = R.backIdx >= T + 1 - o.j;
+      var cur = (R.st.phase === "backward" && R.st.k === o.j);
+      var hgt = u3.pxu * Math.abs(M.J[o.j]);
+      o.bar.setAttribute("y", P3.BASE - hgt);
+      o.bar.setAttribute("height", known ? hgt : 0);
+      o.bar.setAttribute("fill", cur ? PAL.red : C_CARRY);
+      o.bar.setAttribute("opacity", known ? 1 : 0.2);
+      u3.val[i].textContent = (known && N) ? fmt(M.J[o.j], 2) : "";
+      u3.sym[i].setAttribute("fill", known ? (cur ? PAL.red : PAL.ink) : PAL.muted);
+    });
+
+    var ph = u3.pxu * Math.abs(prod);
+    u3.prodBar.setAttribute("y", P3.BASE - ph);
+    u3.prodBar.setAttribute("height", prodKnown ? ph : 0);
+    u3.prodBar.setAttribute("opacity", prodKnown ? 1 : 0.2);
+    u3.prodSym.setAttribute("fill", prodKnown ? PAL.ink : PAL.muted);
+
+    u3.big.textContent = (prodKnown && N) ? fmt(prod) : "";
+    u3.big.setAttribute("fill", prodKnown ? PAL.ink : PAL.muted);
+    /* the product carries its own limits: a bare PI leaves the reader to guess
+       which gates are being multiplied, and that range is the whole point. Both
+       limits use the same baseline-shift treatment, since limits are a different
+       typographic object from the unicode-subscript indices on h.
+       At k = T the range is empty, and a product whose lower limit exceeds its
+       upper limit is not notation anyone should have to read, so say 1 instead. */
+    if (n === 0) {
+      setRich(u3.sub, ["\u2202h", { sub: sub(T) }, "/\u2202h", { sub: sub(T) }, " = 1",
+                       "   (empty product)"]);
+    } else {
+      setRich(u3.sub, ["\u2202h", { sub: sub(T) }, "/\u2202h", { sub: sub(k) }, " = \u03a0",
+                       { sub: "j=" + (k + 1) }, { sup: String(T) }, " J", { sub: "j" }]);
+    }
+    u3.note.textContent = (n === 0)
+      ? "No gate to cross."
+      : "Every gate is below 1, so it shrinks.";
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Panel 4 -- every step's contribution, landing on one shared theta
+   * ------------------------------------------------------------------ */
+  function buildPanel4(){
+    clear(svg4);
+    defsFor(svg4, "a3f4-");
+    var T = state.T, x0 = P4.X0, x1 = P4.X1;
+    u4 = { seg: [], tick: [], link: [] };
+
+    svg4.appendChild(txt(85, 16, "sv-micro", "\u2202\u2112/\u2202W\u2095 = \u03a3\u2096 C\u2096", "middle"));
+    svg4.appendChild(txt(85, 48, "sv-num sv-big", "", "middle"));
+    u4.big = svg4.lastChild;
+    svg4.appendChild(txt(85, 66, "sv-micro", "", "middle"));
+    u4.sub = svg4.lastChild;
+
+    var slotW = (x1 - x0) / T;
+    var barW = Math.min(18, slotW - 9);
+    u4.barW = barW;
+    for (var i = 1; i <= T; i++) {
+      var cx = x0 + (i - 0.5) * slotW;
+      var s = rect(svg4, cx - barW / 2, P4.TOP, barW, 0, C_CARRY, 2.5);
+      u4.seg.push({ bar: s, k: i, cx: cx });
+      svg4.appendChild(rich(cx, 104, "sv-tick", ["C", { sub: sub(i) }]));
+      u4.tick.push(svg4.lastChild);
+    }
+    /* Connectors between consecutive segments. Without them the segments are a
+       column chart of increments: the running total is only visible if the
+       reader notices that each segment starts where the previous one ended.
+       A thin rule at run[k] joining the two columns makes the staircase
+       explicit. */
+    for (i = 1; i < T; i++) {
+      var lk = el("line", { x1: 0, y1: 0, x2: 0, y2: 0, stroke: PAL.mid,
+        "stroke-width": 1.2, "stroke-dasharray": "3 3", "class": "sv-fade" });
+      svg4.appendChild(lk);
+      u4.link.push(lk);
+    }
+    u4.zero = el("line", { x1: x0 - 2, y1: P4.TOP, x2: x1 + 2, y2: P4.TOP,
+      stroke: PAL.line, "stroke-width": 1.4 });
+    svg4.appendChild(u4.zero);
+
+    u4.sig = txt(P4.X1 - 12, 0, "sv-lab", "\u03a3", "middle");
+    u4.sig.setAttribute("opacity", 0);
+    svg4.appendChild(u4.sig);
+
+    // the arrow into theta
+    svg4.appendChild(el("line", { x1: 85, y1: 344, x2: 85, y2: 364,
+      stroke: PAL.green, "stroke-width": 2.4, "marker-end": "url(#a3f4-g)" }));
+    var chip = el("rect", { x: 20, y: 370, width: 130, height: 42, rx: 9,
+      fill: PAL.paper, stroke: PAL.green, "stroke-width": 1.8 });
+    svg4.appendChild(chip);
+    svg4.appendChild(rich(85, 390, "sv-lab", ["\u03b8"]));
+    /* the bias is a single shared scalar, not b_h: the recurrent, input and bias
+       terms are indexed differently in the model, and the chip should say so */
+    svg4.appendChild(txt(85, 404, "sv-micro", "{ W\u2095 , W\u2093 , b }", "middle"));
+    svg4.appendChild(txt(85, 434, "sv-micro", "each bar adds onto", "middle"));
+    svg4.appendChild(txt(85, 450, "sv-micro", "the one shared \u03b8", "middle"));
+  }
+
+  function renderPanel4(){
+    var T = state.T, R = revealed(T, state.step), N = state.numbers;
+    var accIdx = R.accIdx;
+    var lo = Math.min(0, M.total), hi = Math.max(0, M.total);
+    var span = (hi - lo) || 1;
+    function y4(v){ return P4.TOP + (hi - v) / span * (P4.BASE - P4.TOP); }
+
+    u4.zero.setAttribute("y1", y4(0));
+    u4.zero.setAttribute("y2", y4(0));
+
+    u4.seg.forEach(function (o) {
+      var shown = accIdx >= o.k;
+      var cur = (R.st.phase === "accum" && R.st.k === o.k);
+      var a = M.run[o.k - 1], b = M.run[o.k];
+      var top = y4(Math.max(a, b)), bot = y4(Math.min(a, b));
+      o.bar.setAttribute("y", shown ? top : y4(0));
+      /* 1.5 px floor: a step worth 0.008 would otherwise be a sub-pixel sliver.
+         The value is printed in the readout above, so the floor never becomes
+         the only evidence of how big the contribution was. */
+      o.bar.setAttribute("height", shown ? Math.max(1.5, bot - top) : 0);
+      o.bar.setAttribute("fill", cur ? PAL.red : C_CARRY);
+      o.bar.setAttribute("opacity", shown ? 1 : 0.18);
+      u4.tick[o.k - 1].setAttribute("fill", cur ? PAL.red : PAL.muted);
+    });
+
+    u4.link.forEach(function (lk, i) {
+      var k = i + 1;                        // joins segment k to segment k + 1
+      var a = u4.seg[i], b = u4.seg[i + 1];
+      var y = y4(M.run[k]);
+      lk.setAttribute("x1", a.cx + u4.barW / 2);
+      lk.setAttribute("x2", b.cx - u4.barW / 2);
+      lk.setAttribute("y1", y);
+      lk.setAttribute("y2", y);
+      lk.setAttribute("opacity", accIdx >= k + 1 ? 1 : 0);
+    });
+
+    var v = (accIdx > 0) ? M.run[accIdx] : 0;
+    /* the waterfall's end marker: once every step has landed, the running
+       total is marked. This model's total is negative, so the fall ends at
+       the bottom edge and the mark sits just below it. */
+    u4.sig.setAttribute("y", M.total < 0 ? y4(M.total) + 14 : y4(M.total) - 6);
+    u4.sig.setAttribute("opacity", accIdx >= T ? 1 : 0);
+    u4.big.textContent = N ? fmt(v) : "";
+    u4.big.setAttribute("fill", accIdx > 0 ? PAL.ink : PAL.muted);
+    u4.sub.textContent = (accIdx >= T)
+      ? "\u03a3\u2096 C\u2096   (all steps in)"
+      : (accIdx > 0 ? ("\u03a3\u2096 C\u2096   for k \u2264 " + accIdx) : "nothing attributed yet");
+  }
+
+  /* ------------------------------------------------------------------ *
+   * DOM
+   * ------------------------------------------------------------------ */
+  var btnStep  = document.getElementById("step");
+  var btnPlay  = document.getElementById("play");
+  var btnReset = document.getElementById("reset");
+  var lensBox  = document.getElementById("lens");
+  var phasesBox = document.getElementById("phases");
+  var btnNum   = document.getElementById("tg-num");
+  var hint     = document.getElementById("hint");
+  var cap2     = document.getElementById("cap2");
+  var cap3     = document.getElementById("cap3");
+
+  var PHASES = ["forward", "backward", "accumulate"];
+  var phaseBtns = PHASES.map(function (label) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.textContent = label;
+    b.addEventListener("click", function () { stop(); jumpToPhase(PHASES.indexOf(label)); pulse("jump"); });
+    phasesBox.appendChild(b);
+    return b;
+  });
+  var lenBtns = LENGTHS.map(function (T) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.textContent = "T = " + T;
+    b.addEventListener("click", function () { setLength(T); pulse("length"); });
+    lensBox.appendChild(b);
+    return b;
+  });
+
+  /* ------------------------------------------------------------------ *
+   * Motion (T2). One-shot classes, added AFTER render by a user action.
+   * clearAnims() runs at the top of every render, so any API-driven state
+   * (poster, probe, reset, setStep) is always static. The infinite flow on
+   * a live backward edge is likewise bound to the current step only.
+   * ------------------------------------------------------------------ */
+  var ANIM_CLS = ["anim-fade", "anim-light", "anim-grow", "anim-rise", "anim-breathe"];
+  var lastK = -1, kChanged = false;
+  function clearAnims(){
+    ANIM_CLS.forEach(function (c) {
+      var ns = document.querySelectorAll("." + c);
+      for (var i = 0; i < ns.length; i++) { ns[i].classList.remove(c); }
+    });
+  }
+  function kick(node, cls, i){
+    if (!node) { return; }
+    node.classList.remove(cls);
+    void node.getBoundingClientRect();
+    if (i !== undefined) { node.style.setProperty("--i", i); }
+    node.classList.add(cls);
+  }
+  function pulse(kind){
+    var T = state.T, R = revealed(T, state.step), st = R.st;
+    var light = [], rise = [], fade = [], grow = [], breathe = [];
+
+    if (kind === "length") {
+      u1.state.forEach(function (o) { light.push(o.rect); });
+      u1.input.forEach(function (o) { light.push(o.rect); });
+    } else if (kind === "jump") {
+      if (st.phase === "forward") {
+        u1.state.forEach(function (o) { if (R.fwdIdx >= 2 * o.k - 1) { light.push(o.rect); } });
+        u1.loss.forEach(function (o) { if (R.fwdIdx >= 2 * o.k) { light.push(o.rect); } });
+      } else if (st.phase === "backward") {
+        u1.back.forEach(function (e) { light.push(e); });
+        u1.arc.forEach(function (e) { light.push(e); });
+      } else {
+        u4.seg.forEach(function (o) { if (R.accIdx >= o.k) { rise.push(o.bar); } });
+      }
+    } else if (st.phase === "forward") {
+      var isState = st.part === "state";
+      var o = isState ? u1.state[st.k - 1] : u1.loss[st.k - 1];
+      light.push(o.lab, o.val);
+      if (isState) { light.push(o.grad); }
+      breathe.push(o.rect);
+      u1.fwd.forEach(function (e) { if (e.at === R.fwdIdx) { fade.push(e.el); } });
+    } else if (st.phase === "backward") {
+      fade.push(u1.arc[st.k - 1], u1.jlab[st.k - 1], u1.state[st.k - 1].grad);
+      breathe.push(u1.state[st.k - 1].rect);
+    } else if (st.phase === "accum") {
+      rise.push(u4.seg[st.k - 1].bar);
+      fade.push(u4.tick[st.k - 1]);
+      if (st.k > 1) { fade.push(u4.link[st.k - 2]); }
+    }
+
+    /* panels 2 and 3 re-lay whenever k changes: let the new chain re-grow */
+    if (kind === "step" && kChanged) {
+      if (st.phase === "backward") {
+        [u2.barA, u2.barB, u2.barC, u2.barD].forEach(function (b) {
+          var x = +b.getAttribute("x"), w = +b.getAttribute("width");
+          b.style.setProperty("--org", (x + w / 2 >= P2.CX) ? "left center" : "right center");
+          grow.push(b);
+        });
+      }
+      u3.gate.forEach(function (g) { rise.push(g.bar); });
+      if (u3.prodBar) { rise.push(u3.prodBar); }
+      if (u3.ref) { fade.push(u3.ref); }
+      if (u3.refLab) { fade.push(u3.refLab); }
+    }
+
+    var i;
+    for (i = 0; i < light.length; i++) { kick(light[i], "anim-light", i); }
+    for (i = 0; i < rise.length; i++) { kick(rise[i], "anim-rise", i); }
+    for (i = 0; i < fade.length; i++) { kick(fade[i], "anim-fade", i); }
+    for (i = 0; i < grow.length; i++) { kick(grow[i], "anim-grow", i); }
+    for (i = 0; i < breathe.length; i++) { kick(breathe[i], "anim-breathe"); }
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Render
+   * ------------------------------------------------------------------ */
+  function render(){
+    var T = state.T, R = revealed(T, state.step);
+    clearAnims();
+    var kk = panelK(R.st);
+    kChanged = (kk !== lastK);
+    lastK = kk;
+    renderPanel1();
+    renderPanel2();
+    renderPanel3();
+    renderPanel4();
+
+    phaseBtns.forEach(function (b, i) {
+      b.classList.toggle("on", i === R.pi);
+      b.classList.toggle("done", i < R.pi);
+    });
+    lenBtns.forEach(function (b, i) { b.classList.toggle("on", LENGTHS[i] === T); });
+
+    var k = panelK(R.st);
+    cap2.textContent = "k = " + k + " of " + T;
+    cap3.textContent = (T - k) + " gate" + (T - k === 1 ? "" : "s");
+
+    /* The hint shares a single nowrap row with four control groups, so it has
+       roughly 60 characters before the ellipsis eats the sentence's point. Keep
+       every branch inside that budget. */
+    if (R.st.phase === "forward") {
+      hint.textContent = (R.st.part === "state")
+        ? "Forward: h" + R.st.k + " is built from the previous state."
+        : "Forward: the loss at step " + R.st.k + " is read off.";
+    } else if (R.st.phase === "backward") {
+      hint.textContent = "Backward: right to left; each state sums two terms.";
+    } else if (R.st.phase === "accum") {
+      hint.textContent = "Each step's gradient lands on the same \u03b8.";
+    } else {
+      hint.textContent = "Press Next or Play. T sets the chain length.";
+    }
+    lastStep = state.step;
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Playback / interaction
+   * ------------------------------------------------------------------ */
+  function stop(){
+    if (timer !== null) { clearTimeout(timer); timer = null; }
+    state.playing = false;
+  }
+  function play(){
+    stop();
+    state.step = 0;
+    state.playing = true;
+    render();
+    var last = totalSteps(state.T);
+    (function tick(){
+      if (!state.playing) { return; }
+      if (state.step >= last) { stop(); render(); return; }
+      state.step += 1;
+      render();
+      pulse("step");
+      timer = setTimeout(tick, STEP_MS);
+    })();
+  }
+  function reset(){ stop(); state.step = 0; render(); }
+
+  function rebuild(){
+    M = buildModel(state.T);
+    buildPanel1();
+    buildPanel2();
+    buildPanel4();
+    u3.k = -1;                 // forces panel 3 to re-lay out for the new T
+    buildPanel3(panelK(stageOf(state.T, state.step)));
+    render();
+  }
+  function setLength(T){
+    stop();
+    if (LENGTHS.indexOf(T) < 0) { return; }
+    state.T = T;
+    state.step = 0;
+    rebuild();
+  }
+  function jumpToPhase(pi){
+    var T = state.T;
+    state.step = (pi === 0) ? 1 : (pi === 1 ? 2 * T + 1 : 3 * T + 1);
+    render();
+  }
+  function setStep(s){
+    stop();
+    var n = Number(s);
+    if (!isFinite(n)) { return; }
+    state.step = Math.max(0, Math.min(totalSteps(state.T), Math.round(n)));
+    render();
+  }
+  function setPosterState(){
+    stop();
+    state.T = 3;
+    state.numbers = false;
+    state.step = totalSteps(3);          // everything revealed, waterfall complete
+    rebuild();
+  }
+
+  /* A user step re-renders and then pulses: the pulse is what makes the new
+     element appear alive. The API setStep (probes, posters) never pulses. */
+  function userStep(next){
+    stop();
+    var ns = Math.max(0, Math.min(totalSteps(state.T), next));
+    if (ns === state.step) { return; }
+    state.step = ns;
+    render();
+    pulse("step");
+  }
+  btnStep.addEventListener("click", function () {
+    var tot = totalSteps(state.T);
+    userStep(state.step >= tot ? 0 : state.step + 1);
+  });
+  btnPlay.addEventListener("click", play);
+  btnReset.addEventListener("click", reset);
+  btnNum.addEventListener("click", function () { stop(); state.numbers = !state.numbers; render(); });
+
+  window.addEventListener("keydown", function (ev) {
+    if (ev.key === "ArrowRight") { userStep(state.step + 1); }
+    else if (ev.key === "ArrowLeft") { userStep(state.step - 1); }
+    else if (ev.key === " ") { ev.preventDefault(); play(); }
+  });
+
+  /* ------------------------------------------------------------------ *
+   * Test / control hook
+   * ------------------------------------------------------------------ */
+  window.__widget = {
+    getStep: function () { return state.step; },
+    getState: function () { return JSON.parse(JSON.stringify(state)); },
+    reset: reset,
+    setPosterState: setPosterState,
+    setStep: setStep,
+    seekStep: setStep,
+    setLength: setLength,
+    setPhase: function (pi) { stop(); jumpToPhase(Number(pi)); },
+    setNumbers: function (b) { stop(); state.numbers = !!b; render(); },
+    designSize: function () { return [STAGE_W, STAGE_H]; },
+    /* the whole forward and backward pass is exposed so a reference
+       implementation can be compared against the numbers actually rendered */
+    getModel: function () {
+      return { T: M.T, X: M.X.slice(), Y: M.Y.slice(), H: M.H.slice(), L: M.L.slice(),
+               DL: M.DL.slice(), J: M.J.slice(), G: M.G.slice(), C: M.C.slice(),
+               run: M.run.slice(), prodJ: M.prodJ.slice(), total: M.total,
+               w_h: W_H, w_x: W_X, bias: B_H, h0: H0 };
+    }
+  };
+
+  rebuild();
+  setPosterState();
+})();
+</script>
+</body>
+</html>

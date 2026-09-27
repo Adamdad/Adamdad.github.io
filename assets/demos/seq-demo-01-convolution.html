@@ -1,0 +1,1078 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sequence Convolution</title>
+<style>
+/* ============================================================
+   VISUAL GRAMMAR v1  (A1 pass, 2026-09-23)
+   T1  semantic colours : --reader red / --source blue / --value green
+   T2  motion (CSS only, one-shot, <=1.2s, fired only by user action):
+       M1 line draw   solid: stroke-dashoffset full->0 ; dashed: staged fade
+       M2 bar grow    transform:scaleX() with transform-box:fill-box
+       M3 light-up    from-state keyframes + fill-mode:backwards
+                      + animation-delay: calc(var(--i) * 60ms)
+       M4 breathing   current step only, opacity 1 <-> .65
+       only transform / opacity / stroke-dashoffset are animated;
+       pulse(kind) is NEVER called from setPosterState / reset / init;
+       prefers-reduced-motion also zeroes animation-delay.
+   T3  text sinking: only the 2-3 longest notes sink to the panel bottom
+   T4  hero panel : one enlarged hero per widget (A1: panel 1, the window)
+   ============================================================ */
+/* --- design tokens (interactive-teaching-demo/widget-base.css) --- */
+:root{
+  --ink:#30343a;--muted:#697078;--line:#d7dce0;--line-soft:#eef0f2;--paper:#f7f8fa;
+  --red:#9a1921;--red-soft:#f7e9eb;--blue:#1f4e79;--blue-soft:#eaf2f8;
+  --green:#0a8f22;--green-soft:#e8f5ea;--mid:#aeb6bd;--rule:#e3e7ea;
+  --reader:var(--red);--source:var(--blue);--value:var(--green);
+  --dur:340ms;--ease:cubic-bezier(.22,.61,.36,1);
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Helvetica Neue","Segoe UI",Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#fff}
+
+/* The figure is authored once on a fixed 1160x650 canvas (16:9) and scaled
+   uniformly to fill whatever viewport it lands in. Scaling rather than
+   reflowing keeps every hand-placed arrow and label in the relationship the
+   geometry probe verified. */
+body{display:flex;align-items:center;justify-content:center;
+  color:var(--ink);font:18px/1.3 var(--sans)}
+#stage{flex:0 0 auto;width:1160px;height:650px;transform-origin:center center;
+  padding:16px 20px 18px;display:flex;flex-direction:column;background:#fff}
+
+/* --- header --- */
+.w-head{display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding-bottom:11px;border-bottom:2px solid var(--line);margin-bottom:15px;flex:0 0 auto}
+.w-head-main{display:flex;align-items:baseline;gap:16px;min-width:0}
+.w-title{margin:0;color:var(--red);font-size:26px;font-weight:700;
+  white-space:nowrap;letter-spacing:-.015em}
+.w-formula{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  color:var(--muted);font-family:var(--mono);font-size:18px}
+.w-formula b{color:var(--red);font-weight:700}
+.w-actions{display:flex;gap:8px;align-items:center;flex:0 0 auto}
+.w-btn{appearance:none;border:2px solid var(--red);border-radius:7px;padding:5px 12px;
+  background:#fff;color:var(--red);font:inherit;font-size:16px;font-weight:700;cursor:pointer}
+.w-btn-primary{background:var(--red);color:#fff}
+.w-btn:active{transform:translateY(1px)}
+.w-btn:focus-visible,input:focus-visible{outline:3px solid rgba(154,25,33,.22);outline-offset:2px}
+
+/* --- the three stages, left to right, in the order the computation runs --- */
+.w-pipe{display:flex;align-items:stretch;flex:0 0 auto}
+.w-panel{flex:0 0 auto;display:flex;flex-direction:column;min-width:0}
+.w-cap{display:flex;align-items:baseline;gap:9px;margin-bottom:10px;
+  white-space:nowrap;overflow:hidden;min-width:0}
+.w-cap b{color:var(--red);font-size:17px;flex:0 0 auto}
+/* Each sub-label is a symbolic statement in the shared notation rather than a
+   prose gloss, so all three are set in the same mono face. */
+.w-cap span{color:var(--muted);font-family:var(--mono);font-size:14.5px;
+  overflow:hidden;text-overflow:ellipsis}
+/* the chevron in the gutter: the only thing that says "this feeds that" */
+.w-arrow{flex:0 0 18px;display:flex;align-items:center;justify-content:center}
+.w-arrow svg{display:block}
+
+/* --- control row --- */
+.w-ctl{display:flex;align-items:center;gap:14px;flex:0 0 auto;margin-top:19px;min-width:0}
+.w-ctl-lab{flex:0 0 auto;color:var(--muted);font-size:14px}
+.w-ctl input[type=range]{flex:0 0 150px;height:22px;margin:0;accent-color:var(--red);cursor:pointer}
+.w-num{flex:0 0 auto;min-width:56px;font:700 14px var(--mono);
+  font-variant-numeric:tabular-nums;color:var(--ink)}
+/* the activation switch: a real checkbox, because "apply phi or not" is a
+   binary structural choice, not a continuous one */
+.w-check{display:flex;align-items:center;gap:8px;flex:0 0 auto;cursor:pointer;
+  border:1.5px solid var(--line);border-radius:6px;padding:4px 11px;background:#fff;
+  font-size:14px;font-weight:700;color:var(--ink);user-select:none}
+.w-check input{width:15px;height:15px;margin:0;accent-color:var(--red);cursor:pointer}
+.w-check.on{border-color:var(--red);background:var(--red-soft);color:var(--red)}
+.w-segment{display:flex;gap:6px;flex:0 0 auto}
+.w-segment button{border:1.5px solid var(--line);border-radius:6px;padding:4px 10px;background:#fff;
+  color:var(--ink);font:inherit;font-size:14px;font-weight:700;cursor:pointer}
+.w-segment button.on{border-color:var(--red);background:var(--red-soft);color:var(--red)}
+.w-hint{margin-left:auto;color:var(--muted);font-size:14px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+svg.pane{width:100%;height:auto;display:block}
+/* moving parts slide to their new place instead of teleporting */
+.sv-slide{transition:transform var(--dur) var(--ease)}
+.sv-slide-x{transition:x var(--dur) var(--ease)}
+.sv-click{cursor:pointer}
+#p1{touch-action:none;cursor:grab}
+#p1.dragging{cursor:grabbing}
+
+/* one type scale for every symbol on the canvas */
+.sv-sym{font:700 13px var(--mono);fill:var(--ink)}
+.sv-sym.sm{font-size:12px}
+.sv-num{font:700 12.5px var(--mono);fill:var(--muted);font-variant-numeric:tabular-nums}
+.sv-read{font:700 15px var(--mono);fill:var(--ink);font-variant-numeric:tabular-nums}
+.sv-read.out{fill:var(--red)}
+.sv-micro{font:400 12px var(--sans);fill:var(--muted)}
+.sv-tick{font:400 11px var(--mono);fill:var(--muted)}
+.sv-rule{stroke:var(--rule);stroke-width:1.2}
+.sv-bar{transition:width var(--dur) var(--ease),x var(--dur) var(--ease)}
+.sv-guide{transition:x1 var(--dur) var(--ease),x2 var(--dur) var(--ease),
+                    y1 var(--dur) var(--ease),y2 var(--dur) var(--ease)}
+.sv-curve{transition:d var(--dur) var(--ease)}
+
+/* --- motion (visual grammar v1): one-shot CSS classes fired by pulse() --- */
+@keyframes w-fade{from{opacity:0}}
+@keyframes w-light{from{opacity:.12}}
+@keyframes w-grow{from{transform:scaleX(0)}}
+@keyframes w-rise{from{transform:scaleY(0)}}
+@keyframes w-breathe{0%,100%{opacity:1}50%{opacity:.68}}
+.anim-fade{animation:w-fade 320ms var(--ease) backwards}
+.anim-light{animation:w-light 420ms var(--ease) backwards;animation-delay:calc(var(--i,0)*60ms)}
+.anim-grow{animation:w-grow 460ms var(--ease) backwards;transform-box:fill-box;transform-origin:var(--org,left center);animation-delay:calc(var(--i,0)*60ms)}
+.anim-rise{animation:w-rise 520ms var(--ease) backwards;transform-box:fill-box;transform-origin:bottom center;animation-delay:calc(var(--i,0)*60ms)}
+.anim-breathe{animation:w-breathe 1.6s ease-in-out infinite}
+
+@keyframes w-pulse{0%{transform:scale(1)}40%{transform:scale(1.05)}100%{transform:scale(1)}}
+.is-pulsing{animation:w-pulse 300ms var(--ease)}
+@media (prefers-reduced-motion:reduce){
+  :root{--dur:0ms}
+  *,*::before,*::after{transition-duration:0ms!important;animation-duration:0ms!important;
+    animation-delay:0ms!important}
+  .is-pulsing,.anim-fade,.anim-light,.anim-grow,.anim-rise,.anim-breathe{animation:none!important}
+}
+</style>
+</head>
+<body>
+
+<div id="stage">
+
+<header class="w-head">
+  <div class="w-head-main">
+    <h1 class="w-title">Sequence convolution</h1>
+    <span class="w-formula" id="formula"></span>
+  </div>
+  <div class="w-actions">
+    <button class="w-btn" id="step" type="button">Next term</button>
+    <button class="w-btn w-btn-primary" id="play" type="button">Play</button>
+    <button class="w-btn" id="reset" type="button">Reset</button>
+  </div>
+</header>
+
+<main class="w-pipe">
+
+  <section class="w-panel" style="width:420px">
+    <div class="w-cap"><b>&#9312; the window</b><span>L = 3</span></div>
+    <svg class="pane" id="p1" viewBox="0 0 420 474" role="img"
+         aria-label="Six sequence values in a row. One box holding the three kernel taps K(2), K(1), K(0) sits over a window of three adjacent values and reads the value directly beneath each tap. The box slides to a new window, unchanged, as the position changes."></svg>
+  </section>
+
+  <div class="w-arrow" aria-hidden="true">
+    <svg width="18" height="22" viewBox="0 0 18 22"><path d="M5 4 L13 11 L5 18"
+      fill="none" stroke="#9a1921" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </div>
+
+  <section class="w-panel" style="width:336px">
+    <div class="w-cap"><b>&#9313; the sum</b><span id="cap2"></span></div>
+    <svg class="pane" id="p2" viewBox="0 0 336 474" role="img"
+         aria-label="One signed bar per kernel tap, each the product of that tap's weight and the value it reads. Below, the bias and the three products are laid end to end into a single bar whose length is the window sum s."></svg>
+  </section>
+
+  <div class="w-arrow" aria-hidden="true">
+    <svg width="18" height="22" viewBox="0 0 18 22"><path d="M5 4 L13 11 L5 18"
+      fill="none" stroke="#9a1921" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </div>
+
+  <section class="w-panel" style="width:320px">
+    <div class="w-cap"><b>&#9314; activation</b><span id="cap3"></span></div>
+    <svg class="pane" id="p3" viewBox="0 0 320 474" role="img"
+         aria-label="A square plot of the output h against the window sum s, both axes on one scale. A dashed diagonal marks the reference h = s. The solid curve is the active transfer, tanh when activation is on and the diagonal itself when it is off, with construction lines from the current sum to the current output."></svg>
+  </section>
+
+</main>
+
+<div class="w-ctl">
+  <span class="w-ctl-lab">window</span>
+  <input id="pos" type="range" min="3" max="6" step="1" value="6" aria-label="Window position t">
+  <span class="w-num" id="pos-val">t = 6</span>
+  <label class="w-check on" id="act-wrap">
+    <input id="act" type="checkbox" checked>
+    <span>apply activation &#981;&#8202;(s<sub>t</sub>)</span>
+  </label>
+  <div class="w-segment" role="group" aria-label="Display options">
+    <button id="tg-num" type="button">numbers</button>
+  </div>
+  <span class="w-hint" id="hint"></span>
+</div>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ------------------------------------------------------------------ *
+   * Fullscreen. Authored on a fixed canvas, scaled uniformly to fill the
+   * viewport, so nothing crops or reflows at any other size.
+   * ------------------------------------------------------------------ */
+  var STAGE_W = 1160, STAGE_H = 650;
+  var stage = document.getElementById("stage");
+  function fit(){
+    var k = Math.min(window.innerWidth / STAGE_W, window.innerHeight / STAGE_H);
+    stage.style.transform = (Math.abs(k - 1) < 0.002) ? "none" : "scale(" + k + ")";
+  }
+  window.addEventListener("resize", fit);
+  window.addEventListener("orientationchange", fit);
+  fit();
+
+  /* ------------------------------------------------------------------ *
+   * Notation. One symbol system for the whole page, matching the deck:
+   *
+   *   x_t                              the sequence value at position t
+   *   L = 3                            the window length
+   *   K^(l)                            the kernel tap at offset l, l = 0,1,2
+   *   x_{t-l}                          the value that tap reads
+   *   b                                the bias
+   *   s_t = b + SUM_l K^(l) x_{t-l}    the window sum (pre-activation)
+   *   phi                              the activation function (tanh)
+   *   h_t = phi(s_t)                   the output; phi off means h_t = s_t
+   *
+   * Two conventions are enforced everywhere, because breaking either is what
+   * makes a page like this hard to read:
+   *   - taps are always named by their RELATIVE offset x_{t-l}, never by an
+   *     absolute index, so the labels stay true as the window slides;
+   *   - K^(l) always carries its parenthesised superscript, so the tap index
+   *     can never be mistaken for an exponent.
+   *
+   * The toy is scalar (d = 1) so the weighted sum stays legible.
+   * ------------------------------------------------------------------ */
+  var SEQ  = [0.8, -0.5, 1.2, 0.3, -0.9, 1.1];   // x_1 .. x_6
+  var KER  = [0.9, -1.1, 0.7];                    // K^(0), K^(1), K^(2)
+  var BIAS = 0.15;
+  var L = 3, TMIN = 3, TMAX = 6, NT = 6;
+  var SUB_MAX = 4;     // 0 = nothing, 1..3 = terms added, 4 = output produced
+  var SUB_MS = 560;
+  /* Terms are added in window order (leftmost tap first), which is the order
+     the assembled bar in panel 2 grows and the order the rows are listed. */
+  var ORDER = [2, 1, 0];
+
+  var MINUS = "\u2212";
+  var PHI = "\u03D5";
+  var SUBS = ["\u2080","\u2081","\u2082","\u2083","\u2084","\u2085","\u2086","\u2087","\u2088","\u2089"];
+  function sub(n){ return String(n).split("").map(function(c){ return SUBS[+c]; }).join(""); }
+  function fmt(v, d){
+    var dd = (d === undefined) ? 3 : d;
+    var z = Math.abs(v) < 0.5 * Math.pow(10, -dd) ? 0 : v;
+    return z.toFixed(dd).replace("-", MINUS);
+  }
+  /* The tap's name in the shared notation: offset 0 is x_t, offset 1 is x_{t-1}. */
+  function tapSub(l){ return l === 0 ? "t" : "t" + MINUS + l; }
+
+  var PAL = { ink:"#30343a", muted:"#697078", line:"#d7dce0", lineSoft:"#eef0f2",
+              mid:"#aeb6bd", red:"#9a1921", redSoft:"#f7e9eb", rule:"#e3e7ea",
+              blue:"#1f4e79", blueSoft:"#eaf2f8", green:"#0a8f22", greenSoft:"#e8f5ea",
+              axis:"#c8ced4" };
+  /* offset l -> colour slot, matching the deck legend K^(2) blue / K^(1) red / K^(0) green */
+  var SLOTS = [ { l:2, col:"#1f4e79", soft:"#eaf2f8" },
+                { l:1, col:"#9a1921", soft:"#f7e9eb" },
+                { l:0, col:"#0a8f22", soft:"#e8f5ea" } ];
+
+  function termsAt(t){
+    var out = [];
+    for (var l = 0; l < L; l++) {
+      var i = t - l;
+      out.push({ l: l, i: i, k: KER[l], x: SEQ[i - 1], v: KER[l] * SEQ[i - 1] });
+    }
+    return out;
+  }
+  function termOf(t, l){ return termsAt(t)[l]; }
+  function preAct(t){
+    var s = BIAS, ts = termsAt(t);
+    for (var j = 0; j < ts.length; j++) { s += ts[j].v; }
+    return s;
+  }
+  /* The activation is the only thing the switch changes: the sum is computed
+     identically either way, and phi off simply passes it through. */
+  function outAt(t, act){
+    var s = preAct(t);
+    return act ? Math.tanh(s) : s;
+  }
+  /* Cumulative partial sums after 0..3 terms, in the order they are added. */
+  function partials(t){
+    var out = [BIAS];
+    for (var j = 0; j < ORDER.length; j++) {
+      out.push(out[out.length - 1] + termOf(t, ORDER[j]).v);
+    }
+    return out;                       // [b, b+t2, b+t2+t1, b+t2+t1+t0]
+  }
+
+  /* ------------------------------------------------------------------ *
+   * State. Every view derives from this object.
+   * ------------------------------------------------------------------ */
+  var state = { t:TMAX, sub:SUB_MAX, doneUpTo:TMAX, numbers:false, activation:true,
+                playing:false, tap:null };
+  var timer = null;
+
+  /* A causal window of length 3 cannot produce h_1 or h_2; those stay empty. */
+  function isFilled(i){ return i >= TMIN && i <= state.doneUpTo; }
+  function shownTerms(){
+    var n = Math.min(state.sub, 3), vis = {};
+    for (var j = 0; j < n; j++) { vis[ORDER[j]] = true; }
+    return vis;
+  }
+
+  /* ------------------------------------------------------------------ *
+   * SVG helpers
+   * ------------------------------------------------------------------ */
+  var NS = "http://www.w3.org/2000/svg";
+  function el(tag, attrs){
+    var n = document.createElementNS(NS, tag);
+    for (var k in attrs) { if (Object.prototype.hasOwnProperty.call(attrs, k)) n.setAttribute(k, attrs[k]); }
+    return n;
+  }
+  function txt(x, y, cls, content, anchor, fill){
+    var n = el("text", { x: x, y: y, "class": cls, "text-anchor": anchor || "middle" });
+    if (fill) { n.setAttribute("fill", fill); }
+    if (content !== undefined) { n.textContent = content; }
+    return n;
+  }
+  /* parts: strings, {sub:"..."} or {sup:"..."}. Baseline offsets are tracked so
+     a following full-size run returns to the baseline. */
+  function setRich(node, parts){
+    while (node.firstChild) { node.removeChild(node.firstChild); }
+    var off = 0;
+    function run(dy, size, content){
+      var s = el("tspan", { dy: String(dy - off), "font-size": size });
+      s.textContent = content;
+      off = dy;
+      node.appendChild(s);
+    }
+    parts.forEach(function (p) {
+      if (typeof p === "string") { run(0, "1em", p); }
+      else if (p.sub !== undefined) { run(3, "0.74em", p.sub); }
+      else if (p.sup !== undefined) { run(-4, "0.74em", p.sup); }
+    });
+    return node;
+  }
+  function rich(x, y, cls, parts, anchor, fill){
+    return setRich(txt(x, y, cls, undefined, anchor, fill), parts);
+  }
+  /* The three pieces of notation the whole page reuses, defined once so the
+     header, the captions, the row labels and the readouts cannot drift apart. */
+  function K(l){ return ["K", { sup: "(" + l + ")" }]; }
+  function xT(l){ return ["x", { sub: tapSub(l) }]; }
+  function kx(l){ return K(l).concat([" "], xT(l)); }
+
+  /* ------------------------------------------------------------------ *
+   * Panel 1 — the window
+   *
+   * The three taps live inside ONE box labelled K. The box is drawn once and
+   * only ever translated, so the same K glyph is genuinely the same pixels at
+   * every position -- which is the whole claim of the panel. The box is also
+   * the entire visual statement of sharing; there is no footnote to read.
+   * ------------------------------------------------------------------ */
+  var P1 = { W:420,
+             ENC_Y:64, ENC_H:100, ENC_R:14, ENC_PAD:8,
+             CHIP_W:58, CHIP_H:54, CHIP_Y:94, CHIP_PXU:17,
+             CY:274, CH:116, X0:17, PITCH:65, CW:60, CELL_PXU:18,
+             REL_Y:446 };
+  function p1x(i){ return P1.X0 + (i - 1) * P1.PITCH; }
+  function p1cx(i){ return p1x(i) + P1.CW / 2; }
+
+  var svg1 = document.getElementById("p1");
+  var u1 = { enc:null, encLab:null, chips:[], chipRects:[], chipBars:[], arrows:[],
+             cells:[], cellBars:[], cellVals:[], win:null, rel:[], selRing:null };
+
+  function signedMini(parent, cx, cy, h, v, pxu, fill){
+    var w = Math.abs(v) * pxu;
+    var r = el("rect", { x: v >= 0 ? cx : cx - w, y: cy - h / 2, width: w, height: h,
+      rx: 2, fill: fill, "class": "sv-bar" });
+    parent.appendChild(r);
+    return r;
+  }
+
+  function buildPanel1(){
+    var defs = el("defs", {});
+    var mk = el("marker", { id: "p1ah", viewBox: "0 0 10 10", refX: "9", refY: "5",
+      markerWidth: "4.2", markerHeight: "4.2", orient: "auto-start-reverse" });
+    mk.appendChild(el("path", { d: "M0,0 L10,5 L0,10 z", fill: PAL.muted }));
+    defs.appendChild(mk);
+    svg1.appendChild(defs);
+
+    /* The shared-K box. One rect, translated by render(); never rebuilt. */
+    u1.enc = el("rect", { x: 0, y: P1.ENC_Y, width: 10, height: P1.ENC_H, rx: P1.ENC_R,
+      fill: "#fbfcfd", stroke: PAL.line, "stroke-width": 2, "class": "sv-bar" });
+    svg1.appendChild(u1.enc);
+    u1.encLab = txt(0, P1.ENC_Y + 22, "sv-sym sv-slide-x", "K", "middle");
+    svg1.appendChild(u1.encLab);
+
+    /* The three taps. Drawn once at local x=0 and translated to their cell. */
+    SLOTS.forEach(function (s) {
+      var g = el("g", { "class": "sv-slide sv-click" });
+      var chipRect = el("rect", { x: -P1.CHIP_W / 2, y: P1.CHIP_Y, width: P1.CHIP_W,
+        height: P1.CHIP_H, rx: 9, fill: s.soft, stroke: s.col, "stroke-width": 2 });
+      g.appendChild(chipRect);
+      g.appendChild(rich(0, P1.CHIP_Y + 23, "sv-sym", K(s.l), "middle", s.col));
+      /* the tap's own mini bar makes its weight's size and sign visible without
+         printing it. Endpoints are LOCAL to the chip centre -- the group is
+         translated, so page coordinates would fling it a whole pitch right. */
+      var bar = el("line", { x1: 0, y1: P1.CHIP_Y + 40, x2: 0, y2: P1.CHIP_Y + 40,
+        stroke: s.col, "stroke-width": 3.6, "stroke-linecap": "round" });
+      g.appendChild(bar);
+      svg1.appendChild(g);
+      /* The arrow from tap to value is drawn outside the chip group so the
+         chip's soft fill always wins the overlap. */
+      var arrow = el("line", { stroke: PAL.muted, "stroke-width": 1.8,
+        "marker-end": "url(#p1ah)", "class": "sv-guide" });
+      svg1.appendChild(arrow);
+      u1.chips.push({ g: g, l: s.l });
+      u1.chipRects.push(chipRect);
+      u1.chipBars.push(bar);
+      u1.arrows.push(arrow);
+    });
+
+    /* sequence cells */
+    for (var i = 1; i <= NT; i++) {
+      var cellRect = el("rect", { x: p1x(i), y: P1.CY, width: P1.CW, height: P1.CH, rx: 9,
+        fill: "#fff", stroke: PAL.line, "stroke-width": 2 });
+      svg1.appendChild(cellRect);
+      u1.cells.push(cellRect);
+      svg1.appendChild(rich(p1cx(i), P1.CY + 30, "sv-sym", ["x", { sub: sub(i) }]));
+      /* a hairline centre post: the signed mini bar grows left or right of it */
+      svg1.appendChild(el("line", { x1: p1cx(i), y1: P1.CY + 50, x2: p1cx(i), y2: P1.CY + 84,
+        stroke: PAL.rule, "stroke-width": 1.4 }));
+      u1.cellBars.push(signedMini(svg1, p1cx(i), P1.CY + 66, 18, SEQ[i - 1], P1.CELL_PXU, PAL.ink));
+      var v = txt(p1cx(i), P1.CY + 106, "sv-num", "", "middle");
+      svg1.appendChild(v);
+      u1.cellVals.push(v);
+    }
+
+    /* the draggable window bracket */
+    u1.win = el("rect", { x: 0, y: P1.CY - 14, width: 10, height: P1.CH + 28, rx: 12,
+      fill: "rgba(154,25,33,0.06)", stroke: PAL.red, "stroke-width": 2, "stroke-dasharray": "7 5",
+      "class": "sv-bar" });
+    svg1.appendChild(u1.win);
+
+    /* the relative name of each windowed value, in the shared notation */
+    SLOTS.forEach(function (s) {
+      var n = rich(0, P1.REL_Y, "sv-sym sv-slide-x", xT(s.l), "middle", s.col);
+      svg1.appendChild(n);
+      u1.rel.push(n);
+    });
+
+    /* the selection ring: frames the value a clicked tap reads */
+    u1.selRing = el("rect", { x: 0, y: P1.CY - 8, width: P1.CW + 16, height: P1.CH + 16, rx: 12,
+      fill: "none", stroke: PAL.red, "stroke-width": 2.6, opacity: 0 });
+    svg1.appendChild(u1.selRing);
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Panel 2 — the products, then the sum
+   * ------------------------------------------------------------------ */
+  var P2 = { W:336, AX:180, PXU:58, ROW0:60, ROWP:76, BARH:32,
+             DIV_Y:344, STK_Y:370, STK_H:44, SUM_Y:452 };
+  var svg2 = document.getElementById("p2");
+  var u2 = { rows:[], bias:null, result:null, sumLab:null, call:null };
+
+  function buildPanel2(){
+    svg2.appendChild(el("line", { x1: P2.AX, y1: P2.ROW0 - 14, x2: P2.AX, y2: P2.DIV_Y - 18,
+      stroke: PAL.axis, "stroke-width": 1.4 }));
+
+    /* The bias is one of the four things being added, so it gets a row of its
+       own instead of existing only as a grey notch inside the total -- without
+       it the total is longer than the rows above can account for, and the
+       reader has no way to check the arithmetic. Neutral grey, because the
+       tap colours mean "which tap". */
+    var bTop = P2.ROW0;
+    var bLab = rich(10, bTop + 22, "sv-sym", ["b"], "start", PAL.mid);
+    svg2.appendChild(bLab);
+    var bVal = txt(P2.W - 10, bTop + 22, "sv-num", "", "end");
+    svg2.appendChild(bVal);
+    var bBar = el("rect", { x: P2.AX, y: bTop, width: 0, height: P2.BARH, rx: 3,
+      fill: PAL.mid, "class": "sv-bar sv-click", "data-role": "term", "data-term": "bias" });
+    svg2.appendChild(bBar);
+    u2.bias = { lab: bLab, val: bVal, bar: bBar };
+
+    SLOTS.forEach(function (s, j) {
+      var top = P2.ROW0 + (j + 1) * P2.ROWP;
+      var lab = rich(10, top + 22, "sv-sym", kx(s.l), "start", s.col);
+      svg2.appendChild(lab);
+      var val = txt(P2.W - 10, top + 22, "sv-num", "", "end");
+      svg2.appendChild(val);
+      var bar = el("rect", { x: P2.AX, y: top, width: 0, height: P2.BARH, rx: 3,
+        fill: s.col, "class": "sv-bar sv-click", "data-role": "term", "data-term": String(s.l) });
+      svg2.appendChild(bar);
+      u2.rows.push({ l: s.l, lab: lab, val: val, bar: bar });
+    });
+
+    /* the sum sign, on the axis, splitting the rule so the glyph stays legible */
+    svg2.appendChild(el("line", { x1: 10, y1: P2.DIV_Y, x2: P2.AX - 22, y2: P2.DIV_Y, "class": "sv-rule" }));
+    svg2.appendChild(el("line", { x1: P2.AX + 22, y1: P2.DIV_Y, x2: P2.W - 10, y2: P2.DIV_Y, "class": "sv-rule" }));
+    svg2.appendChild(txt(P2.AX, P2.DIV_Y + 7, "sv-sym", "\u03A3", "middle"));
+
+    /* The running total, as one bar from the axis.
+       It used to be four segments laid end to end -- bias, then the three
+       products -- which is a faithful picture of a running total only while
+       every term keeps the same sign. The moment one of them crosses zero the
+       segment spans the whole interval from its start to its end and paints
+       over everything before it, and the bar's far edge stops being the sum.
+       Two of the four window positions do exactly that (t=4 and t=5), so the
+       picture was quietly wrong half the time. The four terms now keep their
+       own colour-coded rows above, and this bar is only their sum. */
+    u2.result = el("rect", { x: P2.AX, y: P2.STK_Y, width: 0, height: P2.STK_H, rx: 2,
+      fill: PAL.ink, "class": "sv-bar", "data-role": "result" });
+    svg2.appendChild(u2.result);
+
+    u2.sumLab = rich(P2.W / 2, P2.SUM_Y, "sv-read", ["s", { sub: "t" }, " = "], "middle");
+    svg2.appendChild(u2.sumLab);
+
+    /* what the clicked tap reads: filled only while a tap is selected */
+    u2.call = txt(P2.AX, 430, "sv-sym", "", "middle");
+    svg2.appendChild(u2.call);
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Panel 3 — activation maps the sum to the output
+   *
+   * The plot is SQUARE and both axes cover -3..3, so a vertical length in the
+   * plot is the same number of units as a horizontal one. That is what lets
+   * the construction line's height be the output h, drawn to scale against the
+   * sum s on the same ruler -- no second "same scale" bar chart is needed, and
+   * the gap between the transfer and the h = s diagonal IS the squash.
+   * ------------------------------------------------------------------ */
+  var P3 = { W:320, X0:20, X1:300, Y0:44, Y1:324, VMIN:-3, VMAX:3 };
+  var P3X0 = (P3.X0 + P3.X1) / 2, P3PXU = (P3.X1 - P3.X0) / (P3.VMAX - P3.VMIN);
+  var P3Y0 = (P3.Y0 + P3.Y1) / 2, P3PYU = (P3.Y1 - P3.Y0) / (P3.VMAX - P3.VMIN);
+  function p3x(v){ return P3X0 + v * P3PXU; }
+  function p3y(u){ return P3Y0 - u * P3PYU; }
+  var svg3 = document.getElementById("p3");
+  var u3 = { curve:null, diag:null, diagLab:null, vGuide:null, hGuide:null, dot:null, halo:null,
+             sLab:null, hLab:null };
+
+  function buildPanel3(){
+    /* the reference diagonal h = s, which IS the phi-off transfer */
+    u3.diag = el("line", { x1: p3x(P3.VMIN), y1: p3y(P3.VMIN), x2: p3x(P3.VMAX), y2: p3y(P3.VMAX),
+      stroke: PAL.axis, "stroke-width": 1.6, "stroke-dasharray": "5 4" });
+    svg3.appendChild(u3.diag);
+    /* Below-left of the diagonal: for s < 0 the transfer sits ABOVE the line and
+       for s > 0 below it, so this is the one patch of the plot the dashed
+       reference can never cross -- the label stays legible in both modes. */
+    u3.diagLab = txt(p3x(-2.35), p3y(-2.35) + 15, "sv-sym sm", "h = s", "start", PAL.muted);
+    svg3.appendChild(u3.diagLab);
+
+    /* axes */
+    svg3.appendChild(el("line", { x1: P3.X0, y1: P3.Y0, x2: P3.X0, y2: P3.Y1,
+      stroke: PAL.axis, "stroke-width": 1.4 }));
+    svg3.appendChild(el("line", { x1: P3.X0, y1: P3.Y1, x2: P3.X1, y2: P3.Y1,
+      stroke: PAL.axis, "stroke-width": 1.4 }));
+    [-2, -1, 1, 2].forEach(function (v) {
+      svg3.appendChild(el("line", { x1: p3x(v), y1: P3.Y1, x2: p3x(v), y2: P3.Y1 + 5,
+        stroke: PAL.axis, "stroke-width": 1.4 }));
+      svg3.appendChild(el("line", { x1: P3.X0, y1: p3y(v), x2: P3.X0 - 5, y2: p3y(v),
+        stroke: PAL.axis, "stroke-width": 1.4 }));
+    });
+    [[0, "0"], [P3.VMIN, MINUS + "3"], [P3.VMAX, "3"]].forEach(function (tk) {
+      svg3.appendChild(txt(p3x(tk[0]), P3.Y1 + 19, "sv-tick", tk[1]));
+    });
+    svg3.appendChild(rich(P3.X1, P3.Y1 + 38, "sv-sym sm", ["s", { sub: "t" }], "end"));
+    svg3.appendChild(rich(P3.X0, P3.Y0 - 12, "sv-sym sm", ["h", { sub: "t" }], "middle"));
+
+    /* the active transfer curve; its d is rewritten on every render */
+    u3.curve = el("path", { d: "", fill: "none", stroke: PAL.ink, "stroke-width": 2.8,
+      "stroke-linecap": "round", "class": "sv-curve" });
+    svg3.appendChild(u3.curve);
+
+    /* construction: sum -> curve -> output */
+    u3.vGuide = el("line", { x1: p3x(0), y1: p3y(0), x2: p3x(0), y2: p3y(0),
+      stroke: PAL.red, "stroke-width": 1.6, "stroke-dasharray": "4 4", "class": "sv-guide" });
+    svg3.appendChild(u3.vGuide);
+    u3.hGuide = el("line", { x1: P3.X0, y1: p3y(0), x2: p3x(0), y2: p3y(0),
+      stroke: PAL.red, "stroke-width": 1.6, "stroke-dasharray": "4 4", "class": "sv-guide" });
+    svg3.appendChild(u3.hGuide);
+    u3.halo = el("circle", { cx: p3x(0), cy: p3y(0), r: 11, fill: PAL.red, "fill-opacity": 0.14 });
+    svg3.appendChild(u3.halo);
+    u3.dot = el("circle", { cx: p3x(0), cy: p3y(0), r: 6, fill: PAL.red, stroke: "#fff", "stroke-width": 2.2 });
+    svg3.appendChild(u3.dot);
+
+    u3.sLab = rich(P3.W / 2, 400, "sv-read", ["s", { sub: "t" }, " = "], "middle");
+    svg3.appendChild(u3.sLab);
+    u3.hLab = rich(P3.W / 2, 438, "sv-read out", ["h", { sub: "t" }, " = "], "middle");
+    svg3.appendChild(u3.hLab);
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Render — one pass, every representation from the same state
+   * ------------------------------------------------------------------ */
+  var posInput = document.getElementById("pos");
+  var posVal   = document.getElementById("pos-val");
+  var btnStep  = document.getElementById("step");
+  var btnPlay  = document.getElementById("play");
+  var btnReset = document.getElementById("reset");
+  var btnNum   = document.getElementById("tg-num");
+  var actWrap  = document.getElementById("act-wrap");
+  var actInput = document.getElementById("act");
+  var hint     = document.getElementById("hint");
+  var formula  = document.getElementById("formula");
+  var cap2     = document.getElementById("cap2");
+  var cap3     = document.getElementById("cap3");
+
+  /* The header equation and both panel captions are written from the same
+     pieces, so the notation on screen can never disagree with itself. */
+  var SUM_HTML = "b + \u03A3<sub>\u2113=0</sub><sup>L\u22121</sup> K<sup>(\u2113)</sup>x<sub>t\u2212\u2113</sub>";
+  function setFormula(act){
+    formula.innerHTML = act
+      ? "h<sub>t</sub> = " + PHI + "( " + SUM_HTML + " )"
+      : "h<sub>t</sub> = " + SUM_HTML + " <b>&nbsp;\u2014 " + PHI + " off</b>";
+  }
+  function setCaptions(act){
+    cap2.innerHTML = "s<sub>t</sub> = b + \u03A3 K<sup>(\u2113)</sup>x<sub>t\u2212\u2113</sub>";
+    cap3.innerHTML = act ? "h<sub>t</sub> = " + PHI + "( s<sub>t</sub> )" : "h<sub>t</sub> = s<sub>t</sub>";
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Motion (visual grammar v1). Every animation is a one-shot CSS class
+   * added by pulse(kind); pulse() is only ever called from a user
+   * interaction -- never from the API, reset or the poster state.
+   * ------------------------------------------------------------------ */
+  var ANIM_CLS = ["anim-fade", "anim-light", "anim-grow", "anim-rise", "anim-breathe"];
+  function clearAnims(){
+    ANIM_CLS.forEach(function (c) {
+      Array.prototype.forEach.call(document.querySelectorAll("." + c), function (n) {
+        n.classList.remove(c);
+      });
+    });
+  }
+  function kick(node, cls, i){
+    if (!node) { return; }
+    node.classList.remove(cls);
+    void node.getBoundingClientRect();
+    if (i !== undefined) { node.style.setProperty("--i", String(i)); }
+    node.classList.add(cls);
+  }
+  function slotOf(l){
+    for (var j = 0; j < SLOTS.length; j++) { if (SLOTS[j].l === l) { return j; } }
+    return -1;
+  }
+  /* kind: "pos" | "term" | "act" | "numbers" | "tap" */
+  function pulse(kind){
+    var t = state.t, j, l;
+    if (kind === "pos") {
+      for (j = 0; j < SLOTS.length; j++) {
+        kick(u1.chipRects[j], "anim-light", j);
+        kick(u1.cells[(t - SLOTS[j].l) - 1], "anim-light", j);
+        kick(u1.rel[j], "anim-fade", j);
+      }
+    } else if (kind === "term") {
+      var n = Math.min(state.sub, 3);
+      if (n >= 1) {
+        l = ORDER[n - 1];
+        j = slotOf(l);
+        kick(u1.chipRects[j], "anim-light", 0);
+        kick(u1.cells[(t - l) - 1], "anim-light", 0);
+        kick(u2.rows[j].bar, "anim-light", 0);
+        kick(u2.result, "anim-light", 0);
+        if (state.sub >= SUB_MAX) {
+          kick(u3.dot, "anim-light", 0);
+          kick(u3.hLab, "anim-light", 1);
+          kick(u3.dot, "anim-breathe");
+        }
+      }
+    } else if (kind === "act") {
+      kick(u3.curve, "anim-fade", 0);
+      kick(u3.hLab, "anim-light", 0);
+    } else if (kind === "numbers") {
+      u1.cellVals.forEach(function (v, i) { kick(v, "anim-light", i % 3); });
+      u2.rows.forEach(function (r, i) { kick(r.val, "anim-light", i); });
+      kick(u2.bias.val, "anim-light", 3);
+    } else if (kind === "tap") {
+      var sel = state.tap;
+      if (sel === "b") {
+        kick(u2.bias.bar, "anim-light", 0);
+        kick(u2.bias.lab, "anim-fade", 0);
+      } else if (sel !== null) {
+        j = slotOf(sel);
+        kick(u1.chipRects[j], "anim-light", 0);
+        kick(u1.cells[(t - sel) - 1], "anim-light", 0);
+        kick(u1.arrows[j], "anim-fade", 0);
+        kick(u2.rows[j].bar, "anim-light", 0);
+        kick(u2.rows[j].lab, "anim-fade", 0);
+        kick(u2.call, "anim-light", 0);
+      }
+    }
+  }
+
+  function render(){
+    clearAnims();
+    var t = state.t, num = state.numbers, act = state.activation;
+    var selL = (state.tap === null || state.tap === "b") ? null : state.tap;
+    var vis = shownTerms();
+    var parts = partials(t);
+    var pre = preAct(t), h = outAt(t, act);
+    var finished = state.sub >= SUB_MAX;
+
+    /* ---- panel 1: window ---- */
+    var encX = p1cx(t - 2) - P1.CHIP_W / 2 - P1.ENC_PAD;
+    var encW = (p1cx(t) - p1cx(t - 2)) + P1.CHIP_W + 2 * P1.ENC_PAD;
+    u1.enc.setAttribute("x", encX.toFixed(2));
+    u1.enc.setAttribute("width", encW.toFixed(2));
+    u1.encLab.setAttribute("x", (encX + encW / 2).toFixed(2));
+
+    u1.chips.forEach(function (c, j) {
+      var cx = p1cx(t - c.l);
+      c.g.setAttribute("transform", "translate(" + cx + ",0)");
+      var k = KER[j], w = Math.abs(k) * P1.CHIP_PXU;
+      u1.chipBars[j].setAttribute("x1", k >= 0 ? 0 : -w);
+      u1.chipBars[j].setAttribute("x2", k >= 0 ? w : 0);
+      u1.arrows[j].setAttribute("x1", cx); u1.arrows[j].setAttribute("y1", P1.ENC_Y + P1.ENC_H);
+      u1.arrows[j].setAttribute("x2", cx); u1.arrows[j].setAttribute("y2", P1.CY - 7);
+    });
+    u1.win.setAttribute("x", p1x(t - L + 1) - 8);
+    u1.win.setAttribute("width", p1x(t) + P1.CW + 8 - (p1x(t - L + 1) - 8));
+    u1.rel.forEach(function (n, j) { n.setAttribute("x", p1cx(t - SLOTS[j].l)); });
+    u1.cellVals.forEach(function (v, i) {
+      v.textContent = num ? fmt(SEQ[i], 2) : "";
+    });
+    /* the windowed values are tinted; a selected tap's value is tinted harder */
+    u1.cells.forEach(function (c, i) {
+      var idx = i + 1;
+      var inWin = (idx >= t - L + 1) && (idx <= t);
+      var sel = (selL !== null && idx === t - selL);
+      c.setAttribute("fill", sel ? "rgba(154,25,33,0.13)" : (inWin ? "rgba(154,25,33,0.05)" : "#fff"));
+    });
+
+    /* ---- panel 2: the four terms, then their sum ---- */
+    var bw = Math.abs(BIAS) * P2.PXU;
+    u2.bias.bar.setAttribute("x", BIAS >= 0 ? P2.AX : P2.AX - bw);
+    u2.bias.bar.setAttribute("width", bw.toFixed(2));
+    u2.bias.val.textContent = num ? fmt(BIAS) : "";
+    u2.rows.forEach(function (row) {
+      var tt = termOf(t, row.l);
+      var on = !!vis[row.l];
+      var v = on ? tt.v : 0;
+      var w = Math.abs(v) * P2.PXU;
+      row.bar.setAttribute("x", v >= 0 ? P2.AX : P2.AX - w);
+      row.bar.setAttribute("width", w.toFixed(2));
+      row.bar.setAttribute("opacity", on ? 1 : 0.18);
+      /* the bar is the geometry and always shows; the printed arithmetic is
+         what the numbers toggle is for */
+      row.val.textContent = (on && num) ? fmt(tt.v) : "";
+    });
+    /* the running total while stepping, the final sum once every term is in --
+       the sum is the result of this panel, so it is never hidden */
+    var running = finished ? pre : parts[Math.min(state.sub, 3)];
+    var rw = Math.abs(running) * P2.PXU;
+    u2.result.setAttribute("x", (running >= 0 ? P2.AX : P2.AX - rw).toFixed(2));
+    u2.result.setAttribute("width", rw.toFixed(2));
+    setRich(u2.sumLab, ["s", { sub: "t" }, " = " + fmt(running)]);
+
+    /* ---- selection: a clicked tap keeps its source in view ---- */
+    u1.chipRects.forEach(function (r, j) {
+      var on = (selL === SLOTS[j].l);
+      r.setAttribute("stroke-width", on ? 3.4 : 2);
+      r.setAttribute("fill", on ? "#fff" : SLOTS[j].soft);
+      u1.arrows[j].setAttribute("stroke-width", on ? 2.6 : 1.8);
+      u1.arrows[j].setAttribute("stroke", on ? SLOTS[j].col : PAL.muted);
+    });
+    u1.selRing.setAttribute("opacity", selL === null ? 0 : 1);
+    if (selL !== null) { u1.selRing.setAttribute("x", (p1x(t - selL) - 8).toFixed(2)); }
+    u2.bias.lab.setAttribute("opacity", (state.tap === null || state.tap === "b") ? 1 : 0.3);
+    u2.rows.forEach(function (row) {
+      var added = !!vis[row.l];
+      var sel = (state.tap === null || state.tap === row.l);
+      row.bar.setAttribute("opacity", !added ? 0.18 : (sel ? 1 : 0.28));
+      row.lab.setAttribute("opacity", sel ? 1 : 0.3);
+    });
+    if (state.tap === "b") {
+      setRich(u2.call, ["b = " + fmt(BIAS)]);
+      u2.call.setAttribute("fill", PAL.mid);
+    } else if (selL !== null) {
+      setRich(u2.call, kx(selL).concat([" = " + fmt(termOf(t, selL).v)]));
+      u2.call.setAttribute("fill", SLOTS[slotOf(selL)].col);
+    } else {
+      setRich(u2.call, []);
+    }
+
+    /* ---- panel 3: activation ---- */
+    var d = "";
+    if (act) {
+      for (var v = P3.VMIN; v <= P3.VMAX + 1e-9; v += 0.05) {
+        d += (d ? " L " : "M ") + p3x(v).toFixed(2) + "," + p3y(Math.tanh(v)).toFixed(2);
+      }
+    } else {
+      /* phi off: the transfer IS the diagonal, so the curve lands on the
+         reference line and the construction has nothing left to bend */
+      d = "M " + p3x(P3.VMIN).toFixed(2) + "," + p3y(P3.VMIN).toFixed(2) +
+          " L " + p3x(P3.VMAX).toFixed(2) + "," + p3y(P3.VMAX).toFixed(2);
+    }
+    u3.curve.setAttribute("d", d);
+    /* with phi off the reference line is exactly what the curve now is, so it
+       steps back and lets the curve carry the statement */
+    u3.diag.setAttribute("opacity", act ? 1 : 0.25);
+    u3.diagLab.setAttribute("opacity", act ? 1 : 0.25);
+
+    var xv = p3x(Math.max(P3.VMIN, Math.min(P3.VMAX, pre)));
+    var yh = p3y(Math.max(P3.VMIN, Math.min(P3.VMAX, h)));
+    u3.vGuide.setAttribute("x1", xv); u3.vGuide.setAttribute("x2", xv);
+    u3.vGuide.setAttribute("y1", p3y(0)); u3.vGuide.setAttribute("y2", yh);
+    u3.hGuide.setAttribute("x1", P3.X0); u3.hGuide.setAttribute("x2", xv);
+    u3.hGuide.setAttribute("y1", yh); u3.hGuide.setAttribute("y2", yh);
+    u3.halo.setAttribute("cx", xv); u3.halo.setAttribute("cy", yh);
+    u3.dot.setAttribute("cx", xv); u3.dot.setAttribute("cy", yh);
+    var full = finished ? 1 : 0.32;
+    u3.dot.setAttribute("opacity", full);
+    u3.hGuide.setAttribute("opacity", full);
+    u3.vGuide.setAttribute("opacity", full);
+    u3.halo.setAttribute("opacity", full);
+    setRich(u3.sLab, ["s", { sub: "t" }, " = " + fmt(pre)]);
+    setRich(u3.hLab, ["h", { sub: "t" }, " = " + fmt(h)]);
+    u3.hLab.setAttribute("opacity", finished ? 1 : 0.4);
+
+    /* ---- controls ---- */
+    posInput.value = String(t);
+    posVal.textContent = "t = " + t;
+    actInput.checked = act;
+    actWrap.classList.toggle("on", act);
+    btnNum.classList.toggle("on", num);
+    setFormula(act);
+    setCaptions(act);
+    hint.textContent = act
+      ? "Drag the window, or step through the three terms."
+      : PHI + " off \u2014 the sum passes straight through.";
+
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Playback
+   * ------------------------------------------------------------------ */
+  function stop(){
+    if (timer !== null) { clearTimeout(timer); timer = null; }
+    state.playing = false;
+  }
+  function stepOnce(){
+    if (state.t >= TMAX && state.sub >= SUB_MAX) {
+      state.t = TMIN;
+      state.sub = 0;
+      state.doneUpTo = TMIN - 1;
+      render();
+      return;
+    }
+    if (state.sub < SUB_MAX) {
+      state.sub += 1;
+      if (state.sub === SUB_MAX) { state.doneUpTo = state.t; }
+    } else if (state.t < TMAX) {
+      state.t += 1;
+      state.sub = 0;
+    }
+    render();
+  }
+  function play(){
+    stop();
+    state.t = TMIN;
+    state.sub = 0;
+    state.doneUpTo = TMIN - 1;
+    state.playing = true;
+    render();
+    (function tick(){
+      if (!state.playing) { return; }
+      if (state.t >= TMAX && state.sub >= SUB_MAX) { stop(); render(); return; }
+      stepOnce();
+      pulse(state.sub >= 1 ? "term" : "pos");
+      timer = setTimeout(tick, SUB_MS);
+    })();
+  }
+  function reset(){
+    stop();
+    state.t = TMIN;
+    state.sub = 0;
+    state.doneUpTo = TMIN - 1;
+    render();
+  }
+  /* The richest explanatory frame: the last window, every term in, output on. */
+  function setPosterState(){
+    stop();
+    state.t = TMAX;
+    state.sub = SUB_MAX;
+    state.doneUpTo = TMAX;
+    state.numbers = false;
+    state.activation = true;
+    render();
+  }
+  function setPosition(t){
+    var v = Math.max(TMIN, Math.min(TMAX, Math.round(t)));
+    if (v === state.t) { return; }
+    state.t = v;
+    /* moving onto an already-computed position shows its finished read */
+    state.sub = (v <= state.doneUpTo) ? SUB_MAX : 0;
+    render();
+  }
+  function setActivation(b){
+    stop();
+    state.activation = !!b;
+    render();
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Interaction
+   * ------------------------------------------------------------------ */
+  /* every user-initiated change pulses; the API below never does */
+  function userStep(){
+    stop();
+    stepOnce();
+    pulse(state.sub >= 1 ? "term" : "pos");
+  }
+  btnStep.addEventListener("click", userStep);
+  btnPlay.addEventListener("click", play);
+  btnReset.addEventListener("click", reset);
+  btnNum.addEventListener("click", function () {
+    stop(); state.numbers = !state.numbers; render(); pulse("numbers");
+  });
+  actInput.addEventListener("change", function () { setActivation(actInput.checked); pulse("act"); });
+  posInput.addEventListener("input", function () { stop(); setPosition(+posInput.value); pulse("pos"); });
+
+  var dragging = false;
+  var hoverIdx = 0;
+  function toUser1(ev){
+    var m = svg1.getScreenCTM().inverse();
+    var p = new DOMPoint(ev.clientX, ev.clientY).matrixTransform(m);
+    return p;
+  }
+  function tAtX(x){
+    var i = Math.round((x - P1.X0 - P1.CW / 2) / P1.PITCH) + 1;
+    return Math.max(TMIN, Math.min(TMAX, i));
+  }
+  /* Clicking a tap chip selects it and shows what it reads; clicking the
+     sequence row drags the window; hovering a value outlines it. */
+  function tapAtX(x){
+    var best = null, bd = 1e9;
+    SLOTS.forEach(function (s) {
+      var d = Math.abs(x - p1cx(state.t - s.l));
+      if (d < bd) { bd = d; best = s.l; }
+    });
+    return bd <= P1.CHIP_W / 2 + 8 ? best : null;
+  }
+  function setTap(v){
+    state.tap = (state.tap === v) ? null : v;
+    render();
+  }
+  function hoverCell(p){
+    var idx = 0;
+    if (p.y >= P1.CY - 6 && p.y <= P1.CY + P1.CH + 6) {
+      var i = Math.round((p.x - P1.X0 - P1.CW / 2) / P1.PITCH) + 1;
+      if (i >= 1 && i <= NT && Math.abs(p.x - p1cx(i)) <= P1.CW / 2 + 6) { idx = i; }
+    }
+    if (idx === hoverIdx) { return; }
+    hoverIdx = idx;
+    u1.cells.forEach(function (c, k) {
+      var on = (k + 1 === idx);
+      c.setAttribute("stroke", on ? PAL.red : PAL.line);
+      c.setAttribute("stroke-width", on ? 2.6 : 2);
+    });
+  }
+  svg1.addEventListener("pointerdown", function (ev) {
+    var p = toUser1(ev);
+    /* the tap band above the row selects a tap; it is not a drag handle */
+    if (p.y < P1.CY - 20) {
+      if (p.y > P1.ENC_Y - 16 && p.y < P1.CHIP_Y + P1.CHIP_H + 16) {
+        stop(); setTap(tapAtX(p.x)); pulse("tap");
+      }
+      return;
+    }
+    /* the sequence row owns the drag; the relative names below it are not a handle */
+    if (p.y > P1.CY + P1.CH + 20) { return; }
+    dragging = true;
+    svg1.classList.add("dragging");
+    try { svg1.setPointerCapture(ev.pointerId); } catch (e) { /* not capturable */ }
+    stop();
+    setPosition(tAtX(p.x));
+    pulse("pos");
+  });
+  svg1.addEventListener("pointermove", function (ev) {
+    var p = toUser1(ev);
+    if (!dragging) { hoverCell(p); return; }
+    setPosition(tAtX(p.x));
+  });
+  svg1.addEventListener("pointerleave", function () {
+    hoverCell({ y: -99, x: 0 });
+  });
+  /* the four term rows in panel 2 select the same taps */
+  svg2.addEventListener("pointerdown", function (ev) {
+    var m = svg2.getScreenCTM().inverse();
+    var p = new DOMPoint(ev.clientX, ev.clientY).matrixTransform(m);
+    var l = null;
+    if (Math.abs(p.y - (P2.ROW0 + P2.BARH / 2)) < P2.ROWP / 2) { l = "b"; }
+    u2.rows.forEach(function (row, j) {
+      if (Math.abs(p.y - (P2.ROW0 + (j + 1) * P2.ROWP + P2.BARH / 2)) < P2.ROWP / 2) { l = row.l; }
+    });
+    stop();
+    setTap(l);
+    pulse("tap");
+  });
+  function endDrag(ev){
+    if (!dragging) { return; }
+    dragging = false;
+    svg1.classList.remove("dragging");
+    try { svg1.releasePointerCapture(ev.pointerId); } catch (e) { /* already released */ }
+  }
+  svg1.addEventListener("pointerup", endDrag);
+  svg1.addEventListener("pointercancel", endDrag);
+
+  window.addEventListener("keydown", function (ev) {
+    if (ev.key === "ArrowRight") { userStep(); }
+    else if (ev.key === "ArrowLeft") {
+      stop();
+      if (state.sub > 0) { state.sub -= 1; }
+      else if (state.t > TMIN) { state.t -= 1; state.sub = SUB_MAX; }
+      render();
+      pulse(state.sub >= 1 ? "term" : "pos");
+    } else if (ev.key === " ") { ev.preventDefault(); play(); }
+  });
+
+  /* ------------------------------------------------------------------ *
+   * Test / control hook
+   * ------------------------------------------------------------------ */
+  function finite(v, lo, hi){
+    var n = Number(v);
+    if (!isFinite(n)) { return null; }
+    return Math.max(lo, Math.min(hi, n));
+  }
+  window.__widget = {
+    getStep: function () { return (state.t - TMIN) * (SUB_MAX + 1) + state.sub; },
+    getState: function () { return JSON.parse(JSON.stringify(state)); },
+    reset: reset,
+    setPosterState: setPosterState,
+    setPosition: function (t) { var n = finite(t, TMIN, TMAX); if (n !== null) { setPosition(Math.round(n)); } },
+    setNumbers: function (b) { stop(); state.numbers = !!b; render(); },
+    setActivation: setActivation,
+    seekStep: function (n) {
+      stop();
+      var k = finite(n, 0, (TMAX - TMIN) * (SUB_MAX + 1) + SUB_MAX);
+      if (k === null) { return; }
+      k = Math.round(k);
+      state.t = TMIN + Math.floor(k / (SUB_MAX + 1));
+      state.sub = k % (SUB_MAX + 1);
+      state.doneUpTo = state.sub === SUB_MAX ? state.t : state.t - 1;
+      render();
+    },
+    designSize: function () { return [STAGE_W, STAGE_H]; },
+    /* full model exposed so a reference implementation can be compared against
+       the numbers actually rendered, not against the widget's own arithmetic */
+    getModel: function () {
+      var ts = termsAt(state.t);
+      return { seq: SEQ.slice(), kernel: KER.slice(), bias: BIAS, L: L, t: state.t,
+               terms: ts.map(function (x) { return x.v; }),
+               partials: partials(state.t),
+               preAct: preAct(state.t),
+               activation: state.activation,
+               h: outAt(state.t, state.activation),
+               allH: (function () {
+                 var o = {};
+                 for (var i = TMIN; i <= TMAX; i++) { o[i] = outAt(i, state.activation); }
+                 return o;
+               })() };
+    }
+  };
+
+  /* shot.js drives widgets through setStep; A1's step space is seekStep's */
+  window.__widget.setStep = window.__widget.seekStep;
+
+  buildPanel1();
+  buildPanel2();
+  buildPanel3();
+  setPosterState();
+})();
+</script>
+</body>
+</html>
