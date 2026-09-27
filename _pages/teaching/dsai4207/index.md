@@ -1,8 +1,8 @@
 ---
 layout: single
 permalink: /teaching/dsai4207/
-title: "DSAI4207 Demos"
-excerpt: "Interactive demos for DSAI4207 Lectures 3–5."
+title: "DSAI4207 · Introduction to Large Language Model"
+excerpt: "Interactive visualizations of the core ideas behind large language models."
 author_profile: false
 hide_title: true
 ---
@@ -12,8 +12,8 @@ hide_title: true
   <p class="demo-page__back"><a href="{{ '/teaching/' | relative_url }}">&larr; All courses</a></p>
 
   <header class="page-header">
-    <h1>DSAI4207</h1>
-    <p>Interactive demos for Lectures 3–5.</p>
+    <h1>DSAI4207 · Introduction to Large Language Model</h1>
+    <p>Explore the ideas and techniques behind large language models through interactive visualizations.</p>
   </header>
 
   <h2 id="lecture-3">Lecture 3 · Neural Network Foundations</h2>
@@ -22,7 +22,7 @@ hide_title: true
 
     <article class="demo-card">
       <a class="demo-card__thumb" href="{{ '/teaching/demos/scalar-accumulation/' | relative_url }}">
-        <img src="{{ '/images/teaching/nn-02-scalar.png' | relative_url }}" alt="Scalar accumulation demo preview" loading="lazy">
+        <img src="{{ '/images/teaching/lecture-3/demo-1.png' | relative_url }}" alt="Scalar accumulation demo preview" loading="lazy">
         <span class="demo-card__play">▶ Interactive</span>
       </a>
       <div class="demo-card__body">
@@ -35,7 +35,7 @@ hide_title: true
 
     <article class="demo-card">
       <a class="demo-card__thumb" href="{{ '/teaching/demos/activation-functions/' | relative_url }}">
-        <img src="{{ '/images/teaching/nn-025-activation.png' | relative_url }}" alt="Scalar activation demo preview" loading="lazy">
+        <img src="{{ '/images/teaching/lecture-3/demo-2.png' | relative_url }}" alt="Scalar activation demo preview" loading="lazy">
         <span class="demo-card__play">▶ Interactive</span>
       </a>
       <div class="demo-card__body">
@@ -48,7 +48,7 @@ hide_title: true
 
     <article class="demo-card">
       <a class="demo-card__thumb" href="{{ '/teaching/demos/linear-map-geometry/' | relative_url }}">
-        <img src="{{ '/images/teaching/nn-04-geometry.png' | relative_url }}" alt="Linear map geometry demo preview" loading="lazy">
+        <img src="{{ '/images/teaching/lecture-3/demo-3.png' | relative_url }}" alt="Linear map geometry demo preview" loading="lazy">
         <span class="demo-card__play">▶ Interactive</span>
       </a>
       <div class="demo-card__body">
@@ -61,7 +61,7 @@ hide_title: true
 
     <article class="demo-card">
       <a class="demo-card__thumb" href="{{ '/teaching/demos/feature-map-lifting/' | relative_url }}">
-        <img src="{{ '/images/teaching/nn-06-lifting.png' | relative_url }}" alt="Feature map lifting demo preview" loading="lazy">
+        <img src="{{ '/images/teaching/lecture-3/demo-4.png' | relative_url }}" alt="Feature map lifting demo preview" loading="lazy">
         <span class="demo-card__play">▶ Interactive</span>
       </a>
       <div class="demo-card__body">
@@ -74,7 +74,7 @@ hide_title: true
 
     <article class="demo-card">
       <a class="demo-card__thumb" href="{{ '/teaching/demos/computation-graph/' | relative_url }}">
-        <img src="{{ '/images/teaching/nn-08-scalar-graph.png' | relative_url }}" alt="Scalar computation graph demo preview" loading="lazy">
+        <img src="{{ '/images/teaching/lecture-3/demo-5.png' | relative_url }}" alt="Scalar computation graph demo preview" loading="lazy">
         <span class="demo-card__play">▶ Interactive</span>
       </a>
       <div class="demo-card__body">
@@ -87,7 +87,7 @@ hide_title: true
 
     <article class="demo-card">
       <a class="demo-card__thumb" href="{{ '/teaching/demos/forward-backward-update/' | relative_url }}">
-        <img src="{{ '/images/teaching/nn-07-backprop.png' | relative_url }}" alt="Forward backward update demo preview" loading="lazy">
+        <img src="{{ '/images/teaching/lecture-3/demo-6.png' | relative_url }}" alt="Forward backward update demo preview" loading="lazy">
         <span class="demo-card__play">▶ Interactive</span>
       </a>
       <div class="demo-card__body">
@@ -106,7 +106,7 @@ hide_title: true
 
     <article class="demo-card">
       <a class="demo-card__thumb" href="{{ '/teaching/demos/sequence-convolution/' | relative_url }}">
-        <img src="{{ '/images/teaching/seq-01-convolution.png' | relative_url }}" alt="Sliding-window sequence convolution demo preview" loading="lazy">
+        <img src="{{ '/images/teaching/lecture-4/demo-1.png' | relative_url }}" alt="Sliding-window sequence convolution demo preview" loading="lazy">
         <span class="demo-card__play">▶ Interactive</span>
       </a>
       <div class="demo-card__body">
@@ -119,7 +119,7 @@ hide_title: true
 
     <article class="demo-card">
       <a class="demo-card__thumb" href="{{ '/teaching/demos/backpropagation-through-time/' | relative_url }}">
-        <img src="{{ '/images/teaching/seq-03-bptt.png' | relative_url }}" alt="Backpropagation through time demo preview" loading="lazy">
+        <img src="{{ '/images/teaching/lecture-4/demo-3.png' | relative_url }}" alt="Backpropagation through time demo preview" loading="lazy">
         <span class="demo-card__play">▶ Interactive</span>
       </a>
       <div class="demo-card__body">
@@ -132,7 +132,7 @@ hide_title: true
 
     <article class="demo-card">
       <a class="demo-card__thumb" href="{{ '/teaching/demos/self-attention-matrix/' | relative_url }}">
-        <img src="{{ '/images/teaching/seq-05-attention-matrix.png' | relative_url }}" alt="Self-attention matrix demo preview" loading="lazy">
+        <img src="{{ '/images/teaching/lecture-4/demo-5.png' | relative_url }}" alt="Self-attention matrix demo preview" loading="lazy">
         <span class="demo-card__play">▶ Interactive</span>
       </a>
       <div class="demo-card__body">
@@ -145,7 +145,7 @@ hide_title: true
 
     <article class="demo-card">
       <a class="demo-card__thumb" href="{{ '/teaching/demos/multi-head-attention/' | relative_url }}">
-        <img src="{{ '/images/teaching/seq-07-multi-head.png' | relative_url }}" alt="Multi-head attention demo preview" loading="lazy">
+        <img src="{{ '/images/teaching/lecture-4/demo-7.png' | relative_url }}" alt="Multi-head attention demo preview" loading="lazy">
         <span class="demo-card__play">▶ Interactive</span>
       </a>
       <div class="demo-card__body">
@@ -163,38 +163,54 @@ hide_title: true
   <div class="demo-gallery">
 
     <article class="demo-card">
+      <a class="demo-card__thumb" href="{{ '/assets/demos/lecture-5/demo-0/' | relative_url }}">
+        <img src="{{ '/images/teaching/lecture-5/demo-0.png' | relative_url }}" alt="Absolute position encoding demo preview" loading="lazy">
+        <span class="demo-card__play">▶ Interactive</span>
+      </a>
       <div class="demo-card__body">
         <span class="demo-card__badge">Demo 0</span>
         <h3 class="demo-card__title">Absolute Position Encoding</h3>
         <p class="demo-card__desc">Explore how sinusoidal signals add position to token representations.</p>
-        <a class="demo-card__cta" href="{{ '/assets/demos/LECTURE 5 DEMO 0/' | relative_url }}">Open Demo →</a>
+        <a class="demo-card__cta" href="{{ '/assets/demos/lecture-5/demo-0/' | relative_url }}">Open Demo →</a>
       </div>
     </article>
 
     <article class="demo-card">
+      <a class="demo-card__thumb" href="{{ '/assets/demos/lecture-5/demo-1/' | relative_url }}">
+        <img src="{{ '/images/teaching/lecture-5/demo-1.png' | relative_url }}" alt="Rotary position embedding demo preview" loading="lazy">
+        <span class="demo-card__play">▶ Interactive</span>
+      </a>
       <div class="demo-card__body">
         <span class="demo-card__badge">Demo 1</span>
         <h3 class="demo-card__title">Rotary Position Embedding</h3>
         <p class="demo-card__desc">Rotate query and key vectors to encode relative position.</p>
-        <a class="demo-card__cta" href="{{ '/assets/demos/LECTURE 5 DEMO 1/' | relative_url }}">Open Demo →</a>
+        <a class="demo-card__cta" href="{{ '/assets/demos/lecture-5/demo-1/' | relative_url }}">Open Demo →</a>
       </div>
     </article>
 
     <article class="demo-card">
+      <a class="demo-card__thumb" href="{{ '/assets/demos/lecture-5/demo-2/' | relative_url }}">
+        <img src="{{ '/images/teaching/lecture-5/demo-2.png' | relative_url }}" alt="Pre-Norm and Post-Norm demo preview" loading="lazy">
+        <span class="demo-card__play">▶ Interactive</span>
+      </a>
       <div class="demo-card__body">
         <span class="demo-card__badge">Demo 2</span>
         <h3 class="demo-card__title">Pre-Norm vs Post-Norm</h3>
         <p class="demo-card__desc">Move LayerNorm to compare the two residual-block layouts.</p>
-        <a class="demo-card__cta" href="{{ '/assets/demos/LECTURE 5 DEMO 2/' | relative_url }}">Open Demo →</a>
+        <a class="demo-card__cta" href="{{ '/assets/demos/lecture-5/demo-2/' | relative_url }}">Open Demo →</a>
       </div>
     </article>
 
     <article class="demo-card">
+      <a class="demo-card__thumb" href="{{ '/assets/demos/lecture-5/demo-3/' | relative_url }}">
+        <img src="{{ '/images/teaching/lecture-5/demo-3.png' | relative_url }}" alt="Normalization methods demo preview" loading="lazy">
+        <span class="demo-card__play">▶ Interactive</span>
+      </a>
       <div class="demo-card__body">
         <span class="demo-card__badge">Demo 3</span>
         <h3 class="demo-card__title">LayerNorm, BatchNorm &amp; GroupNorm</h3>
         <p class="demo-card__desc">Compare which values each normalization method groups together.</p>
-        <a class="demo-card__cta" href="{{ '/assets/demos/LECTURE 5 DEMO 3/' | relative_url }}">Open Demo →</a>
+        <a class="demo-card__cta" href="{{ '/assets/demos/lecture-5/demo-3/' | relative_url }}">Open Demo →</a>
       </div>
     </article>
 

@@ -6,7 +6,7 @@ permalink: /teaching/demos/sequence-convolution/
 title: "Sequence Convolution"
 demo_badge: "Lecture 4 · Demo 1"
 key_concept: "One local kernel is reused across sequence positions: sₜ = b + Σₗ K⁽ˡ⁾xₜ₋ₗ, then hₜ = φ(sₜ)."
-demo_src: /assets/demos/seq-demo-01-convolution.html
+demo_src: /assets/demos/lecture-4/demo-1/
 demo_height: 650
 ---
 

@@ -6,7 +6,7 @@ permalink: /teaching/demos/multi-head-attention/
 title: "Multi-Head Attention"
 demo_badge: "Lecture 4 · Demo 7"
 key_concept: "Attention heads can read the same tokens with different weights and contribute separate outputs."
-demo_src: /assets/demos/seq-demo-07-multi-head.html
+demo_src: /assets/demos/lecture-4/demo-7/
 demo_height: 650
 ---
 

@@ -6,7 +6,7 @@ permalink: /teaching/demos/backpropagation-through-time/
 title: "Backpropagation Through Time"
 demo_badge: "Lecture 4 · Demo 3"
 key_concept: "Unrolled RNN states flow forward; gradients flow back and add at shared parameters."
-demo_src: /assets/demos/seq-demo-03-bptt.html
+demo_src: /assets/demos/lecture-4/demo-3/
 demo_height: 650
 ---
 

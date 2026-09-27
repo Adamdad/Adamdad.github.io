@@ -6,7 +6,7 @@ permalink: /teaching/demos/self-attention-matrix/
 title: "Self-Attention Matrix"
 demo_badge: "Lecture 4 · Demo 5"
 key_concept: "Each token’s score row becomes normalized weights that mix the value vectors."
-demo_src: /assets/demos/seq-demo-05-attention-matrix.html
+demo_src: /assets/demos/lecture-4/demo-5/
 demo_height: 650
 ---
 

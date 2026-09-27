@@ -6,7 +6,7 @@ permalink: /teaching/demos/linear-map-geometry/
 title: "What a Linear Map Changes"
 demo_badge: "Lecture 3 · Demo 3"
 key_concept: "A matrix W transforms space by stretching, rotating, or reshaping it."
-demo_src: /assets/demos/nn-demo-04-geometry.html
+demo_src: /assets/demos/lecture-3/demo-3/
 ---
 
 Apply a 2×2 matrix `W` to a grid, circle, and point cloud. Ghost positions, displacement lines, singular axes, and histograms show how the geometry and spread change.
