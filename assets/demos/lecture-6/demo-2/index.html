@@ -1,0 +1,1274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KV Cache Lab · Why Generation Gets Faster</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Hanken+Grotesk:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+  :root{
+    --paper:#FAF6EE; --paper-2:#F2ECDF; --card:#FFFEFB;
+    --ink:#211E24; --ink-2:#5A5660; --ink-3:#8E8A93;
+    --line:#E6DFCF; --line-2:#D6CCB6;
+    --red:#A63446; --red-d:#7F1F2E; --red-soft:#F8EAEC;
+    --blue:#1F4E79; --blue-soft:#E9F1F8;
+    --green:#0A8F22; --green-soft:#E6F4E9;
+    --note:#FFF3C9; --note-line:#E6CE7A;
+    --display:'Instrument Serif','Latin Modern Roman','CMU Serif','Times New Roman',Times,Georgia,serif;
+    --body:'Hanken Grotesk','Avenir Next','Segoe UI',system-ui,sans-serif;
+    --mono:'DM Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --ease:cubic-bezier(.22,.8,.24,1);
+    --s:1; --railpad:0px; --barpad:0px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.55;
+    background:
+      radial-gradient(1200px 600px at 8% -8%,rgba(166,52,70,.07),transparent 60%),
+      radial-gradient(900px 520px at 100% 12%,rgba(31,78,121,.06),transparent 60%),
+      var(--paper);}
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.5;mix-blend-mode:multiply;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .55  0 0 0 0 .45  0 0 0 0 .3  0 0 0 .07 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");}
+  main,.rail,.modebox,.progress{position:relative;z-index:1;}
+
+  /* ---------- chrome ---------- */
+  .progress{position:fixed;left:0;top:0;right:0;height:3px;z-index:80;}
+  .progress i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--red),#d05a6b);}
+  .modebox{position:fixed;top:14px;right:16px;z-index:70;display:flex;gap:8px;align-items:center;}
+  .segmented{display:inline-flex;flex-wrap:wrap;border:1px solid var(--line-2);border-radius:999px;overflow:hidden;background:rgba(255,254,251,.92);backdrop-filter:blur(6px);box-shadow:0 6px 18px -10px rgba(60,40,20,.35);}
+  .segmented button{border:none;background:transparent;padding:7px 15px;font:600 13px var(--body);cursor:pointer;color:var(--ink-2);transition:background .2s,color .2s;}
+  .segmented button+button{border-left:1px solid var(--line);}
+  .segmented button[aria-pressed="true"]{background:var(--red);color:#fff;}
+  .segmented button:hover:not([aria-pressed="true"]){background:var(--red-soft);}
+  .segmented.sm button{padding:4px 12px;font-size:12px;}
+  .fs{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line-2);border-radius:999px;background:rgba(255,254,251,.92);backdrop-filter:blur(6px);padding:7px 14px;font:600 13px var(--body);color:var(--ink-2);cursor:pointer;box-shadow:0 6px 18px -10px rgba(60,40,20,.35);transition:all .2s;}
+  .fs:hover{border-color:var(--red);color:var(--red);}
+  .fs[hidden]{display:none;}
+
+  .rail{position:fixed;left:22px;top:50%;transform:translateY(-50%);z-index:60;display:none;}
+  @media (min-width:1260px){.rail{display:block;}}
+  .rail ol{list-style:none;margin:0;padding:0;position:relative;}
+  .rail ol::before{content:"";position:absolute;left:13px;top:14px;bottom:14px;width:2px;background:var(--line-2);}
+  .rail .fill{position:absolute;left:13px;top:14px;width:2px;background:var(--red);height:0;transition:height .35s var(--ease);}
+  .rail li{position:relative;}
+  .rail a{display:flex;align-items:center;gap:10px;padding:5px 0;color:var(--ink-3);text-decoration:none;font-size:12px;font-weight:600;cursor:pointer;}
+  .rail a .dot{width:28px;height:28px;border-radius:50%;background:var(--paper);border:2px solid var(--line-2);display:grid;place-items:center;font:500 10.5px var(--mono);color:var(--ink-3);transition:all .25s var(--ease);flex:none;}
+  .rail a:hover{color:var(--ink);}
+  .rail a.done .dot{border-color:var(--red);color:var(--red);}
+  .rail a.on{color:var(--red);}
+  .rail a.on .dot{background:var(--red);border-color:var(--red);color:#fff;transform:scale(1.12);box-shadow:0 0 0 5px rgba(166,52,70,.14);}
+
+  /* ---------- Explore mode: a normal web page — title text first, the figure underneath ---------- */
+  .slide{position:relative;padding:62px 0 8px var(--railpad);}
+  .stage{position:relative;width:100%;max-width:1100px;margin:0 auto;padding:0 30px;}
+  .slide+.slide .stage::before{content:"";position:absolute;left:30px;right:30px;top:-36px;height:1px;background:linear-gradient(90deg,var(--line-2),transparent);}
+  .cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:22px;row-gap:0;align-items:start;}
+  .narr,.work{display:contents;}
+  .cols .kicker{grid-column:1/-1;order:1;}
+  .cols h1,.cols h2{grid-column:1/-1;order:2;}
+  .cols .sub{grid-column:1/-1;order:3;}
+  .cols .card{grid-column:1/-1;order:4;}
+  .cols .predict{grid-column:1;order:5;margin-top:22px;align-self:start;}
+  .cols .takeaway{grid-column:2;order:5;margin-top:22px;align-self:stretch;}
+  .cols .roadmap,.cols .rules{grid-column:1/-1;order:6;margin-top:22px;}
+  .ghostnum{position:absolute;right:26px;top:-30px;font:italic 170px/1 var(--display);color:rgba(166,52,70,.07);pointer-events:none;user-select:none;z-index:0;}
+  .cols .kicker,.cols h2,.cols .sub,.cols .predict,.cols .takeaway,.cols .roadmap,.cols .rules{position:relative;z-index:1;}
+  .card{position:relative;z-index:1;}
+
+  .kicker{display:flex;align-items:center;gap:10px;font:600 11.5px var(--body);letter-spacing:.16em;text-transform:uppercase;color:var(--red);margin-bottom:10px;}
+  .kicker .num{font:500 11.5px var(--mono);background:var(--red);color:#fff;padding:2px 8px;border-radius:5px;letter-spacing:.04em;}
+  .kicker::after{content:"";height:1px;width:40px;background:var(--red);opacity:.45;}
+  h1,h2{font-family:var(--display);font-weight:400;margin:0;letter-spacing:-.012em;}
+  h2{font-size:clamp(34px,4.4vw,52px);line-height:1.04;max-width:none;}
+  h1{font-size:56px;line-height:.98;}
+  h1 em,h2 em{color:var(--red);font-style:italic;}
+  .sub{font-size:17px;color:var(--ink-2);max-width:70ch;margin:10px 0 20px;}
+  .sub b{color:var(--ink);}
+
+  .card{position:relative;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:28px 24px 18px;
+    box-shadow:0 1px 0 #fff inset,0 24px 50px -30px rgba(70,45,20,.38),0 2px 6px -2px rgba(70,45,20,.08);}
+  .card-tag{position:absolute;left:22px;top:-12px;background:var(--red);color:#fff;font:600 11px var(--body);letter-spacing:.1em;text-transform:uppercase;padding:3px 12px;border-radius:7px 7px 7px 2px;box-shadow:0 4px 10px -4px rgba(127,31,46,.6);}
+  .lbl{font:600 11px var(--body);letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);margin-bottom:6px;}
+  .cap{font-size:13px;color:var(--ink-2);margin:10px 0 0;}
+  .btnrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0 2px;}
+  .btn{border:1px solid var(--line-2);background:#fff;color:var(--ink);padding:7px 15px;border-radius:999px;font:600 13px var(--body);cursor:pointer;transition:all .2s var(--ease);}
+  .btn:hover:not(:disabled){border-color:var(--red);color:var(--red);transform:translateY(-1px);}
+  .btn:active:not(:disabled){transform:translateY(0);}
+  .btn:disabled{opacity:.42;cursor:default;}
+  .btn.primary{background:var(--red);border-color:var(--red);color:#fff;box-shadow:0 8px 18px -10px rgba(127,31,46,.75);}
+  .btn.primary:hover:not(:disabled){color:#fff;filter:brightness(1.08);}
+  .btn.sm{padding:4px 12px;font-size:12px;}
+  .formula-box{margin-top:12px;padding:6px 14px;border-radius:12px;background:var(--paper-2);border:1px solid var(--line);min-height:50px;display:flex;align-items:center;font-size:14px;}
+  .formula-box>div{width:100%;}
+  .formula-box .katex-display{margin:2px 0;overflow-x:auto;overflow-y:hidden;}
+  .formula-box .katex{font-size:1.08em;}
+  .plain-formula{font-family:var(--mono);font-size:12.5px;}
+
+  .takeaway{display:flex;gap:16px;align-items:baseline;padding:16px 22px;background:var(--red-soft);border-left:6px solid var(--red);border-radius:4px 14px 14px 4px;}
+  .takeaway .tk{font:700 11px var(--body);letter-spacing:.14em;text-transform:uppercase;color:var(--red);white-space:nowrap;}
+  .takeaway p{margin:0;font:400 24px/1.22 var(--display);color:var(--ink);}
+  .takeaway p em{color:var(--red);}
+
+  .predict{margin-top:4px;background:var(--note);border:1px solid var(--note-line);border-radius:6px 14px 14px 14px;padding:13px 18px 14px;transform:rotate(-.35deg);box-shadow:0 14px 26px -18px rgba(110,80,10,.55);position:relative;}
+  .predict::before{content:"";position:absolute;left:20px;top:-8px;width:54px;height:15px;background:rgba(255,255,255,.55);border:1px solid rgba(0,0,0,.05);transform:rotate(-3deg);}
+  .p-head{font:700 10.5px var(--body);letter-spacing:.14em;text-transform:uppercase;color:#8a6a10;margin-bottom:4px;}
+  .p-q{margin:0 0 9px;font:400 19px/1.22 var(--display);}
+  .p-opts{display:flex;flex-wrap:wrap;gap:6px;}
+  .p-opts button{border:1.5px solid var(--note-line);background:#fffbe9;border-radius:999px;padding:5px 13px;font:600 12.5px var(--body);cursor:pointer;color:var(--ink);transition:all .2s;}
+  .p-opts button:hover:not(:disabled){background:#fff;border-color:#b8962c;}
+  .p-opts button.right{background:var(--green);border-color:var(--green);color:#fff;}
+  .p-opts button.wrong{background:#fff;border-color:var(--red);color:var(--red);text-decoration:line-through;}
+  .p-opts button:disabled{cursor:default;}
+  .p-ans{margin-top:9px;font-size:13px;line-height:1.45;color:#4a3d10;border-top:1px dashed var(--note-line);padding-top:8px;animation:rise .5s var(--ease);}
+  .p-ans[hidden]{display:none;}
+  @keyframes rise{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+
+  /* entrance animation (replaces scroll-reveal) */
+  .slide .rv{opacity:0;transform:translateY(16px);transition:opacity .7s var(--ease),transform .7s var(--ease);}
+  .slide.seen .rv{opacity:1;transform:none;}
+  .slide.seen .rv.d1{transition-delay:.08s;}.slide.seen .rv.d2{transition-delay:.16s;}.slide.seen .rv.d3{transition-delay:.24s;}
+
+  /* ---------- word tiles ---------- */
+  .tile{display:inline-flex;align-items:center;gap:6px;padding:2px 11px 2px 9px;border-radius:9px;font:500 14px var(--mono);color:var(--ink);white-space:nowrap;
+    background:color-mix(in srgb,var(--tc) 13%,#fff);border:1px solid color-mix(in srgb,var(--tc) 36%,#fff);border-left:5px solid var(--tc);box-shadow:0 2px 0 rgba(0,0,0,.05);}
+  .tile.sm{font-size:12px;padding:0 8px 0 7px;border-radius:7px;border-left-width:4px;}
+  .tile.lg{font-size:20px;padding:4px 13px 4px 11px;border-radius:11px;border-left-width:6px;}
+  .tile.blank{background:transparent;border:2px dashed var(--line-2);border-left:2px dashed var(--line-2);color:var(--ink-3);animation:pulse 1.8s ease-in-out infinite;}
+  .tile.pop{animation:pop .55s var(--ease);}
+  .tile.prompt{--tc:#7C8594;}
+  @keyframes pulse{50%{border-color:var(--red);color:var(--red);}}
+  @keyframes pop{0%{transform:scale(.6);opacity:0;}60%{transform:scale(1.12);}100%{transform:none;opacity:1;}}
+  .sent{display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-height:38px;}
+  .sent .arr{color:var(--line-2);font-size:13px;}
+
+  /* ---------- page title (masthead) ---------- */
+  .masthead{position:relative;padding:92px 0 8px var(--railpad);}
+  .mh-inner{position:relative;max-width:1100px;margin:0 auto;padding:0 30px;}
+  .masthead h1{font-size:clamp(60px,9vw,112px);line-height:.92;max-width:none;margin:4px 0 0;}
+  .mh-sub{font:italic 400 clamp(24px,3.1vw,40px)/1.12 var(--display);color:var(--red);margin:12px 0 0;}
+  .mh-desc{font-size:17.5px;line-height:1.6;color:var(--ink-2);max-width:66ch;margin:20px 0 24px;}
+  .mh-desc b{color:var(--ink);}
+  .mh-actions{display:flex;gap:12px;flex-wrap:wrap;align-items:center;}
+  .btn.big{padding:12px 26px;font-size:15px;}
+  .mh-meta{list-style:none;display:flex;flex-wrap:wrap;gap:6px 22px;margin:22px 0 0;padding:0;font:500 12.5px var(--mono);color:var(--ink-3);}
+  .mh-meta li::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--red);margin-right:8px;vertical-align:1px;opacity:.7;}
+  .brand{font:600 12px var(--body);letter-spacing:.15em;text-transform:uppercase;color:var(--ink-3);margin-bottom:12px;}
+  .brand b{color:var(--red);}
+  .floaters{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:0;}
+  .mh-inner>*:not(.floaters){position:relative;z-index:1;}
+  .floaters .tile{position:absolute;opacity:.5;animation:float 9s ease-in-out infinite;}
+  @keyframes float{50%{transform:translateY(-12px) rotate(var(--r,0deg));}}
+  /* ---------- chapter overview strip (optional) ---------- */
+  .roadmap{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(5,1fr);gap:10px;counter-reset:rm;}
+  .roadmap li{counter-increment:rm;background:rgba(255,254,251,.75);border:1px solid var(--line);border-radius:13px;padding:10px 11px 9px;font-size:11.5px;line-height:1.35;color:var(--ink-2);transition:transform .25s var(--ease),border-color .25s;cursor:pointer;}
+  .roadmap li:hover{transform:translateY(-3px);border-color:var(--red);}
+  .roadmap li::before{content:counter(rm);display:block;font:italic 28px/1 var(--display);color:var(--red);margin-bottom:4px;}
+  .roadmap li b{display:block;color:var(--ink);font-size:12.5px;margin-bottom:1px;}
+  /* ---------- BarList: persistent animated rows ---------- */
+  /* ---------- bar lists ---------- */
+  .bl{position:relative;}
+  .bl-row{position:absolute;left:0;right:0;display:flex;align-items:center;gap:10px;padding:0 8px 0 4px;border-radius:8px;transition:transform .7s var(--ease),background .3s,opacity .4s;}
+  .bl-row.click{cursor:pointer;}
+  .bl-row.click:hover{background:var(--paper-2);}
+  .bl-tile{width:84px;flex:none;}
+  .bl-row .tile{font-size:12.5px;padding:1px 9px 1px 8px;}
+  .bl-track{position:relative;flex:1;height:60%;min-width:50px;}
+  .bl-bar,.bl-ghost,.bl-zero{position:absolute;top:0;bottom:0;display:block;}
+  .bl-bar{border-radius:4px;transition:left .7s var(--ease),width .7s var(--ease),background .3s;}
+  .bl-ghost{z-index:2;pointer-events:none;border:1.5px dashed rgba(33,30,36,.55);border-radius:4px;transition:left .7s var(--ease),width .7s var(--ease),opacity .4s;opacity:0;}
+  .bl-ghost.on{opacity:1;}
+  .bl-zero{width:1px;background:var(--ink-3);top:-3px;bottom:-3px;opacity:0;transition:opacity .4s,left .6s;}
+  .bl-val{width:54px;text-align:right;font:500 12.5px var(--mono);flex:none;}
+  .bl-x{width:50px;font:500 11px var(--mono);color:var(--ink-3);flex:none;}
+  .bl-row.cut .bl-bar{background:repeating-linear-gradient(135deg,#cfd1d9 0 5px,#e7e9ef 5px 10px)!important;}
+  .bl-row.cut .tile{filter:grayscale(1);opacity:.5;}
+  .bl-row.cut .bl-val{color:var(--ink-3);}
+  .bl-row.pick{background:linear-gradient(90deg,var(--red-soft),rgba(248,234,236,0) 85%);box-shadow:inset 4px 0 0 var(--red);}
+  .bl-row.pick .bl-val{color:var(--red);}
+  .bl-row.flash .bl-bar{animation:flash .5s ease-in-out 2;}
+  @keyframes flash{50%{filter:brightness(1.35) saturate(1.3);}}
+
+  /* ---------- controls: knob (slider + live value), presets, round buttons ---------- */
+  .circ{width:30px;height:30px;border-radius:50%;border:1.5px solid var(--line-2);background:#fff;display:grid;place-items:center;font:600 15px var(--body);color:var(--ink-2);cursor:pointer;flex:none;transition:all .2s;padding:0;}
+  .circ:hover:not(:disabled){border-color:var(--red);color:var(--red);}
+  .circ:disabled{opacity:.35;cursor:default;}
+  .circ.primary{background:var(--red);border-color:var(--red);color:#fff;}
+  .circ.primary:hover:not(:disabled){color:#fff;filter:brightness(1.1);}
+  .knob{display:grid;grid-template-columns:1fr auto;gap:0 10px;align-items:center;}
+  .knob .kn-name{font:600 12px var(--body);color:var(--ink-2);}
+  .knob .kn-name small{font:500 11.5px var(--mono);color:var(--ink-3);}
+  .knob b{font:500 14px var(--mono);color:var(--red);}
+  .knob input{grid-column:1/3;}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:22px;background:transparent;margin:0;cursor:pointer;}
+  input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:linear-gradient(90deg,var(--red) var(--fill,50%),var(--line) var(--fill,50%));}
+  input[type=range]::-moz-range-track{height:6px;border-radius:3px;background:var(--line);}
+  input[type=range]::-moz-range-progress{height:6px;border-radius:3px;background:var(--red);}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:#fff;border:3px solid var(--red);margin-top:-7px;box-shadow:0 3px 8px -2px rgba(0,0,0,.4);}
+  input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:#fff;border:3px solid var(--red);}
+  .presets{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px;}
+  .chip{border:1px solid var(--line-2);background:#fff;border-radius:999px;padding:2px 10px;font:500 11.5px var(--mono);cursor:pointer;color:var(--ink-2);transition:all .18s;}
+  .chip:hover{border-color:var(--red);color:var(--red);}
+  .knobrow{margin-top:14px;display:grid;gap:8px;}
+  .plot{width:100%;height:260px;border:1px solid var(--line);border-radius:12px;background:#fff;display:block;}
+  /* ---------- callout cards (rules of thumb) ---------- */
+  .rules{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;}
+  .rule{border:1px solid var(--line);border-radius:14px;padding:12px 16px;background:rgba(255,254,251,.8);}
+  .rule .t{font:italic 22px/1.1 var(--display);color:var(--red);display:flex;flex-direction:column;align-items:flex-start;gap:3px;}
+  .rule .t small{font:500 10.5px var(--mono);color:var(--ink-3);font-style:normal;}
+  .rule p{margin:6px 0 0;font-size:13.5px;line-height:1.45;color:var(--ink-2);}
+
+  /* ---------- Guided tour mode: strict full-screen presentation, one step per page, large type ---------- */
+  html.presenting,html.presenting body{overflow:hidden;}
+  html.presenting .rail,html.presenting .modebox,html.presenting .progress{display:none;}
+  .gp-hide{display:none!important;}
+  /* inside the presentation layer: bigger type for the key elements, less chrome */
+  .pr-fit .bl-row .tile{font-size:14.5px;line-height:1.2;padding:2px 9px 2px 8px;}
+  .pr-fit .bl-val{font-size:14.5px;} .pr-fit .bl-x{font-size:12px;}
+  .pr-fit .tile.sm{font-size:14px;} .pr-fit .tile.lg{font-size:22px;}
+  .pr-fit .sc-z,.pr-fit .sc-p{font-size:14.5px;} .pr-fit .sc-row .tile{font-size:14px;}
+  .pr-fit .stage-info{grid-template-columns:minmax(0,1fr);min-height:0;padding:8px 16px;}
+  .pr-fit .snote{font-size:14px;min-height:0;}
+  .pr-fit .scwrap canvas{height:330px;}
+  .pr-fit .p-q{font-size:23px;} .pr-fit .p-opts button{font-size:15px;padding:7px 16px;} .pr-fit .p-ans{font-size:15.5px;}
+  .pr-fit .rule .t{font-size:23px;} .pr-fit .rule p{font-size:14.5px;} .pr-fit .rule .t small{font-size:12px;}
+  .present{position:fixed;inset:0;z-index:200;display:grid;grid-template-rows:auto minmax(0,1fr) auto;
+    background:radial-gradient(1400px 700px at 6% -10%,rgba(166,52,70,.09),transparent 60%),radial-gradient(1000px 600px at 100% 0%,rgba(31,78,121,.07),transparent 60%),var(--paper);}
+  .present.hidden{display:none;}
+  .pr-prog{position:absolute;left:0;top:0;height:5px;background:linear-gradient(90deg,var(--red),#d05a6b);transition:width .4s var(--ease);}
+  .pr-cap{padding:clamp(14px,2.4vh,34px) clamp(28px,5.5vw,110px) 0;}
+  .pr-meta{display:flex;align-items:center;gap:14px;font:600 clamp(12px,1.05vw,19px) var(--body);letter-spacing:.16em;text-transform:uppercase;color:var(--red);}
+  .pr-meta .pr-badge{background:var(--red);color:#fff;padding:.15em .7em;border-radius:.4em;letter-spacing:.1em;}
+  .pr-meta #prCount{color:var(--ink-2);font-family:var(--mono);letter-spacing:.04em;}
+  .pr-title{font:400 clamp(32px,4.2vw,82px)/1.02 var(--display);margin:.14em 0 0;letter-spacing:-.012em;color:var(--ink);text-wrap:balance;}
+  .pr-title em{font-style:italic;color:var(--red);}                         /* *key words* in a scene title */
+  .pr-text{font:500 clamp(18px,1.9vw,37px)/1.3 var(--body);color:#2E2A33;max-width:min(100%,46em);margin:.4em 0 0;text-wrap:pretty;}
+  .pr-text em{font-style:normal;font-weight:700;color:var(--red-d);}        /* *the one phrase to remember* in a scene text */
+  .pr-body{position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;min-height:0;padding:0 2vw;}
+  .pr-fit{flex:none;width:max-content;transform-origin:center center;padding-top:18px;}   /* room for the card-tag that hangs above the card */
+  .pr-nav{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:clamp(12px,1.6vw,30px);align-items:center;padding:clamp(8px,1.1vh,14px) clamp(28px,5.5vw,110px) clamp(10px,1.7vh,20px);}
+  .pr-btn{font:700 clamp(16px,1.35vw,26px) var(--body);padding:.45em 1.3em;border-radius:999px;border:2px solid var(--line-2);background:#fff;color:var(--ink);cursor:pointer;transition:all .2s var(--ease);}
+  .pr-btn:hover:not(:disabled){border-color:var(--red);color:var(--red);transform:translateY(-2px);}
+  .pr-btn:disabled{opacity:.35;cursor:default;}
+  .pr-btn.primary{background:var(--red);border-color:var(--red);color:#fff;box-shadow:0 14px 26px -14px rgba(127,31,46,.8);}
+  .pr-btn.primary:hover:not(:disabled){color:#fff;filter:brightness(1.08);}
+  .pr-x{font:600 clamp(13px,1.1vw,20px) var(--body);border:none;background:none;color:var(--ink-3);cursor:pointer;padding:.4em .6em;}
+  .pr-x:hover{color:var(--red);}
+  .pr-mid{display:flex;flex-direction:column;align-items:center;gap:8px;min-width:0;}
+  .pr-hint{font:500 clamp(12px,1vw,19px) var(--body);color:var(--ink-2);}
+  .guided-dots{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:center;}
+  .guided-dot{width:8px;height:8px;border-radius:50%;background:var(--line-2);transition:all .25s;}
+  .guided-dot.active{background:var(--red);width:26px;border-radius:5px;}
+
+  /* ---------- narrow screens: natural flow instead of scaled slides ---------- */
+  html.flow .slide{min-height:0;display:block;padding:78px 0 24px;}
+  html.flow .stage{width:auto;max-width:none;padding:0 18px;}
+  html.flow .cols{grid-template-columns:minmax(0,1fr);}
+  html.flow .cols .predict,html.flow .cols .takeaway{grid-column:1;}
+  html.flow .cols .takeaway{margin-top:14px;}
+  html.flow .rules{grid-template-columns:1fr;}
+  html.flow .masthead{padding-top:70px;}
+  html.flow .masthead h1{font-size:60px;}
+  html.flow h2{font-size:40px;} html.flow h1{font-size:46px;}
+  html.flow .ghostnum{font-size:110px;top:-20px;right:6px;}
+  html.flow .floaters{display:none;}
+  html.flow .modebox{top:8px;right:8px;} html.flow .fs span{display:none;}
+  html.flow .takeaway{flex-direction:column;gap:4px;}
+  html.flow .slide .rv{opacity:1;transform:none;}
+  @media (prefers-reduced-motion:reduce){*,*::before{transition-duration:.01ms!important;animation-duration:.01ms!important;}html{scroll-behavior:auto;}}
+  html.flow .roadmap{grid-template-columns:repeat(2,minmax(0,1fr));} html.flow .roadmap li,html.flow .mh-meta li{min-width:0;}
+  html.flow .bl-tile{width:70px;} html.flow .bl-val{width:46px;} html.flow .bl-x{width:42px;font-size:10px;}
+
+  /* ============ KV-cache lab: concept-specific components ============
+     identity colours:  no cache = amber #C25E1B · KV cache = teal #2F8F83 · memory = purple #7A4FA3 · prefill = blue #1F4E79
+     cell states:       computed = solid token colour · reused (cached) = hatched · not yet = dashed outline · new this step = red ring */
+  .kv-two{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:24px;align-items:start;}
+  .side{display:flex;flex-direction:column;gap:12px;min-width:0;}
+  .knob.inline{display:inline-grid;grid-template-columns:auto auto;min-width:210px;margin-left:auto;gap:0 12px;}
+  .knob.inline input{grid-column:1/3;}
+  .seg{display:inline-flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;}
+  .seg .chip{padding:5px 14px;font:600 12.5px var(--body);}
+  .chip.on{background:var(--mc,var(--red));border-color:var(--mc,var(--red));color:#fff;}
+  .note{margin:8px 0 0;font-size:12px;color:var(--ink-3);}
+  .legend2{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--ink-2);margin:10px 0 0;}
+  .legend2 .lg{display:inline-block;width:14px;height:14px;border-radius:4px;vertical-align:-3px;margin-right:6px;}
+  .lg.comp{background:#2E6FA3;} .lg.cached{background:repeating-linear-gradient(135deg,#bcd0e3 0 3px,#fff 3px 6px);border:1px solid #9fb9d3;} .lg.fut{border:1.5px dashed var(--line-2);}
+
+  /* hook: two lanes */
+  .lanes{display:flex;flex-direction:column;gap:12px;margin-top:12px;}
+  .lane{display:grid;grid-template-columns:200px minmax(0,1fr) 150px;gap:16px;align-items:center;padding:12px 16px;border:1.5px solid color-mix(in srgb,var(--mc) 35%,#fff);border-left:6px solid var(--mc);border-radius:14px;background:#fff;}
+  .lane-h b{display:block;font:700 14px var(--body);color:var(--mc);}
+  .lane-h span{font-size:12px;color:var(--ink-2);line-height:1.35;display:block;margin-top:2px;}
+  .cells{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:4px;}
+  .hc{aspect-ratio:1;border-radius:6px;background:var(--tc);transition:background .3s,box-shadow .3s,opacity .3s;}
+  .hc.cached,.wc.cached{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--tc) 38%,#fff) 0 4px,#fff 4px 8px);border:1px solid color-mix(in srgb,var(--tc) 50%,#fff);}
+  .hc.fut,.wc.fut{background:transparent;border:1.5px dashed var(--line-2);}
+  .hc.new,.wc.new{box-shadow:0 0 0 2.5px var(--red);}
+  .lane-n{text-align:right;}
+  .lane-n b{font:400 40px/1 var(--display);color:var(--mc);} .lane-n small{display:block;font-size:11.5px;color:var(--ink-3);}
+  .verdict{margin:12px 0 0;font:400 21px/1.25 var(--display);min-height:26px;} .verdict em{color:var(--red);}
+
+  /* work grid (DOM: crisp when scaled in Guided mode) */
+  .wg{display:grid;grid-template-columns:92px repeat(var(--n),minmax(0,1fr));gap:3px;align-items:center;}
+  .wg-h{font:500 12px var(--mono);color:var(--ink-3);text-align:center;}
+  .wg-l{cursor:pointer;padding-right:4px;} .wg-l .tile{font-size:12.5px;padding:0 8px 0 7px;}
+  .wc{height:26px;border-radius:5px;background:var(--tc);transition:background .25s,box-shadow .25s,opacity .25s;}
+  .wc.none{opacity:0;}
+  .wc.sel,.wg-l.sel .tile{outline:2.5px solid var(--ink);outline-offset:1px;}
+  .wc.vis{background:var(--blue-soft);border:1px solid #b9cfe4;} .wc.msk{background:transparent;border:1px dashed var(--line);} .wc.vis.act{background:var(--red);border-color:var(--red);} .wc.msk.act{border-color:var(--red-soft);}
+  .wg.attn .wc{height:24px;border-radius:4px;cursor:pointer;} .wg.attn{grid-template-columns:34px repeat(var(--n),minmax(0,1fr));gap:2px;}
+  .wg.attn .wg-l{font:500 12px var(--mono);color:var(--ink-3);text-align:right;padding-right:6px;} .wg.attn .wg-l.sel{color:var(--red);font-weight:500;}
+
+  /* stats */
+  .stat{padding:12px 16px;border:1px solid var(--line);border-radius:14px;background:var(--paper-2);}
+  .stat b{font:400 44px/1 var(--display);color:var(--ink);} .stat small{display:block;font-size:12px;color:var(--ink-2);margin-top:2px;}
+  .stat.amber b{color:#C25E1B;}
+  .stat2{display:grid;grid-template-columns:1fr auto;gap:2px 12px;font-size:12.5px;color:var(--ink-2);padding:0 4px;} .stat2 b{font:500 14px var(--mono);color:var(--ink);text-align:right;}
+  .dbl{border:1px solid var(--line);border-radius:14px;padding:10px 14px;background:#fff;display:flex;flex-direction:column;gap:6px;}
+  .dbl-row{display:grid;grid-template-columns:62px minmax(0,1fr) 44px;gap:8px;align-items:center;font:500 12px var(--mono);} .dbl-row i{font-style:normal;}
+  .dbl-bar{height:14px;background:var(--paper-2);border-radius:4px;overflow:hidden;} .dbl-bar i{display:block;height:100%;background:#2E6FA3;border-radius:4px;transition:width .4s var(--ease);} .dbl-bar i.b2{background:var(--red);}
+  .dbl-note{font:400 19px/1.2 var(--display);color:var(--ink);} .dbl-note em{color:var(--red);}
+  .detail{border:1px solid var(--line);border-radius:14px;padding:10px 14px;background:#fff;font-size:12.5px;color:var(--ink-2);min-height:128px;}
+  .detail .dh{font:600 11px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);margin-bottom:6px;}
+  .vrow{display:grid;grid-template-columns:96px 1fr;gap:10px;align-items:center;margin-top:6px;font-size:12px;} .vec{display:flex;gap:10px;align-items:flex-end;height:34px;}
+  .vec span{display:flex;gap:3px;align-items:flex-end;height:100%;} .vec i{display:block;width:9px;background:var(--tc);border-radius:2px 2px 0 0;} .vec span.v i{opacity:.55;}
+  .same{display:inline-block;margin-top:8px;padding:2px 10px;border-radius:999px;background:var(--green-soft);color:var(--green);font:600 12px var(--body);}
+  .plot.short{height:150px;} .plot.tall{height:215px;}
+  .curvewrap .plot{width:100%;border:1px solid var(--line);border-radius:12px;background:#fff;display:block;}
+
+  /* memory */
+  .gauge{margin:6px 0 12px;} .gauge-track{position:relative;height:32px;border-radius:10px;background:var(--paper-2);border:1px solid var(--line);overflow:visible;}
+  .gauge-fill{position:absolute;left:0;top:0;bottom:0;border-radius:10px 0 0 10px;background:#7A4FA3;transition:width .5s var(--ease);max-width:100%;}
+  .gauge-fill.over{background:repeating-linear-gradient(135deg,#7A4FA3 0 8px,#a98acb 8px 16px);}
+  .mark{position:absolute;top:-6px;bottom:-6px;width:0;border-left:2px dashed var(--ink-3);} .mark b{position:absolute;top:38px;left:-24px;font:500 11px var(--mono);color:var(--ink-2);white-space:nowrap;background:var(--card);padding:0 4px;}
+  .gauge-val{margin-top:26px;display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;} .gauge-val b{font:400 40px/1 var(--display);color:#7A4FA3;} .gauge-val small{font-size:12.5px;color:var(--ink-2);}
+  .gauge-val.over b{color:var(--red);}
+  .knobs2,.knobs3{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin-top:10px;} .knobs3{grid-template-columns:minmax(0,1fr) minmax(0,.7fr) auto;align-items:end;}
+  .stats3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px;}
+  .s3{border:1px solid var(--line);border-radius:12px;padding:8px 12px;background:#fff;} .s3 b{font:500 16px var(--mono);color:var(--ink);display:block;} .s3 small{font-size:11.5px;color:var(--ink-3);line-height:1.3;display:block;}
+
+  /* latency */
+  .mt{width:100%;border-collapse:collapse;margin-top:12px;font-size:13px;} .mt th{text-align:right;font:600 11px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);padding:4px 10px;border-bottom:2px solid var(--line);} .mt th:first-child,.mt td:first-child{text-align:left;}
+  .mt td{padding:6px 10px;border-bottom:1px solid #F0EFE8;text-align:right;font:500 13px var(--mono);} .mt td:first-child{font:600 12.5px var(--body);color:var(--ink-2);}
+  .mt .am{color:#C25E1B;} .mt .tl{color:#2F8F83;} .mt .sp{color:var(--red);font-weight:500;}
+
+  html.flow .kv-two,html.flow .lane,html.flow .knobs2,html.flow .knobs3,html.flow .stats3{grid-template-columns:minmax(0,1fr);}
+  html.flow .lane-n{text-align:left;}
+  html.flow .wg{grid-template-columns:60px repeat(var(--n),minmax(0,1fr));} html.flow .wg-l .tile{font-size:10px;padding:0 4px;}
+  html.flow .knob.inline{margin-left:0;width:100%;}
+  html.flow .mark b{font-size:10px;}
+
+  /* Guided layer: bigger grid labels */
+  .pr-fit .wg-h{font-size:13.5px;} .pr-fit .wg-l .tile{font-size:14px;padding:0 9px 0 8px;} .pr-fit .wg.attn .wg-l{font-size:13.5px;}
+  .pr-fit .stat small,.pr-fit .stat2,.pr-fit .detail,.pr-fit .vrow{font-size:14px;} .pr-fit .dbl-row{font-size:13.5px;}
+  html.flow .roadmap{grid-template-columns:repeat(2,minmax(0,1fr));}
+  html.flow .roadmap li,html.flow .mh-meta li{min-width:0;}
+
+  /* Guided: when a page hides the left column, the right column takes the whole row and the curve gets taller */
+  .kv-two:has(> .gp-hide){grid-template-columns:minmax(0,1fr);}
+  .pr-fit .kv-two:has(> .gp-hide) .plot.short{height:210px;}
+
+  /* ---------- Guided = projector ----------
+     (1) Darker secondary ink for everything inside the layer (the grey #8E8A93 is only 3.4:1 on paper).
+     (2) A floor for small type: the card is then scaled ×1.4–2.3, so 13px here is ≥ 18px on a 1080p screen.
+     Kept at the END of the sheet so it wins over component rules of equal specificity. */
+  .present{--ink-2:#3B3741;--ink-3:#625E69;--line-2:#C4B89E;}
+  .pr-fit .lbl,.pr-fit .card-tag{font-size:13px;}
+  .pr-fit .cap,.pr-fit .note,.pr-fit .snote,.pr-fit .legend,.pr-fit .legend2,.pr-fit .legend2.tight{font-size:13.5px;}
+  .pr-fit .kn-name{font-size:13.5px;} .pr-fit .kn-name small{font-size:13px;} .pr-fit .bl-x{font-size:13.5px;}
+  .pr-fit .chip,.pr-fit .seg .chip,.pr-fit .ctx,.pr-fit .segmented.sm button,.pr-fit .btn.sm{font-size:13.5px;} .pr-fit .btn{font-size:14.5px;} .pr-fit .ctx small{font-size:12px;}
+  .pr-fit .formula-box{font-size:16px;}
+  .pr-fit .wg-h{font-size:14px;} .pr-fit .wg-l{font-size:13px;} .pr-fit .s3 small,.pr-fit .lane-n small,.pr-fit .lane-h span{font-size:13px;} .pr-fit .dh{font-size:13px;}
+  .pr-fit .mt th{font-size:12.5px;} .pr-fit .stat small{font-size:13px;}
+</style>
+</head>
+<body>
+<!-- ============================================================================================
+  LECTURE EXPLAINER TEMPLATE  (companion-concept-explainer skill)
+  One self-contained page, two modes over ONE set of live panels:
+    • Explore       – ordinary vertical web page: page title, then per chapter  title → one-line idea → big card → predict + takeaway
+    • Guided tour   – strict full-screen presentation layer, ONE STEP PER PAGE, large type, real card moved in & scaled to fill the screen
+  Regions you replace for a new concept are fenced with  «REPLACE»  comments. Everything else is the shared shell.
+  The demo concept here is a toy ("weighted votes → shares, and a sharpness knob p") so every shell feature is exercised.
+============================================================================================ -->
+<div class="progress"><i id="progressFill"></i></div>
+<nav class="rail" id="rail" aria-label="Chapters"><ol id="railList"></ol></nav>
+<div class="modebox">
+  <div class="segmented" role="group" aria-label="Mode">
+    <button id="modeExplore" aria-pressed="true">Explore</button>
+    <button id="modeGuided" aria-pressed="false">Guided tour</button>
+  </div>
+  <button class="fs" id="fsBtn" aria-label="Toggle fullscreen" title="Fullscreen (F)">
+    <svg id="fsIcon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+    <span id="fsLabel">Fullscreen</span>
+  </button>
+</div>
+
+<main id="deck">
+
+<!-- =============== PAGE TITLE =============== -->
+<header class="masthead" id="masthead"><div class="mh-inner">
+  <div class="floaters" aria-hidden="true">
+    <span class="tile" style="--tc:#2E6FA3;right:230px;top:100px;--r:4deg;animation-delay:-2s">K</span>
+    <span class="tile" style="--tc:#E9B03F;right:120px;top:170px;--r:-5deg;animation-delay:-5s">V</span>
+    <span class="tile" style="--tc:#2F8F83;right:260px;top:238px;--r:3deg;animation-delay:-7s">cache</span>
+    <span class="tile" style="--tc:#7A4FA3;right:50px;top:300px;--r:-3deg;animation-delay:-1s">memory</span>
+  </div>
+  <div class="brand"><b>DSAI4207</b> · Lecture 6 · Generation, Decoding &amp; Inference</div>
+  <h1>KV Cache <em>Lab</em></h1>
+  <p class="mh-sub">Why isn’t token 100 a hundred times more work than token 1?</p>
+  <p class="mh-desc">An interactive companion to the lecture. One generated sentence, six ideas — <b>causal attention, wasted recomputation, the KV cache, its memory price, prefill vs. decode latency</b>, and the trade-off between them — each with something to drag, step through, or predict. <b>Explore</b> at your own pace by scrolling, or start the <b>Guided tour</b> for a full-screen, one-step-per-page class presentation.</p>
+  <div class="mh-actions">
+    <button class="btn primary big" id="mhTour">▶ Start guided tour</button>
+    <button class="btn big" data-go="ch-hero">Start exploring ↓</button>
+  </div>
+  <ul class="mh-meta"><li>6 ideas</li><li>5 predict &amp; check questions</li><li><span id="mhSteps">23</span> guided steps</li><li>press F for fullscreen</li></ul>
+</div></header>
+
+<!-- =============== 0 · THE QUESTION (a race) =============== -->
+<section class="slide" id="ch-hero" data-label="Question" data-num="0"><div class="stage">
+  <div class="cols">
+    <div class="narr">
+      <div class="kicker rv"><span class="num">00</span>The question</div>
+      <h2 class="rv">Same sentence, <em>two ways</em> to generate it.</h2>
+      <p class="sub rv d1">An LLM writes one token at a time. Press Step and watch how much work each approach does at every token. Both produce exactly the same text.</p>
+    </div>
+    <div class="work">
+      <div class="card rv d2"><span class="card-tag">Run the race</span>
+        <div class="sent" id="hSent"></div>
+        <div class="lanes">
+          <div class="lane" style="--mc:#C25E1B"><div class="lane-h"><b>Without a cache</b><span>re-project the whole prefix at every step</span></div><div class="cells" id="hLaneA"></div><div class="lane-n"><b id="hCntA">0</b><small>K/V projections so far</small></div></div>
+          <div class="lane" style="--mc:#2F8F83"><div class="lane-h"><b>With a KV cache</b><span>keep old K/V, project only the new token</span></div><div class="cells" id="hLaneB"></div><div class="lane-n"><b id="hCntB">0</b><small>K/V projections so far</small></div></div>
+        </div>
+        <div class="legend2"><span><i class="lg comp"></i>computed this step</span><span><i class="lg cached"></i>reused from the cache</span><span><i class="lg fut"></i>not generated yet</span></div>
+        <div class="btnrow">
+          <button class="btn primary" id="h0Step">Step ▶</button><button class="btn" id="h0Auto">Auto-play</button><button class="btn" id="h0Reset">Reset ↺</button>
+          <label class="knob inline"><span class="kn-name">token <small>t</small></span><b data-val="step0"></b><input type="range" data-param="step0" min="0" max="12" step="1"></label>
+        </div>
+        <p class="verdict" id="hVerdict"></p>
+        <p class="cap">Recall the generation loop from the <b>Decoding Lab</b>: every new token is appended and the loop runs again. The KV cache is what keeps that loop cheap.</p>
+      </div>
+      <ol class="roadmap rv d3" id="roadmap">
+        <li data-go="ch-attn"><b>Attention</b>Every token looks back</li>
+        <li data-go="ch-waste"><b>Waste</b>The past never changes</li>
+        <li data-go="ch-cache"><b>KV cache</b>Keep it, reuse it</li>
+        <li data-go="ch-memory"><b>Memory</b>What it costs</li>
+        <li data-go="ch-latency"><b>Latency</b>Prefill, then decode</li>
+      </ol>
+    </div>
+  </div>
+</div></section>
+
+<!-- =============== 1 · CAUSAL ATTENTION =============== -->
+<section class="slide" id="ch-attn" data-label="Attention" data-num="1"><div class="stage">
+  <div class="cols">
+    <div class="narr">
+      <div class="ghostnum">1</div>
+      <div class="kicker rv"><span class="num">01</span>Causal attention</div>
+      <h2 class="rv">Every new token looks <em>back</em> at all of its history.</h2>
+      <p class="sub rv d1">Token i may attend to tokens 1…i and nothing after. Each row of the score matrix is one query; each filled cell is one query–key score.</p>
+      <div class="predict rv d2" id="pr1" data-answer="1">
+        <div class="p-head">✎ Pause &amp; predict</div>
+        <p class="p-q">The context doubles from 8 to 16 tokens. The number of attention scores grows by about…</p>
+        <div class="p-opts"><button>2×</button><button>4×</button><button>8×</button></div>
+        <div class="p-ans" hidden><b>About 4×.</b> There are n(n+1)/2 scores: 36 for n = 8 and 136 for n = 16. Pairs grow with the <i>square</i> of the context, which is why long contexts get expensive fast.</div>
+      </div>
+    </div>
+    <div class="work">
+      <div class="card rv d1"><span class="card-tag">Click a row</span>
+        <div class="kv-two">
+          <div class="lcol"><div class="lbl">Scores · rows = queries, columns = keys</div><div id="aGrid"></div></div>
+          <div class="side">
+            <div class="stat"><b id="aPairs">36</b><small>query–key scores for <span id="aN">8</span> tokens</small></div>
+            <div class="dbl">
+              <div class="dbl-row"><span>n = <i id="aN1">8</i></span><div class="dbl-bar"><i id="aB1"></i></div><b id="aP1"></b></div>
+              <div class="dbl-row"><span>2n = <i id="aN2">16</i></span><div class="dbl-bar"><i id="aB2" class="b2"></i></div><b id="aP2"></b></div>
+              <div class="dbl-note" id="aRatio"></div>
+            </div>
+            <label class="knob"><span class="kn-name">context length <small>n</small></span><b data-val="qn"></b><input type="range" data-param="qn" min="3" max="16" step="1"></label>
+          </div>
+        </div>
+        <div class="formula-box"><div id="aFormula"></div></div>
+      </div>
+      <div class="takeaway rv d2"><span class="tk">Takeaway</span><p>Attention work grows with the <em>square</em> of the context.</p></div>
+    </div>
+  </div>
+</div></section>
+
+<!-- =============== 2 · WASTE =============== -->
+<section class="slide" id="ch-waste" data-label="Waste" data-num="2"><div class="stage">
+  <div class="cols">
+    <div class="narr">
+      <div class="ghostnum">2</div>
+      <div class="kicker rv"><span class="num">02</span>Recomputing the past</div>
+      <h2 class="rv">Old keys and values <em>never change</em>.</h2>
+      <p class="sub rv d1">Without a cache, every step re-projects K and V for the whole prefix — even though token 3’s K and V are identical at step 3 and at step 12. Step through and click a token to see it.</p>
+      <div class="predict rv d2" id="pr2" data-answer="2">
+        <div class="p-head">✎ Pause &amp; predict</div>
+        <p class="p-q">At step 9, how many of the 8 earlier tokens have K/V that changed since step 8?</p>
+        <div class="p-opts"><button>All 8</button><button>The newest few</button><button>None</button></div>
+        <div class="p-ans" hidden><b>None.</b> Causal masking means token i only ever sees tokens ≤ i, so its K and V depend on nothing that arrives later. They are the same at every step.</div>
+      </div>
+    </div>
+    <div class="work">
+      <div class="card rv d1"><span class="card-tag">Step through it</span>
+        <div class="kv-two">
+          <div class="lcol"><div class="lbl">Work grid · rows = tokens, columns = generation steps</div><div id="wGrid" class="wg-wrap"></div></div>
+          <div class="side">
+            <div class="stat amber"><b id="wCnt">0</b><small>K/V projections computed</small></div>
+            <div class="stat2"><span>needed</span><b id="wNeed">0</b><span>repeated</span><b id="wRep">0</b></div>
+            <div class="detail" id="wDetail"></div>
+          </div>
+        </div>
+        <div class="btnrow">
+          <button class="btn primary" id="w2Step">Step ▶</button><button class="btn" id="w2Auto">Auto-play</button><button class="btn" id="w2Reset">Reset ↺</button>
+          <label class="knob inline"><span class="kn-name">step <small>t</small></span><b data-val="step2"></b><input type="range" data-param="step2" min="0" max="12" step="1"></label>
+        </div>
+        <div class="formula-box"><div id="wFormula"></div></div>
+      </div>
+      <div class="takeaway rv d2"><span class="tk">Takeaway</span><p>Without a cache, almost all of the work is <em>repeated work</em>.</p></div>
+    </div>
+  </div>
+</div></section>
+
+<!-- =============== 3 · THE KV CACHE =============== -->
+<section class="slide" id="ch-cache" data-label="KV cache" data-num="3"><div class="stage">
+  <div class="cols">
+    <div class="narr">
+      <div class="ghostnum">3</div>
+      <div class="kicker rv"><span class="num">03</span>The KV cache</div>
+      <h2 class="rv">Keep the past. Compute only the <em>new row</em>.</h2>
+      <p class="sub rv d1">Store each token’s K and V once (hatched = reused). At each step project just the new token, append its K and V, and let the new query read all cached keys. The text is identical; the work is not.</p>
+      <div class="predict rv d2" id="pr3" data-answer="1">
+        <div class="p-head">✎ Pause &amp; predict</div>
+        <p class="p-q">With a KV cache, is the attention step itself free?</p>
+        <div class="p-opts"><button>Yes — nothing left to compute</button><button>No — the new query still reads every cached key</button></div>
+        <div class="p-ans" hidden><b>No.</b> The cache saves the <i>old</i> K/V projections, not the new token’s attention: the new query still takes a dot product with every cached key, so each step is still O(n).</div>
+      </div>
+    </div>
+    <div class="work">
+      <div class="card rv d1"><span class="card-tag">Toggle the cache</span>
+        <div class="seg" role="group" aria-label="Cache mode"><button class="chip" data-preset="cache:0" style="--mc:#C25E1B">No cache</button><button class="chip" data-preset="cache:1" style="--mc:#2F8F83">KV cache</button></div>
+        <div class="kv-two">
+          <div class="lcol"><div class="lbl">Work grid</div><div id="cGrid" class="wg-wrap"></div></div>
+          <div class="side">
+            <div class="stat" id="cStat"><b id="cCnt">0</b><small>K/V projections computed</small></div>
+            <div class="stat2"><span>this step: projections</span><b id="cNow">0</b><span>attention scores</span><b id="cAtt">0</b></div>
+            <div class="curvewrap"><canvas id="cCurve" class="plot short"></canvas></div>
+          </div>
+        </div>
+        <div class="btnrow">
+          <button class="btn primary" id="c3Step">Step ▶</button><button class="btn" id="c3Auto">Auto-play</button><button class="btn" id="c3Reset">Reset ↺</button>
+          <label class="knob inline"><span class="kn-name">step <small>t</small></span><b data-val="step3"></b><input type="range" data-param="step3" min="0" max="12" step="1"></label>
+        </div>
+        <div class="formula-box"><div id="cFormula"></div></div>
+      </div>
+      <div class="takeaway rv d2"><span class="tk">Takeaway</span><p>The cache skips <em>old</em> work — not the new token’s attention.</p></div>
+    </div>
+  </div>
+</div></section>
+
+<!-- =============== 4 · MEMORY =============== -->
+<section class="slide" id="ch-memory" data-label="Memory" data-num="4"><div class="stage">
+  <div class="cols">
+    <div class="narr">
+      <div class="ghostnum">4</div>
+      <div class="kicker rv"><span class="num">04</span>The price of the cache</div>
+      <h2 class="rv">The cache trades <em>compute for memory</em>.</h2>
+      <p class="sub rv d1">Every cached token stores a K and a V in every layer. Memory grows with context length and with the number of sequences (or beam paths) kept alive. Pick a model size and drag.</p>
+      <div class="predict rv d2" id="pr4" data-answer="1">
+        <div class="p-head">✎ Pause &amp; predict</div>
+        <p class="p-q">We double the context <i>and</i> double the batch. KV memory becomes…</p>
+        <div class="p-opts"><button>2×</button><button>4×</button><button>8×</button></div>
+        <div class="p-ans" hidden><b>4×.</b> KV memory ∝ context length × number of sequences. Doubling each multiplies the product by 2 × 2.</div>
+      </div>
+    </div>
+    <div class="work">
+      <div class="card rv d1"><span class="card-tag">Fill the GPU</span>
+        <div class="seg" role="group" aria-label="Model size">
+          <button class="chip" data-preset="preset:0">Small · 12 layers</button><button class="chip" data-preset="preset:1">7B-class · 32 layers</button><button class="chip" data-preset="preset:2">70B-class · 80 layers, GQA</button>
+        </div>
+        <div class="gauge">
+          <div class="gauge-track"><i class="gauge-fill" id="mFill"></i><span class="mark" id="mk24"><b>24 GiB</b></span><span class="mark" id="mk80"><b>80 GiB</b></span></div>
+          <div class="gauge-val"><b id="mTotal">2.0 GiB</b><small id="mSub"></small></div>
+        </div>
+        <div class="knobs2">
+          <label class="knob"><span class="kn-name">context length <small>n</small></span><b data-val="ctxLog"></b><input type="range" data-param="ctxLog" min="7" max="17" step="0.5"></label>
+          <label class="knob"><span class="kn-name">sequences in the batch <small>B</small></span><b data-val="batch"></b><input type="range" data-param="batch" min="1" max="64" step="1"></label>
+        </div>
+        <div class="stats3" id="mStats"></div>
+        <details class="adv"><summary>Advanced: cache precision (bytes per number)</summary>
+          <div class="presets" style="margin-top:8px"><button class="chip" data-preset="bytes:4">fp32 · 4 B</button><button class="chip" data-preset="bytes:2">fp16 · 2 B</button><button class="chip" data-preset="bytes:1">int8 · 1 B</button></div>
+          <p class="note">Quantising the cache to fewer bytes shrinks the bars above proportionally — one common way to fit longer contexts.</p>
+        </details>
+        <div class="formula-box"><div id="mFormula"></div></div>
+      </div>
+      <div class="takeaway rv d2"><span class="tk">Takeaway</span><p>KV memory ∝ <em>context length × active sequences</em>.</p></div>
+    </div>
+  </div>
+</div></section>
+
+<!-- =============== 5 · LATENCY =============== -->
+<section class="slide" id="ch-latency" data-label="Latency" data-num="5"><div class="stage">
+  <div class="cols">
+    <div class="narr">
+      <div class="ghostnum">5</div>
+      <div class="kicker rv"><span class="num">05</span>Prefill and decode</div>
+      <h2 class="rv">Prefill <em>once</em>, then one token at a time.</h2>
+      <p class="sub rv d1">The prompt is processed in parallel (prefill) and produces token 1. Every later token is a separate decode step. Three numbers describe a request: TTFT, inter-token latency (ITL), and end-to-end latency (E2E).</p>
+      <div class="predict rv d2" id="pr5" data-answer="1">
+        <div class="p-head">✎ Pause &amp; predict</div>
+        <p class="p-q">Does a KV cache make the <i>first</i> token (TTFT) arrive faster?</p>
+        <div class="p-opts"><button>Yes, a lot</button><button>No — prefill still has to read the prompt</button></div>
+        <div class="p-ans" hidden><b>No.</b> The first token needs the whole prompt processed once, with or without a cache. The cache speeds up the <i>decode</i> steps (ITL, and so E2E), not the prefill.</div>
+      </div>
+    </div>
+    <div class="work">
+      <div class="card rv d1"><span class="card-tag">Read the timeline</span>
+        <canvas id="lCanvas" class="plot tall"></canvas>
+        <div class="knobs2">
+          <label class="knob"><span class="kn-name">prompt length <small>P</small></span><b data-val="pLog"></b><input type="range" data-param="pLog" min="4" max="12" step="0.5"></label>
+          <label class="knob"><span class="kn-name">tokens to generate <small>N</small></span><b data-val="nOut"></b><input type="range" data-param="nOut" min="2" max="48" step="1"></label>
+        </div>
+        <table class="mt" id="lTable"></table>
+        <div class="formula-box"><div id="lFormula"></div></div>
+        <p class="note">Toy timings with the right <i>shapes</i> (prefill ∝ prompt, cached step ≈ constant, uncached step ∝ context) — not benchmarks.</p>
+      </div>
+      <div class="takeaway rv d2"><span class="tk">Takeaway</span><p>The cache speeds up <em>decode</em> (ITL, E2E) — TTFT still pays for the prompt.</p></div>
+    </div>
+  </div>
+</div></section>
+
+<!-- =============== 6 · COMPARE =============== -->
+<section class="slide" id="ch-compare" data-label="Trade-off" data-num="6"><div class="stage">
+  <div class="cols">
+    <div class="narr">
+      <div class="ghostnum">6</div>
+      <div class="kicker rv"><span class="num">06</span>Putting it together</div>
+      <h2 class="rv">Benefit and cost both <em>grow with context</em>.</h2>
+      <p class="sub rv d1">Benefit and cost both grow with context length. Slide the context and watch the decode speed-up (teal) climb alongside the KV memory (purple) against the GPU’s limit.</p>
+    </div>
+    <div class="work">
+      <div class="card rv d1"><span class="card-tag">Slide the context</span>
+        <canvas id="tCanvas" class="plot tall"></canvas>
+        <div class="knobs3">
+          <label class="knob"><span class="kn-name">context length <small>n</small></span><b data-val="ctxLog"></b><input type="range" data-param="ctxLog" min="7" max="17" step="0.5"></label>
+          <label class="knob"><span class="kn-name">batch <small>B</small></span><b data-val="batch"></b><input type="range" data-param="batch" min="1" max="64" step="1"></label>
+          <div class="seg" role="group" aria-label="Model size"><button class="chip" data-preset="preset:0">Small</button><button class="chip" data-preset="preset:1">7B-class</button><button class="chip" data-preset="preset:2">70B-class</button></div>
+        </div>
+        <div class="formula-box"><div id="tFormula"></div></div>
+        <p class="note">Illustrative constants: a = 0.25 ms/token (parallel prefill), d₀ = 18 ms (reading the weights each step), d₁ = 0.0035 ms/token (reading the cache). Shapes, not benchmarks.</p>
+      </div>
+      <div class="takeaway rv d2"><span class="tk">Takeaway</span><p>A KV cache turns a <em>compute</em> problem into a <em>memory</em> problem.</p></div>
+      <div class="rules rv d3" id="rules">
+        <div class="rule"><div class="t">Long chat or document?<small>n large</small></div><p>Decode is fast, but one sequence’s cache can take gigabytes — memory is the limit.</p></div>
+        <div class="rule"><div class="t">Many users at once?<small>batch × n</small></div><p>Memory multiplies with every active sequence; serving systems budget the cache like a resource.</p></div>
+        <div class="rule"><div class="t">Wide beam search?<small>B paths</small></div><p>Each beam path keeps its own history, so B paths cost about B× the cache.</p></div>
+      </div>
+    </div>
+  </div>
+</div></section>
+
+</main>
+
+<!-- Guided tour presentation layer (ids are part of the contract) -->
+<div class="present hidden" id="guidedBar" role="dialog" aria-label="Guided tour">
+  <div class="pr-prog" id="prProg"></div>
+  <div class="pr-cap">
+    <div class="pr-meta"><span class="pr-badge">Guided tour</span><span id="prCount"></span></div>
+    <h2 class="pr-title" id="guidedTitle"></h2>
+    <p class="pr-text" id="guidedText"></p>
+  </div>
+  <div class="pr-body" id="prBody"><div class="pr-fit" id="prFit"></div></div>
+  <div class="pr-nav">
+    <button class="pr-btn" id="guidedPrev">‹ Prev</button>
+    <div class="pr-mid"><div class="guided-dots" id="guidedDots"></div><div class="pr-hint">← → or Space to turn pages · F fullscreen · Esc to exit</div></div>
+    <button class="pr-btn primary" id="guidedNext">Next ›</button>
+    <button class="pr-x" id="guidedExit">✕ Exit</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script>
+(function(){
+  "use strict";
+  /* ================= 0 · utils ================= */
+  function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
+  function easeOutCubic(t){return 1-Math.pow(1-t,3);}
+  function $(id){return document.getElementById(id);}
+  function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}   // ALWAYS escape names put into innerHTML
+  function pct(p){if(p<=0) return "0%"; if(p<0.001) return "<0.1%"; return (p*100).toFixed(1)+"%";}
+
+    /* ================= 1 · DOMAIN: tokens, state, pure computation ================= */
+  // Each TOKEN POSITION has one fixed colour (identity) in every grid, lane and tile. The two MODES have identity colours too:
+  //   no cache = amber · KV cache = teal · memory = purple · prefill = blue.  The accent red only marks "the new token / selected row".
+  var N=12;
+  var TOK=["The","cat","sat","on","the","mat","and","looked","out","of","the","window"];
+  var TCOL=["#1F4E79","#2E6FA3","#3F7CB8","#2F8F83","#46B3A2","#6FAE5B","#A0B03A","#E9B03F","#E08A2E","#C25E1B","#8E5A9B","#7A4FA3"];
+  var MC={no:"#C25E1B",kv:"#2F8F83",mem:"#7A4FA3",pre:"#1F4E79"};
+  var OTHERS=99;
+  function colOf(id){return id===OTHERS?"#B9BCC8":TCOL[id%TCOL.length];}
+  function nameOf(id){return id===OTHERS?"others":TOK[id%TOK.length];}
+  function tileHtml(id,cls,label){return '<span class="tile '+(cls||"")+'" style="--tc:'+colOf(id)+'">'+esc(label||nameOf(id))+'</span>';}
+  function fmtInt(x){return String(Math.round(x));}
+  function commas(n){return Math.round(n).toLocaleString("en-US");}
+  function tokensOf(x){var v=Math.pow(2,x);if(Math.abs(x-Math.round(x))<1e-6) return Math.round(v);var m=Math.pow(10,Math.floor(Math.log10(v))-1);return Math.round(v/m)*m;}   // exact for integer exponents, 2 sig. digits otherwise
+  function fmtMs(ms){return ms<1000?Math.round(ms)+" ms":(ms/1000).toFixed(2)+" s";}
+  function fmtGB(x){return (x>=100?Math.round(x):x>=10?x.toFixed(1):x.toFixed(2))+" GiB";}
+  function fmtBytes(b){return b>=1048576?(b/1048576).toFixed(b>=10485760?0:2)+" MB":Math.round(b/1024)+" KB";}
+
+  // illustrative model sizes (cache bytes/token = 2 × layers × KV heads × head dim × bytes)
+  var PRESETS=[{n:"Small",L:12,H:12,d:64,note:"12 layers · 12 heads · d=64"},
+               {n:"7B-class",L:32,H:32,d:128,note:"32 layers · 32 heads · d=128"},
+               {n:"70B-class (GQA)",L:80,H:8,d:128,note:"80 layers · 8 KV heads · d=128"}];
+  var state={step0:0,step2:0,step3:0,cache:1,sel:2,qn:8,qrow:99,ctxLog:12,batch:1,preset:1,bytes:2,pLog:9,nOut:16,
+             mode:"explore",guidedIndex:0,cur:0,fsByGuided:false};
+  var PARAMS={step0:{fmt:fmtInt},step2:{fmt:fmtInt},step3:{fmt:fmtInt},qn:{fmt:fmtInt},qrow:{fmt:fmtInt},sel:{fmt:fmtInt},
+    cache:{fmt:function(x){return x?"KV cache":"No cache";}},
+    ctxLog:{fmt:function(x){return commas(tokensOf(x))+" tokens";}},batch:{fmt:fmtInt},
+    preset:{fmt:function(x){return PRESETS[Math.round(x)].n;}},bytes:{fmt:function(x){return x+" B";}},
+    pLog:{fmt:function(x){return commas(tokensOf(x))+" tokens";}},nOut:{fmt:fmtInt}};
+  function S(k){return Math.floor(state[k]+1e-6);}                 // tweened steps may be fractional
+  function tri(n){return n*(n+1)/2;}                                 // 1+2+…+n
+
+  function hashStr(s){var h=1779033703;for(var i=0;i<s.length;i++){h=Math.imul(h^s.charCodeAt(i),3432918353);h=(h<<13)|(h>>>19);}return h>>>0;}
+  function mulberry32(seed){var a=seed>>>0;return function(){a=(a+0x6D2B79F5)|0;var t=Math.imul(a^(a>>>15),1|a);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296;};}
+  function kvec(i){var r=mulberry32(hashStr("kv-"+i)),o=[];for(var j=0;j<8;j++) o.push(r()*2-1);return o;}   // a token's K (4 numbers) and V (4 numbers): a function of the token ONLY
+
+  function bytesPerToken(){var p=PRESETS[Math.round(state.preset)];return 2*p.L*p.H*p.d*state.bytes;}
+  function gib(b){return b/1073741824;}
+  // toy latency model (ms): prefill ∝ prompt; cached decode ≈ constant + tiny cache-read term; uncached decode re-processes the whole context
+  var LAT={A:0.25,D0:18,D1:0.0035,OH:10};
+  function speedup(n){return (LAT.D0+LAT.A*n)/(LAT.D0+LAT.D1*n);}
+  function latModel(P,Nn){
+    var ttft=LAT.OH+LAT.A*P,c=[],u=[],j,n,sc=0,su=0;
+    for(j=2;j<=Nn;j++){n=P+j-1;c.push(LAT.D0+LAT.D1*n);u.push(LAT.D0+LAT.A*n);}
+    c.forEach(function(x){sc+=x;});u.forEach(function(x){su+=x;});
+    var k=Math.max(1,Nn-1);
+    return {ttft:ttft,c:c,u:u,e2eC:ttft+sc,e2eN:ttft+su,itlC:sc/k,itlN:su/k};
+  }
+
+  /* ================= 2 · SHELL: params, tween loop, canvas, formulas, caches ================= */
+  function GF(f){return state.mode==="guided"?f.replace(/([\d.]+)px/,function(_,n){return (n*1.18).toFixed(1)+"px";}):f;}   // canvas text: ×1.18 in Guided
+  function GC3(){return state.mode==="guided"?"#625E69":"#8E8A93";}                                                // …and darker greys
+  function GC2(){return state.mode==="guided"?"#3B3741":"#5A5660";}
+  var STAGE_S=1;                                              // on-screen scale of the moved card in Guided mode (keeps canvases crisp)
+  function syncSliders(name){
+    document.querySelectorAll('input[data-param="'+name+'"]').forEach(function(sl){sl.value=state[name];var f=(state[name]-sl.min)/(sl.max-sl.min)*100;sl.style.setProperty("--fill",f+"%");});
+    document.querySelectorAll('[data-val="'+name+'"]').forEach(function(b){b.textContent=PARAMS[name].fmt(state[name]);});
+  }
+  function setParam(name,val){state[name]=val;syncSliders(name);}
+  function tweenParam(name,target,dur){tweenScalar("param:"+name,function(){return state[name];},function(v){setParam(name,v);},target,dur);}
+  document.querySelectorAll("input[data-param]").forEach(function(sl){
+    var name=sl.getAttribute("data-param");
+    sl.addEventListener("input",function(){removeTween("param:"+name);setParam(name,+sl.value);renderDynamic();});   // a user drag always cancels a running tween
+  });
+  document.querySelectorAll("[data-preset]").forEach(function(b){
+    b.addEventListener("click",function(){var a=b.getAttribute("data-preset").split(":");removeTween("param:"+a[0]);setParam(a[0],parseFloat(a[1]));renderDynamic();});
+  });
+  Object.keys(PARAMS).forEach(syncSliders);
+
+  var tweens=new Map(),loopRunning=false;
+  function addTween(key,fn){tweens.set(key,fn);ensureLoop();}
+  function removeTween(key){tweens.delete(key);}
+  function ensureLoop(){
+    if(loopRunning) return;loopRunning=true;
+    function frame(now){tweens.forEach(function(fn,key){if(!fn(16,now)) tweens.delete(key);});renderDynamic();if(tweens.size>0) requestAnimationFrame(frame);else loopRunning=false;}
+    requestAnimationFrame(frame);
+  }
+  function tweenScalar(key,getCur,setVal,target,duration,ease){
+    var start=getCur(),t0=performance.now();duration=duration||600;ease=ease||easeOutCubic;
+    addTween(key,function(dt,now){var t=Math.min(1,(now-t0)/duration);setVal(start+(target-start)*ease(t));if(t>=1){setVal(target);return false;}return true;});
+  }
+  function setupCanvas(canvas,w,h){
+    var dpr=(window.devicePixelRatio||1)*STAGE_S;               // × STAGE_S so a scaled-up card stays sharp
+    canvas.width=Math.max(1,Math.round(w*dpr));canvas.height=Math.max(1,Math.round(h*dpr));
+    var ctx=canvas.getContext("2d");ctx.setTransform(dpr,0,0,dpr,0,0);return ctx;
+  }
+  var MONO="'DM Mono',ui-monospace,Menlo,monospace",SANS="'Hanken Grotesk',system-ui,sans-serif";
+  function renderFormula(el,tex,plain){
+    if(typeof window.katex!=="undefined"){try{window.katex.render(tex,el,{throwOnError:false,displayMode:true});return;}catch(e){}}
+    el.innerHTML='<div class="plain-formula">'+plain+'</div>';                 // CDN failed → plain text, never blank
+  }
+  var lastContent={},lastTime={},pendingTimer={};
+  function fm(key,el,tex,plain){                                                // throttled + content-diffed + TRAILING render (never leaves a stale value)
+    if(lastContent[key]===tex) return;
+    var now=performance.now();
+    if(lastTime[key]!=null&&now-lastTime[key]<90){clearTimeout(pendingTimer[key]);pendingTimer[key]=setTimeout(function(){if(lastContent[key]!==tex){lastTime[key]=performance.now();lastContent[key]=tex;renderFormula(el,tex,plain);}},100);return;}
+    clearTimeout(pendingTimer[key]);lastTime[key]=now;lastContent[key]=tex;renderFormula(el,tex,plain);
+  }
+  var sigs={};
+  function changed(key,sig){if(sigs[key]===sig) return false;sigs[key]=sig;return true;}   // cheap "did my inputs change?" guard for DOM-rebuilding renders
+
+  /* ================= 3 · SHELL: BarList — persistent rows that slide & resize via CSS transitions ================= */
+  var BARLISTS=[];
+  function BarList(el,ids,rowH,onClick){
+    this.el=el;this.rowH=rowH;this.rows={};this.count=ids.length;this.limit=0;el.classList.add("bl");el.style.height=(ids.length*rowH)+"px";BARLISTS.push(this);
+    var self=this;
+    ids.forEach(function(id,i){
+      var r=document.createElement("div");r.className="bl-row"+(onClick&&id!==OTHERS?" click":"");r.style.height=rowH+"px";r.style.transform="translateY("+(i*rowH)+"px)";r.setAttribute("data-id",id);
+      r.innerHTML='<span class="bl-tile">'+tileHtml(id)+'</span><div class="bl-track"><i class="bl-zero"></i><i class="bl-ghost"></i><i class="bl-bar" style="background:'+colOf(id)+'"></i></div><span class="bl-val"></span><span class="bl-x"></span>';
+      el.appendChild(r);
+      self.rows[id]={el:r,ghost:r.querySelector(".bl-ghost"),bar:r.querySelector(".bl-bar"),zero:r.querySelector(".bl-zero"),val:r.querySelector(".bl-val"),x:r.querySelector(".bl-x")};
+    });
+    if(onClick) el.addEventListener("click",function(e){var r=e.target.closest(".bl-row");if(r) onClick(+r.getAttribute("data-id"));});
+  }
+  BarList.prototype.setLimit=function(n){this.limit=n||0;this.el.style.height=((this.limit||this.count)*this.rowH)+"px";};   // Guided: show only the top-n rows
+  /* spec[id]={rank,l,w,gl,gw,ghost,zero,cls,val,x}   l/w are % of the track; cls: "pick" | "cut" | "flash" */
+  BarList.prototype.update=function(spec){
+    for(var id in spec){
+      var s=spec[id],R=this.rows[id];if(!R) continue;
+      R.el.style.transform="translateY("+(s.rank*this.rowH)+"px)";R.el.style.display=(this.limit&&s.rank>=this.limit)?"none":"";
+      R.el.className="bl-row"+(R.el.className.indexOf("click")>=0?" click":"")+(s.cls?" "+s.cls:"");
+      R.bar.style.left=s.l+"%";R.bar.style.width=s.w+"%";
+      R.ghost.style.left=(s.gl||0)+"%";R.ghost.style.width=(s.gw||0)+"%";R.ghost.classList.toggle("on",!!s.ghost);
+      if(s.zero!=null){R.zero.style.left=s.zero+"%";R.zero.style.opacity=1;}else R.zero.style.opacity=0;
+      R.val.textContent=s.val==null?"":s.val;R.x.textContent=s.x||"";
+    }
+  };
+  function absPct(p,ref){return p>0?Math.max(p/ref*88,0.9):0;}
+
+    /* ================= 4 · PANELS: one cheap, idempotent render function per card ================= */
+  /* ---- steppers: Step ▶ / Auto-play / Reset for a step parameter ---- */
+  var autos={};
+  function stopAuto(key){if(autos[key]){clearTimeout(autos[key].t);var b=autos[key].btn;delete autos[key];if(b) b.textContent="Auto-play";}}
+  function stopAll(){Object.keys(autos).forEach(stopAuto);}
+  function setupStepper(key,ids){
+    $(ids.step).addEventListener("click",function(){stopAuto(key);removeTween("param:"+key);setParam(key,Math.min(N,S(key)+1));renderDynamic();});
+    $(ids.reset).addEventListener("click",function(){stopAuto(key);removeTween("param:"+key);setParam(key,0);renderDynamic();});
+    $(ids.auto).addEventListener("click",function(){
+      if(autos[key]){stopAuto(key);return;}
+      removeTween("param:"+key);if(S(key)>=N) setParam(key,0);
+      var btn=$(ids.auto);btn.textContent="Pause";
+      function tick(){if(S(key)>=N){stopAuto(key);return;}setParam(key,S(key)+1);renderDynamic();autos[key].t=setTimeout(tick,650);}
+      autos[key]={btn:btn,t:setTimeout(tick,150)};
+    });
+  }
+  setupStepper("step0",{step:"h0Step",auto:"h0Auto",reset:"h0Reset"});
+  setupStepper("step2",{step:"w2Step",auto:"w2Auto",reset:"w2Reset"});
+  setupStepper("step3",{step:"c3Step",auto:"c3Auto",reset:"c3Reset"});
+  function syncChips(){
+    document.querySelectorAll("[data-preset]").forEach(function(b){
+      var a=b.getAttribute("data-preset").split(":");
+      if(a[0]==="cache"||a[0]==="preset"||a[0]==="bytes") b.classList.toggle("on",String(Math.round(state[a[0]]))===a[1]);
+    });
+  }
+
+  /* ---- chapter 0: the race ---- */
+  function buildLane(id){var h="";for(var i=0;i<N;i++) h+='<div class="hc fut" style="--tc:'+TCOL[i]+'"></div>';$(id).innerHTML=h;}
+  buildLane("hLaneA");buildLane("hLaneB");
+  function renderHook(){
+    var t=S("step0"),A=$("hLaneA").children,B=$("hLaneB").children,i;
+    for(i=0;i<N;i++){var pos=i+1;
+      A[i].className="hc "+(pos<=t?"comp"+(pos===t?" new":""):"fut");
+      B[i].className="hc "+(pos<t?"cached":pos===t?"comp new":"fut");}
+    var sent=changed("hSent",t),html="";
+    if(sent){for(i=0;i<t;i++) html+=tileHtml(i,i===t-1?"pop":"");$("hSent").innerHTML=html||'<span class="tile blank">press Step ▶</span>';}
+    $("hCntA").textContent=tri(t);$("hCntB").textContent=t;
+    $("hVerdict").innerHTML=t<2?"Same words either way. Press Step and watch the left counter pull away.":
+      "Same "+t+" tokens — the cache did <em>"+(tri(t)/t).toFixed(1)+"× less</em> K/V work ("+t+" vs "+tri(t)+").";
+  }
+
+  /* ---- DOM work grids: rows = tokens, columns = generation steps (crisp when scaled, clickable) ---- */
+  function buildWorkGrid(el,n,onPick){
+    var h='<div class="wg" style="--n:'+n+'"><div class="wg-h"></div>',t,i;
+    for(t=1;t<=n;t++) h+='<div class="wg-h">'+t+'</div>';
+    for(i=0;i<n;i++){h+='<div class="wg-l" data-i="'+i+'">'+tileHtml(i)+'</div>';for(t=1;t<=n;t++) h+='<div class="wc" data-i="'+i+'" data-t="'+t+'" style="--tc:'+TCOL[i]+'"></div>';}
+    el.innerHTML=h+'</div>';
+    if(onPick) el.addEventListener("click",function(e){var c=e.target.closest("[data-i]");if(c) onPick(+c.getAttribute("data-i"));});
+    return {cells:Array.prototype.slice.call(el.querySelectorAll(".wc")),labels:Array.prototype.slice.call(el.querySelectorAll(".wg-l")),n:n};
+  }
+  function updateWorkGrid(g,step,cacheOn,sel){
+    g.cells.forEach(function(c){
+      var i=+c.getAttribute("data-i"),t=+c.getAttribute("data-t"),exists=(i+1)<=t,cls="wc";
+      if(!exists) cls+=" none";else if(t>step) cls+=" fut";
+      else if(cacheOn&&i+1<t) cls+=" cached";
+      else cls+=" comp"+(i+1===t?" new":"");
+      if(i===sel&&exists) cls+=" sel";
+      c.className=cls;
+    });
+    g.labels.forEach(function(l){l.classList.toggle("sel",+l.getAttribute("data-i")===sel);});
+  }
+  var wG=buildWorkGrid($("wGrid"),N,function(i){state.sel=i;renderDynamic();});
+  var cG=buildWorkGrid($("cGrid"),N,null);
+
+  /* ---- chapter 1: causal attention matrix ---- */
+  var aG=null;
+  function buildAttn(n){
+    var h='<div class="wg attn" style="--n:'+n+'"><div class="wg-h"></div>',i,j;
+    for(j=1;j<=n;j++) h+='<div class="wg-h">k'+j+'</div>';
+    for(i=1;i<=n;i++){h+='<div class="wg-l" data-q="'+i+'">q'+i+'</div>';for(j=1;j<=n;j++) h+='<div class="wc" data-q="'+i+'" data-k="'+j+'"></div>';}
+    $("aGrid").innerHTML=h+'</div>';
+    aG={n:n,cells:Array.prototype.slice.call($("aGrid").querySelectorAll(".wc")),labels:Array.prototype.slice.call($("aGrid").querySelectorAll(".wg-l"))};
+  }
+  $("aGrid").addEventListener("click",function(e){var c=e.target.closest("[data-q]");if(c){state.qrow=+c.getAttribute("data-q");renderDynamic();}});
+  function renderAttn(){
+    var n=Math.round(state.qn),qr=Math.min(state.qrow,n);
+    if(!aG||aG.n!==n) buildAttn(n);
+    aG.cells.forEach(function(c){var q=+c.getAttribute("data-q"),k=+c.getAttribute("data-k");c.className="wc "+(k<=q?"vis":"msk")+(q===qr?" act":"");});
+    aG.labels.forEach(function(l){l.classList.toggle("sel",+l.getAttribute("data-q")===qr);});
+    var p1=tri(n),p2=tri(2*n);
+    $("aPairs").textContent=p1;$("aN").textContent=n;$("aN1").textContent=n;$("aN2").textContent=2*n;
+    $("aB1").style.width=(p1/p2*100)+"%";$("aB2").style.width="100%";$("aP1").textContent=p1;$("aP2").textContent=p2;
+    $("aRatio").innerHTML="Double the context ⇒ <em>"+(p2/p1).toFixed(1)+"×</em> the scores";
+    var tex="\\#\\text{scores}=\\sum_{i=1}^{n}i=\\dfrac{n(n+1)}{2}=\\dfrac{"+n+"\\cdot"+(n+1)+"}{2}="+p1+"\\;\\;\\Rightarrow\\;\\; n\\to2n:\\;"+p1+"\\to"+p2+"\\;(\\times"+(p2/p1).toFixed(1)+")";
+    fm("a",$("aFormula"),tex,"scores = n(n+1)/2 = "+n+"*"+(n+1)+"/2 = "+p1+"  ->  2n: "+p2+" (x"+(p2/p1).toFixed(1)+")");
+  }
+
+  /* ---- chapter 2: the waste ---- */
+  function vecBars(i,which){var v=kvec(i),o="";for(var j=0;j<4;j++) o+='<i style="height:'+Math.round(14+(v[which*4+j]+1)/2*86)+'%"></i>';return o;}
+  function renderWaste(){
+    var t=S("step2"),i=state.sel,cnt=tri(t);
+    updateWorkGrid(wG,t,false,i);
+    $("wCnt").textContent=cnt;$("wNeed").textContent=t;$("wRep").textContent=cnt-t;
+    var html='<div class="dh">Token “'+esc(nameOf(i))+'” (position '+(i+1)+')</div>';
+    if(t<i+1) html+='<div>Not generated yet — press Step until step '+(i+1)+'.</div>';
+    else{
+      var now=t,first=i+1,tc='style="--tc:'+TCOL[i]+'"';
+      html+='<div class="vrow"><span>K, V at step '+first+'</span><div class="vec" '+tc+'><span>'+vecBars(i,0)+'</span><span class="v">'+vecBars(i,1)+'</span></div></div>'+
+            '<div class="vrow"><span>K, V at step '+now+'</span><div class="vec" '+tc+'><span>'+vecBars(i,0)+'</span><span class="v">'+vecBars(i,1)+'</span></div></div>'+
+            (now>first?'<span class="same">✓ identical — recomputed '+(now-first)+'× for nothing</span>':'<span class="same">first time it is computed</span>');
+    }
+    if(changed("wDetail",html)) $("wDetail").innerHTML=html;
+    var tex="\\sum_{t=1}^{n}t=\\dfrac{n(n+1)}{2}\\;\\;\\Rightarrow\\;\\;\\text{n}="+t+":\\;"+cnt+"\\text{ projections, only }"+t+"\\text{ needed}";
+    fm("w",$("wFormula"),tex,"sum_t=1..n t = n(n+1)/2: n="+t+" -> "+cnt+" projections, only "+t+" needed");
+  }
+
+  /* ---- chapter 3: the cache ---- */
+  function drawCurve(){
+    var cv=$("cCurve"),W=cv.clientWidth||360,H=cv.clientHeight||150,ctx=setupCanvas(cv,W,H);ctx.clearRect(0,0,W,H);
+    var L=34,R=12,T=10,B=24,pw=W-L-R,ph=H-T-B,ymax=tri(N),t=S("step3");
+    function X(k){return L+k/N*pw;} function Y(v){return T+(1-v/ymax)*ph;}
+    ctx.strokeStyle="#EEE7D8";ctx.lineWidth=1;ctx.font=GF("500 10.5px "+MONO);ctx.fillStyle=GC3();ctx.textAlign="right";ctx.textBaseline="middle";
+    [0,ymax/2,ymax].forEach(function(v){ctx.beginPath();ctx.moveTo(L,Y(v));ctx.lineTo(L+pw,Y(v));ctx.stroke();ctx.fillText(Math.round(v),L-6,Y(v));});
+    ctx.textAlign="center";ctx.textBaseline="top";[0,4,8,12].forEach(function(k){ctx.fillText(k,X(k),T+ph+6);});
+    function line(f,col){ctx.strokeStyle=col;ctx.lineWidth=2.6;ctx.beginPath();for(var k=0;k<=N;k++){if(k===0) ctx.moveTo(X(k),Y(f(k)));else ctx.lineTo(X(k),Y(f(k)));}ctx.stroke();}
+    line(tri,MC.no);line(function(k){return k;},MC.kv);
+    [[tri,MC.no],[function(k){return k;},MC.kv]].forEach(function(a){ctx.beginPath();ctx.arc(X(t),Y(a[0](t)),5.5,0,Math.PI*2);ctx.fillStyle="#fff";ctx.fill();ctx.lineWidth=2.5;ctx.strokeStyle=a[1];ctx.stroke();});
+    ctx.font=GF("600 11px "+SANS);ctx.textAlign="left";ctx.textBaseline="middle";ctx.fillStyle=MC.no;ctx.fillText("no cache  n²/2",L+8,Y(ymax)+8);ctx.fillStyle=MC.kv;ctx.fillText("KV cache  n",L+pw*0.55,Y(N*0.9)-12);
+  }
+  function renderCache(){
+    var t=S("step3"),on=state.cache===1;
+    updateWorkGrid(cG,t,on,-1);
+    $("cCnt").textContent=on?t:tri(t);$("cCnt").style.color=on?MC.kv:MC.no;
+    $("cNow").textContent=on?(t>0?1:0):t;$("cAtt").textContent=t;
+    drawCurve();
+    var tex="\\underbrace{\\tfrac{t(t+1)}{2}}_{\\text{no cache}}="+tri(t)+"\\qquad\\text{vs}\\qquad\\underbrace{t}_{\\text{KV cache}}="+t+"\\qquad(t="+t+")";
+    fm("c",$("cFormula"),tex,"no cache: t(t+1)/2 = "+tri(t)+"   vs   KV cache: t = "+t+"   (t="+t+")");
+  }
+
+  /* ---- chapter 4: memory ---- */
+  function renderMemory(){
+    var n=tokensOf(state.ctxLog),B=Math.round(state.batch),bpt=bytesPerToken(),seq=gib(bpt*n),total=seq*B,p=PRESETS[Math.round(state.preset)];
+    var scale=Math.max(100,total*1.08);
+    $("mFill").style.width=Math.min(100,total/scale*100)+"%";$("mFill").classList.toggle("over",total>80);
+    $("mk24").style.left=(24/scale*100)+"%";$("mk80").style.left=(80/scale*100)+"%";
+    $("mTotal").textContent=fmtGB(total);$("mTotal").parentNode.classList.toggle("over",total>80);
+    $("mSub").textContent=(total>80?"does not fit on an 80 GiB GPU — ":total>24?"fits an 80 GiB GPU, not a 24 GiB one — ":"fits a 24 GiB GPU — ")+"cache only, weights not counted";
+    var maxCtx=Math.floor(80*1073741824/(bpt*B));
+    $("mStats").innerHTML='<div class="s3"><b>'+fmtBytes(bpt)+'</b><small>per token · '+esc(p.note)+'</small></div><div class="s3"><b>'+fmtGB(seq)+'</b><small>one sequence of '+commas(n)+' tokens</small></div><div class="s3"><b>'+commas(maxCtx)+'</b><small>max tokens per sequence in 80 GiB at batch '+B+'</small></div>';
+    var tex="M=2\\cdot L\\cdot H_{kv}\\cdot d\\cdot b\\cdot n\\cdot B=2\\cdot"+p.L+"\\cdot"+p.H+"\\cdot"+p.d+"\\cdot"+state.bytes+"\\cdot"+commas(n).replace(/,/g,"{,}")+"\\cdot"+B+"="+fmtGB(total).replace(" ","\\ \\mathrm{")+"}";
+    fm("m",$("mFormula"),tex,"M = 2*"+p.L+"*"+p.H+"*"+p.d+"*"+state.bytes+"*"+commas(n)+"*"+B+" = "+fmtGB(total));
+  }
+
+  /* ---- chapter 5: prefill vs decode timeline ---- */
+  function niceStep(max){var s=[1,2,5,10,20,50,100,200,500,1000,2000,5000,10000,20000];for(var i=0;i<s.length;i++) if(max/s[i]<=7) return s[i];return 50000;}
+  function renderLatency(){
+    var cv=$("lCanvas"),W=cv.clientWidth||700,H=cv.clientHeight||250,ctx=setupCanvas(cv,W,H);ctx.clearRect(0,0,W,H);
+    var P=tokensOf(state.pLog),Nn=Math.round(state.nOut),m=latModel(P,Nn);
+    var L=92,R=70,T=34,B=34,pw=W-L-R,sc=pw/m.e2eN,lh=46,y0=T,y1=T+lh+30;
+    function lane(y,steps,col,label,e2e){
+      ctx.font=GF("600 12px "+SANS);ctx.fillStyle=col;ctx.textAlign="right";ctx.textBaseline="middle";ctx.fillText(label,L-10,y+lh/2);
+      var x=L,w=m.ttft*sc;ctx.fillStyle=MC.pre;ctx.fillRect(x,y,Math.max(1,w),lh);
+      if(w>52){ctx.fillStyle="#fff";ctx.font=GF("600 11px "+SANS);ctx.textAlign="center";ctx.fillText("prefill",x+w/2,y+lh/2);}
+      x+=w;steps.forEach(function(d){var bw=d*sc;ctx.fillStyle=col;ctx.fillRect(x+0.5,y,Math.max(1,bw-1),lh);x+=bw;});
+      ctx.fillStyle="#211E24";ctx.font=GF("500 11.5px "+MONO);ctx.textAlign="left";ctx.fillText(fmtMs(e2e),x+8,y+lh/2);
+    }
+    lane(y0,m.u,MC.no,"No cache",m.e2eN);lane(y1,m.c,MC.kv,"KV cache",m.e2eC);
+    var tx=L+m.ttft*sc;ctx.setLineDash([4,4]);ctx.strokeStyle="rgba(33,30,36,.55)";ctx.lineWidth=1.3;ctx.beginPath();ctx.moveTo(tx,T-14);ctx.lineTo(tx,y1+lh+6);ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle="#211E24";ctx.font=GF("600 11.5px "+SANS);ctx.textAlign="center";ctx.textBaseline="alphabetic";ctx.fillText("TTFT "+fmtMs(m.ttft),Math.min(tx,W-R-30),T-18);
+    var ax=y1+lh+10;ctx.strokeStyle="#D6CCB6";ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(L,ax);ctx.lineTo(L+pw,ax);ctx.stroke();
+    var st=niceStep(m.e2eN);ctx.fillStyle=GC3();ctx.font=GF("500 10.5px "+MONO);ctx.textBaseline="top";
+    for(var v=0;v<=m.e2eN;v+=st){var x=L+v*sc;ctx.beginPath();ctx.moveTo(x,ax);ctx.lineTo(x,ax+4);ctx.stroke();ctx.textAlign="center";ctx.fillText(v>=1000?(v/1000)+"s":v+"ms",x,ax+6);}
+    var sig=[P,Nn].join("|");
+    if(changed("lTable",sig)){
+      $("lTable").innerHTML='<tr><th></th><th class="am">No cache</th><th class="tl">KV cache</th><th>speed-up</th></tr>'+
+        '<tr><td>TTFT — time to first token</td><td class="am">'+fmtMs(m.ttft)+'</td><td class="tl">'+fmtMs(m.ttft)+'</td><td>same</td></tr>'+
+        '<tr><td>ITL — avg gap between later tokens</td><td class="am">'+(Nn>1?fmtMs(m.itlN):"–")+'</td><td class="tl">'+(Nn>1?fmtMs(m.itlC):"–")+'</td><td class="sp">'+(Nn>1?(m.itlN/m.itlC).toFixed(1)+"×":"–")+'</td></tr>'+
+        '<tr><td>E2E — whole response</td><td class="am">'+fmtMs(m.e2eN)+'</td><td class="tl">'+fmtMs(m.e2eC)+'</td><td class="sp">'+(m.e2eN/m.e2eC).toFixed(1)+'×</td></tr>';
+    }
+    var tex="\\mathrm{E2E}=\\mathrm{TTFT}+\\sum_{i\\ge2}\\Delta t_i="+Math.round(m.ttft)+"+"+(Nn-1)+"\\cdot"+(m.itlC).toFixed(0)+"\\approx"+Math.round(m.e2eC)+"\\ \\mathrm{ms}\\quad(\\text{KV cache})";
+    fm("l",$("lFormula"),tex,"E2E = TTFT + sum dt_i = "+Math.round(m.ttft)+" + "+(Nn-1)+"*"+m.itlC.toFixed(0)+" ~ "+Math.round(m.e2eC)+" ms (KV cache)");
+  }
+
+  /* ---- chapter 6: benefit and cost, together ---- */
+  function renderTrade(){
+    var cv=$("tCanvas"),W=cv.clientWidth||700,H=cv.clientHeight||250,ctx=setupCanvas(cv,W,H);ctx.clearRect(0,0,W,H);
+    var L=56,R=64,T=18,B=40,pw=W-L-R,ph=H-T-B,x0=7,x1=17,SPD=80,MEM=160;
+    var bpt=bytesPerToken(),B_=Math.round(state.batch);
+    function X(x){return L+(x-x0)/(x1-x0)*pw;} function YS(v){return T+(1-Math.min(v,SPD)/SPD)*ph;} function YM(v){return T+(1-Math.min(v,MEM)/MEM)*ph;}
+    ctx.strokeStyle="#EEE7D8";ctx.lineWidth=1;ctx.font=GF("500 10.5px "+MONO);ctx.textBaseline="middle";
+    [0,20,40,60,80].forEach(function(v){ctx.beginPath();ctx.moveTo(L,YS(v));ctx.lineTo(L+pw,YS(v));ctx.stroke();ctx.fillStyle=MC.kv;ctx.textAlign="right";ctx.fillText(v+"×",L-8,YS(v));});
+    [0,40,80,120,160].forEach(function(v){ctx.fillStyle=MC.mem;ctx.textAlign="left";ctx.fillText(v+" GiB",L+pw+8,YM(v));});
+    [[24,"24 GiB"],[80,"80 GiB"]].forEach(function(a){ctx.setLineDash([5,4]);ctx.strokeStyle="rgba(122,79,163,.55)";ctx.lineWidth=1.3;ctx.beginPath();ctx.moveTo(L,YM(a[0]));ctx.lineTo(L+pw,YM(a[0]));ctx.stroke();ctx.setLineDash([]);});
+    ctx.textBaseline="top";ctx.textAlign="center";ctx.fillStyle=GC3();
+    [7,10,13,16].forEach(function(x){ctx.fillText(commas(Math.pow(2,x)),X(x),T+ph+8);});
+    ctx.fillStyle=GC2();ctx.font=GF("600 11.5px "+SANS);ctx.fillText("context length n (tokens, log scale)",L+pw/2,H-16);
+    function curve(f,col,Y){ctx.strokeStyle=col;ctx.lineWidth=3;ctx.beginPath();var first=true;for(var x=x0;x<=x1+1e-9;x+=0.1){var yv=Y(f(x));if(first){ctx.moveTo(X(x),yv);first=false;}else ctx.lineTo(X(x),yv);}ctx.stroke();}
+    curve(function(x){return speedup(Math.pow(2,x));},MC.kv,YS);
+    curve(function(x){return gib(bpt*Math.pow(2,x)*B_);},MC.mem,YM);
+    var cx=state.ctxLog,n=tokensOf(cx),sp=speedup(n),mem=gib(bpt*n*B_);
+    ctx.setLineDash([4,4]);ctx.strokeStyle="rgba(33,30,36,.4)";ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(X(cx),T);ctx.lineTo(X(cx),T+ph);ctx.stroke();ctx.setLineDash([]);
+    function dot(y,col,txt,dx,dy){ctx.beginPath();ctx.arc(X(cx),y,7,0,Math.PI*2);ctx.fillStyle="#fff";ctx.fill();ctx.lineWidth=3;ctx.strokeStyle=col;ctx.stroke();ctx.font=GF("600 12px "+SANS);ctx.fillStyle=col;ctx.textBaseline="middle";ctx.textAlign=dx>0?"left":"right";ctx.fillText(txt,X(cx)+dx,y+(dy||0));}
+    var late=cx>14.5;dot(YS(sp),MC.kv,Math.round(sp)+"× faster",late?-12:12,late?-17:0);dot(YM(mem),MC.mem,(mem>MEM?"↑ ":"")+fmtGB(mem),late?-12:12,mem<MEM*0.3?-18:0);
+    var tex="\\text{speed-up}(n)=\\dfrac{d_0+a\\,n}{d_0+d_1n}=\\dfrac{18+0.25\\cdot"+commas(n).replace(/,/g,"{,}")+"}{18+0.0035\\cdot"+commas(n).replace(/,/g,"{,}")+"}\\approx"+Math.round(sp)+"\\times\\qquad M\\approx"+fmtGB(mem).replace(" ","\\ \\mathrm{")+"}";
+    fm("t",$("tFormula"),tex,"speed-up(n) = (18+0.25n)/(18+0.0035n) ~ "+Math.round(sp)+"x ;  KV memory ~ "+fmtGB(mem));
+  }
+
+  function renderStatic(){}
+  function renderDynamic(){syncChips();renderHook();renderAttn();renderWaste();renderCache();renderMemory();renderLatency();renderTrade();}
+
+  /* ================= 5 · SHELL: predict cards, rail, progress, entrance, layout, fullscreen, keys ================= */
+  document.querySelectorAll(".predict").forEach(function(p){
+    var ans=+p.getAttribute("data-answer"),btns=p.querySelectorAll(".p-opts button");
+    btns.forEach(function(b,i){b.addEventListener("click",function(){btns.forEach(function(x,j){x.classList.toggle("right",j===ans);x.classList.toggle("wrong",j===i&&i!==ans);x.disabled=true;});p.querySelector(".p-ans").hidden=false;});});
+  });
+  function resetPredicts(){document.querySelectorAll(".predict").forEach(function(p){p.querySelectorAll(".p-opts button").forEach(function(x){x.classList.remove("right","wrong");x.disabled=false;});p.querySelector(".p-ans").hidden=true;});}
+
+  var chapters=Array.prototype.slice.call(document.querySelectorAll(".slide"));
+  (function(){
+    var h='<span class="fill" id="railFill"></span>';
+    chapters.forEach(function(c){h+='<li><a data-go="'+c.id+'"><span class="dot">'+c.getAttribute("data-num")+'</span><span class="lb">'+c.getAttribute("data-label")+'</span></a></li>';});
+    $("railList").innerHTML=h;
+  })();
+  function goto(id){var t=$(id);if(t) t.scrollIntoView({behavior:"smooth",block:"start"});}
+  document.addEventListener("click",function(e){var a=e.target.closest("[data-go]");if(a) goto(a.getAttribute("data-go"));});
+  function onScroll(){
+    var y=window.scrollY,vh=window.innerHeight,doc=document.documentElement.scrollHeight-vh;
+    $("progressFill").style.width=(doc>0?y/doc*100:0)+"%";
+    var cur=0;chapters.forEach(function(c,i){if(c.getBoundingClientRect().top<vh*0.5) cur=i;});state.cur=cur;
+    var items=document.querySelectorAll(".rail a");
+    items.forEach(function(a,i){a.classList.toggle("on",i===cur);a.classList.toggle("done",i<cur);});
+    var f=$("railFill");if(f&&items[cur]){var ol=$("railList"),it=items[cur].getBoundingClientRect(),o=ol.getBoundingClientRect();f.style.height=Math.max(0,it.top+it.height/2-o.top-14)+"px";}
+  }
+  window.addEventListener("scroll",onScroll,{passive:true});
+  chapters[0].classList.add("seen");                                            // entrance animation is per-slide: .slide.seen .rv
+  if("IntersectionObserver" in window){var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting) e.target.classList.add("seen");});},{threshold:0.2});chapters.forEach(function(c){io.observe(c);});}
+  else chapters.forEach(function(c){c.classList.add("seen");});
+
+  function fit(){
+    var de=document.documentElement,vw=window.innerWidth;
+    de.classList.toggle("flow",vw<900);                                          // narrow screens: everything single-column
+    de.style.setProperty("--railpad",(vw>=1260)?"110px":"0px");
+  }
+  function relayout(){fit();sigs={};renderStatic();renderDynamic();if(state.mode==="guided") fitPresent();onScroll();}
+  var fsBtn=$("fsBtn");
+  function fsOK(){return !!(document.fullscreenEnabled||document.webkitFullscreenEnabled);}
+  function isFs(){return !!(document.fullscreenElement||document.webkitFullscreenElement);}
+  function enterFs(){var el=document.documentElement,f=el.requestFullscreen||el.webkitRequestFullscreen;if(!f) return null;var p=f.call(el);if(p&&p.catch) p.catch(function(){state.fsByGuided=false;});return p;}
+  function leaveFs(){var f=document.exitFullscreen||document.webkitExitFullscreen;if(f&&isFs()) f.call(document);}
+  function toggleFs(){if(isFs()){state.fsByGuided=false;leaveFs();}else{if(state.mode==="guided") state.fsByGuided=true;enterFs();}}
+  /* A tour opened from a link cannot go full-screen by itself (browsers want a user gesture first): the first click or key press does it. */
+  var fsArmed=false;
+  function fsOnGesture(e){
+    if(!fsArmed||state.mode!=="guided") return;
+    if(e.type==="keydown"&&(e.key==="Escape"||e.key==="f"||e.key==="F"||e.metaKey||e.ctrlKey||e.altKey)) return;
+    if(e.target&&e.target.closest&&e.target.closest("#guidedExit")) return;
+    fsArmed=false;if(!isFs()&&fsOK()){state.fsByGuided=true;enterFs();}
+  }
+  document.addEventListener("click",fsOnGesture,true);document.addEventListener("keydown",fsOnGesture,true);
+  if(!fsOK()) fsBtn.hidden=true;
+  fsBtn.addEventListener("click",toggleFs);
+  function syncFs(){
+    var on=isFs();$("fsLabel").textContent=on?"Exit":"Fullscreen";
+    $("fsIcon").innerHTML=on?'<path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>':'<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>';
+    if(!on&&state.mode==="guided"&&state.fsByGuided){state.fsByGuided=false;exitGuided();return;}   // Esc leaves fullscreen → leave the tour too
+    setTimeout(relayout,120);
+  }
+  document.addEventListener("fullscreenchange",syncFs);document.addEventListener("webkitfullscreenchange",syncFs);
+  document.addEventListener("keydown",function(e){
+    if(e.metaKey||e.ctrlKey||e.altKey) return;
+    var k=e.key,tag=(e.target&&e.target.tagName)||"";
+    if(state.mode==="guided"){                                                    // keys work even when a slider has focus
+      var onBtn=(tag==="BUTTON");
+      if(k==="ArrowRight"||k==="ArrowDown"||k==="PageDown"||((k===" "||k==="Enter")&&!onBtn)){$("guidedNext").click();e.preventDefault();}
+      else if(k==="ArrowLeft"||k==="ArrowUp"||k==="PageUp"||k==="Backspace"){$("guidedPrev").click();e.preventDefault();}
+      else if(k==="Home"){runScene(0);e.preventDefault();}
+      else if(k==="End"){runScene(SCENES.length-1);e.preventDefault();}
+      else if(k==="Escape"){exitGuided();e.preventDefault();}
+      else if(k==="f"||k==="F"){toggleFs();e.preventDefault();}
+      return;
+    }
+    if(/INPUT|SELECT|TEXTAREA/.test(tag)) return;
+    if(k==="f"||k==="F"){toggleFs();e.preventDefault();}
+  });
+
+    /* ================= 6 · GUIDED SCENES: one page = one idea (target = a REAL element; run = the same setters as Explore) ================= */
+  function quiet(){stopAll();Object.keys(PARAMS).forEach(function(k){removeTween("param:"+k);});}
+  function lin(name,target,ms){tweenScalar("param:"+name,function(){return state[name];},function(v){setParam(name,v);},target,ms,function(t){return t;});}   // linear: steps tick evenly
+  function CARD(id){return "#"+id+" .work .card";}
+  var SCENES=[
+    {title:"Why isn’t token 100 *a hundred times* more work than token 1?",text:"Two ways to generate the same sentence, one token at a time. Watch *the work* each one does.",target:CARD("ch-hero"),w:1000,hide:[".legend2",".cap"],
+      run:function(){quiet();resetPredicts();setParam("step0",0);}},
+    {title:"Press play: same words, *very different work*",text:"The left lane re-projects every earlier token at every step; the right lane *keeps what it already computed*.",target:CARD("ch-hero"),w:1000,hide:[".btnrow",".cap"],
+      run:function(){quiet();setParam("step0",0);lin("step0",12,7000);}},
+    {id:"attn",title:"Every new token looks back at its *whole history*",text:"Row i of the score matrix is token i asking about tokens 1…i. Filled cells are *the scores that must be computed*.",target:CARD("ch-attn"),w:1000,hide:[".formula-box"],
+      run:function(){quiet();setParam("qn",8);setParam("qrow",99);}},
+    {title:"Pause & *predict*",text:"The context doubles from 8 to 16 tokens. How much does the number of attention scores grow?",target:"#pr1",w:820,run:function(){resetPredicts();}},
+    {id:"attn-double",title:"Double the context, about *four times* the scores",text:"36 scores become 136. Attention work *grows with the square of the context*.",target:CARD("ch-attn"),w:1000,
+      run:function(){quiet();setParam("qn",8);lin("qn",16,2600);}},
+    {id:"waste",title:"Without a cache, every step *starts from scratch*",text:"At step t the whole prefix is projected again. The bottom-left triangle fills with *repeated work*.",target:CARD("ch-waste"),w:1000,hide:[".detail",".formula-box"],
+      run:function(){quiet();setParam("sel",2);setParam("step2",0);lin("step2",8,3600);}},
+    {title:"But old keys and values *never change*",text:"Token 3’s K and V are *identical at step 3 and at step 9*: they depend only on tokens up to itself.",target:CARD("ch-waste"),w:1000,hide:[".formula-box",".btnrow"],
+      run:function(){quiet();setParam("sel",2);setParam("step2",9);}},
+    {title:"Pause & *predict*",text:"At step 9, how many of the 8 earlier tokens have K/V that changed since step 8?",target:"#pr2",w:820,run:function(){resetPredicts();}},
+    {id:"cache",title:"The fix: keep the past, compute *only the new row*",text:"Hatched cells are *reused from the cache*. Only the diagonal — the new token — is computed at each step.",target:CARD("ch-cache"),w:1000,hide:[".formula-box",".curvewrap"],
+      run:function(){quiet();setParam("cache",1);setParam("step3",0);lin("step3",8,3000);}},
+    {title:"Same step, *no cache*",text:"Switch the cache off at step 8: every earlier token is projected again — *eight cells instead of one*.",target:CARD("ch-cache"),w:1000,hide:[".formula-box",".curvewrap"],
+      run:function(){quiet();setParam("cache",0);setParam("step3",8);}},
+    {title:"Quadratic work becomes *linear* work",text:"Cumulative K/V projections: *n²/2 without the cache, just n with it*. The gap widens with every token.",target:CARD("ch-cache"),w:900,hide:[".lcol",".btnrow"],
+      run:function(){quiet();setParam("cache",1);setParam("step3",12);}},
+    {title:"Pause & *predict*",text:"With a KV cache, is the attention step itself free?",target:"#pr3",w:820,run:function(){resetPredicts();}},
+    {id:"memory",title:"The price: every cached token takes *memory*",text:"Each token stores a K and a V in every layer. For a 7B-class model that is *half a megabyte per token*.",target:CARD("ch-memory"),w:1000,hide:[".formula-box",".adv"],
+      run:function(){quiet();setParam("preset",1);setParam("bytes",2);setParam("ctxLog",12);setParam("batch",1);}},
+    {title:"Longer context, *more memory*",text:"Memory *grows linearly with context length*: 4k tokens take 2 GiB, 32k tokens take 16 GiB — for one sequence.",target:CARD("ch-memory"),w:1000,hide:[".formula-box",".adv"],
+      run:function(){quiet();setParam("batch",1);setParam("ctxLog",12);lin("ctxLog",15,3200);}},
+    {title:"More users, *even more* memory",text:"Every active sequence keeps its own cache, so memory *multiplies with the batch*. Past 80 GiB, it simply does not fit.",target:CARD("ch-memory"),w:1000,hide:[".formula-box",".adv"],
+      run:function(){quiet();setParam("ctxLog",13);setParam("batch",1);lin("batch",24,3000);}},
+    {title:"Pause & *predict*",text:"We double the context and double the batch. What happens to KV memory?",target:"#pr4",w:820,run:function(){resetPredicts();}},
+    {title:"A request has *two phases*",text:"Prefill reads the whole prompt in parallel and yields token 1. Every later token is *its own decode step*.",target:CARD("ch-latency"),w:1000,hide:[".formula-box",".mt",".note"],
+      run:function(){quiet();setParam("pLog",9);setParam("nOut",16);}},
+    {id:"ttft",title:"Longer prompt, *later first token*",text:"TTFT grows with the prompt, because prefill must read all of it — *with or without a cache*.",target:CARD("ch-latency"),w:1000,hide:[".formula-box",".note",".mt"],
+      run:function(){quiet();setParam("nOut",16);setParam("pLog",9);lin("pLog",11,2600);}},
+    {title:"Pause & *predict*",text:"Does a KV cache make the first token (TTFT) arrive faster?",target:"#pr5",w:820,run:function(){resetPredicts();}},
+    {id:"cadence",title:"The cache keeps the cadence *steady*",text:"Without it, each later token takes longer than the one before (the context keeps growing). With it, *the gaps stay short and flat*.",target:CARD("ch-latency"),w:1000,hide:[".formula-box",".note",".knobs2"],
+      run:function(){quiet();setParam("pLog",10);setParam("nOut",32);}},
+    {id:"trade",title:"Benefit and cost grow *together*",text:"The decode speed-up (teal) and the KV memory (purple) *both rise with context length*.",target:CARD("ch-compare"),w:1000,hide:[".formula-box"],
+      run:function(){quiet();setParam("preset",1);setParam("batch",1);setParam("ctxLog",12);lin("ctxLog",16,3400);}},
+    {title:"Add users and the memory line *climbs*",text:"At 8k tokens, a batch of 1 is comfortable; *a batch of 8 starts to crowd the GPU*.",target:CARD("ch-compare"),w:1000,hide:[".formula-box"],
+      run:function(){quiet();setParam("ctxLog",13);setParam("batch",1);lin("batch",8,2400);}},
+    {title:"Which workload cares about *what*?",text:"Match the *bottleneck* to the *workload*.",target:"#ch-compare .rules",w:1000,run:function(){}}
+  ];
+
+  /* ================= 7 · SHELL: Guided tour presentation layer =================
+     The REAL interactive element is moved into #prFit, the hidden parts are removed, and the result is scaled (transform) to fill the body area.
+     A ResizeObserver re-fits whenever the element's height changes (e.g. a predict answer appears). Exiting puts everything back. */
+  var moved=null,KMAX=2.6;
+  function restoreMoved(){
+    if(!moved) return;
+    var m=moved;moved=null;if(m.ro) m.ro.disconnect();
+    m.hidden.forEach(function(h){h.classList.remove("gp-hide");});m.el.style.width=m.w0;
+    if(m.limit) BARLISTS.forEach(function(b){b.setLimit(0);});
+    if(m.ph.parentNode){m.ph.parentNode.insertBefore(m.el,m.ph);m.ph.parentNode.removeChild(m.ph);}
+  }
+  function fitPresent(){
+    if(state.mode!=="guided"||!moved) return;
+    var body=$("prBody"),fitEl=$("prFit");fitEl.style.transform="none";
+    var bw=body.clientWidth*0.96,bh=body.clientHeight-12,w=fitEl.offsetWidth,h=fitEl.offsetHeight;if(!w||!h) return;
+    var k=Math.min(bw/w,bh/h,KMAX);fitEl.style.transform="scale("+k.toFixed(4)+")";
+    if(Math.abs(k-STAGE_S)>0.01){STAGE_S=k;renderDynamic();}
+  }
+  function showTarget(sc){
+    restoreMoved();
+    var el=sc.target?document.querySelector(sc.target):null;if(!el) return;
+    var ph=document.createComment("pr");el.parentNode.insertBefore(ph,el);$("prFit").appendChild(el);
+    var w0=el.style.width;el.style.width=(sc.w||980)+"px";
+    var hidden=[];(sc.hide||[]).forEach(function(q){el.querySelectorAll(q).forEach(function(h){h.classList.add("gp-hide");hidden.push(h);});});
+    moved={el:el,ph:ph,w0:w0,hidden:hidden,limit:!!sc.limit};
+    if(sc.limit) BARLISTS.forEach(function(b){b.setLimit(sc.limit);});
+    if("ResizeObserver" in window){moved.ro=new ResizeObserver(function(){requestAnimationFrame(fitPresent);});moved.ro.observe(el);}
+  }
+  function renderDots(){$("guidedDots").innerHTML="";SCENES.forEach(function(_,i){var d=document.createElement("span");d.className="guided-dot"+(i===state.guidedIndex?" active":"");$("guidedDots").appendChild(d);});}
+  function sceneText(s){return esc(s).replace(/\*([^*]+)\*/g,"<em>$1</em>");}                 // *key phrase* → accent
+  function runScene(idx,preset){
+    idx=clamp(idx,0,SCENES.length-1);state.guidedIndex=idx;var sc=SCENES[idx];
+    $("guidedTitle").innerHTML=sceneText(sc.title);$("guidedText").innerHTML=sceneText(sc.text);renderDots();
+    $("prCount").textContent="Step "+(idx+1)+" / "+SCENES.length;$("prProg").style.width=((idx+1)/SCENES.length*100)+"%";
+    if(sc.run) sc.run();
+    if(preset) preset();                                                       // a deep link's parameters win over the scene's own
+    showTarget(sc);renderStatic();renderDynamic();fitPresent();
+    $("guidedPrev").disabled=(idx===0);$("guidedNext").textContent=(idx===SCENES.length-1)?"Finish":"Next ›";
+  }
+  function enterGuided(idx,preset,fromLink){
+    state.mode="guided";$("modeExplore").setAttribute("aria-pressed","false");$("modeGuided").setAttribute("aria-pressed","true");
+    document.documentElement.classList.add("presenting");$("guidedBar").classList.remove("hidden");
+    fsArmed=false;if(fsOK()&&!isFs()){if(fromLink) fsArmed=true;else{state.fsByGuided=true;enterFs();}}                        // must run inside the click handler (user gesture)
+    runScene(typeof idx==="number"?idx:0,preset);setTimeout(function(){if(state.mode==="guided") relayout();},250);
+  }
+  function exitGuided(){
+    state.mode="explore";$("modeExplore").setAttribute("aria-pressed","true");$("modeGuided").setAttribute("aria-pressed","false");
+    restoreMoved();STAGE_S=1;document.documentElement.classList.remove("presenting");$("guidedBar").classList.add("hidden");
+    if(state.fsByGuided&&isFs()){state.fsByGuided=false;leaveFs();}else state.fsByGuided=false;
+    fsArmed=false;fit();sigs={};renderStatic();renderDynamic();
+    var ch=$(SCENES[state.guidedIndex].ch);if(ch){ch.classList.add("seen");ch.scrollIntoView({behavior:"instant",block:"start"});}   // leave the tour where you are
+    onScroll();
+  }
+  $("modeExplore").addEventListener("click",function(){if(state.mode==="guided") exitGuided();});
+  $("modeGuided").addEventListener("click",function(){if(state.mode==="explore") enterGuided();});
+  $("mhTour").addEventListener("click",function(){if(state.mode==="explore") enterGuided();});
+  $("guidedNext").addEventListener("click",function(){if(state.guidedIndex>=SCENES.length-1){exitGuided();return;}runScene(state.guidedIndex+1);});
+  $("guidedPrev").addEventListener("click",function(){runScene(state.guidedIndex-1);});
+  $("guidedExit").addEventListener("click",exitGuided);
+  $("mhSteps").textContent=SCENES.length;
+  var rt=null;window.addEventListener("resize",function(){clearTimeout(rt);rt=setTimeout(relayout,150);});
+  if(document.fonts&&document.fonts.ready) document.fonts.ready.then(function(){sigs={};renderDynamic();});
+
+  /* contract used by scripts/check_browser.py */
+  /* ---- deep links ----
+     page.html#chapter-id?key=value&key=value&open=adv      Explore: scroll to the chapter with these parameters preset
+     page.html#chapter-id?tour=<scene id>&key=value          Guided tour: open that page full-window (first click / key → full-screen);
+                                                             the link's parameters are applied after the scene's own. tour=1 = the chapter's first page.
+     page.html#tour                                          Guided tour from page 1
+     key = any name in PARAMS, or a domain special in LINK_SPECIAL. A slide button should use the tour form. */
+  var LINK_SPECIAL={};
+  function hashParts(){
+    var h=location.hash.replace(/^#/,""),parts=h.split("?"),q={};
+    (parts[1]||"").split("&").forEach(function(kv){var a=kv.split("=");if(a[0]) q[a[0]]=decodeURIComponent(a[1]||"");});
+    return {id:parts[0],q:q};
+  }
+  function rescrollHash(instant){
+    var h=hashParts(),el=h.id?$(h.id):null;if(!el||!el.classList.contains("slide")||state.mode==="guided") return;
+    el.classList.add("seen");
+    setTimeout(function(){el.scrollIntoView({behavior:instant?"auto":"smooth",block:"start"});},instant?30:0);
+  }
+  function applyParams(h,el){
+    Object.keys(h.q).forEach(function(k){
+      if(k==="open"||k==="tour") return;
+      removeTween("param:"+k);
+      if(LINK_SPECIAL[k]) LINK_SPECIAL[k](h.q[k]);
+      else if(PARAMS[k]) setParam(k,parseFloat(h.q[k]));
+    });
+    if(h.q.open==="adv"&&el) el.querySelectorAll("details.adv").forEach(function(d){d.open=true;});
+  }
+  SCENES.forEach(function(s){var e=s.target?document.querySelector(s.target):null,c=e&&e.closest(".slide,.part");s.ch=c?c.id:"";});   // which chapter each tour page belongs to
+  function tourIndex(h){
+    var i,key=h.q.tour;
+    for(i=0;i<SCENES.length;i++) if(key&&(SCENES[i].id===key||SCENES[i].target==="#"+key)) return i;      // tour=<scene id>  (or a predict card's id)
+    for(i=0;i<SCENES.length;i++) if(h.id&&SCENES[i].ch===h.id) return i;                                     // otherwise the first tour page of that chapter
+    return 0;
+  }
+  function applyHash(instant){
+    var h=hashParts(),el=h.id?$(h.id):null;
+    if(h.q.tour!==undefined||h.id==="tour"){                       // …?tour=…  → the Guided tour, on that page, with the link's parameters
+      var preset=function(){applyParams(h,el);};
+      if(state.mode==="guided") runScene(tourIndex(h),preset); else enterGuided(tourIndex(h),preset,true);
+      return;
+    }
+    if(state.mode==="guided") return;
+    if(!el||!el.classList.contains("slide")) return;
+    applyParams(h,el);
+    sigs={};renderStatic();renderDynamic();rescrollHash(instant);
+  }
+  window.addEventListener("hashchange",function(){applyHash(false);});
+  if(document.fonts&&document.fonts.ready) document.fonts.ready.then(function(){if(state.mode==="guided") relayout();});
+
+  window.__demo={state:state,SCENES:SCENES,runScene:runScene,enterGuided:enterGuided,exitGuided:exitGuided,fit:fit,toggleFs:toggleFs,stageScale:function(){return STAGE_S;},fitPresent:fitPresent};
+
+  fit();renderStatic();renderDynamic();onScroll();
+  applyHash(true);if(document.fonts&&document.fonts.ready) document.fonts.ready.then(function(){rescrollHash(true);});
+})();
+</script>
+</body>
+</html>

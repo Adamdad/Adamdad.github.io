@@ -1,0 +1,1911 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Speculative Lab · Draft Fast, Verify Once</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Hanken+Grotesk:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+  :root{
+    --paper:#FAF6EE; --paper-2:#F2ECDF; --card:#FFFEFB;
+    --ink:#211E24; --ink-2:#5A5660; --ink-3:#8E8A93;
+    --line:#E6DFCF; --line-2:#D6CCB6;
+    --red:#A63446; --red-d:#7F1F2E; --red-soft:#F8EAEC;
+    --blue:#1F4E79; --blue-soft:#E9F1F8;
+    --green:#0A8F22; --green-soft:#E6F4E9;
+    --note:#FFF3C9; --note-line:#E6CE7A;
+    --display:'Instrument Serif','Latin Modern Roman','CMU Serif','Times New Roman',Times,Georgia,serif;
+    --body:'Hanken Grotesk','Avenir Next','Segoe UI',system-ui,sans-serif;
+    --mono:'DM Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --ease:cubic-bezier(.22,.8,.24,1);
+    --s:1; --railpad:0px; --barpad:0px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.55;
+    background:
+      radial-gradient(1200px 600px at 8% -8%,rgba(166,52,70,.07),transparent 60%),
+      radial-gradient(900px 520px at 100% 12%,rgba(31,78,121,.06),transparent 60%),
+      var(--paper);}
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.5;mix-blend-mode:multiply;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .55  0 0 0 0 .45  0 0 0 0 .3  0 0 0 .07 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");}
+  main,.rail,.modebox,.progress{position:relative;z-index:1;}
+
+  /* ---------- chrome ---------- */
+  .progress{position:fixed;left:0;top:0;right:0;height:3px;z-index:80;}
+  .progress i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--red),#d05a6b);}
+  .modebox{position:fixed;top:14px;right:16px;z-index:70;display:flex;gap:8px;align-items:center;}
+  .segmented{display:inline-flex;flex-wrap:wrap;border:1px solid var(--line-2);border-radius:999px;overflow:hidden;background:rgba(255,254,251,.92);backdrop-filter:blur(6px);box-shadow:0 6px 18px -10px rgba(60,40,20,.35);}
+  .segmented button{border:none;background:transparent;padding:7px 15px;font:600 13px var(--body);cursor:pointer;color:var(--ink-2);transition:background .2s,color .2s;}
+  .segmented button+button{border-left:1px solid var(--line);}
+  .segmented button[aria-pressed="true"]{background:var(--red);color:#fff;}
+  .segmented button:hover:not([aria-pressed="true"]){background:var(--red-soft);}
+  .segmented.sm button{padding:4px 12px;font-size:12px;}
+  .fs{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line-2);border-radius:999px;background:rgba(255,254,251,.92);backdrop-filter:blur(6px);padding:7px 14px;font:600 13px var(--body);color:var(--ink-2);cursor:pointer;box-shadow:0 6px 18px -10px rgba(60,40,20,.35);transition:all .2s;}
+  .fs:hover{border-color:var(--red);color:var(--red);}
+  .fs[hidden]{display:none;}
+
+  .rail{position:fixed;left:22px;top:50%;transform:translateY(-50%);z-index:60;display:none;}
+  @media (min-width:1260px){.rail{display:block;}}
+  .rail ol{list-style:none;margin:0;padding:0;position:relative;}
+  .rail ol::before{content:"";position:absolute;left:13px;top:14px;bottom:14px;width:2px;background:var(--line-2);}
+  .rail .fill{position:absolute;left:13px;top:14px;width:2px;background:var(--red);height:0;transition:height .35s var(--ease);}
+  .rail li{position:relative;}
+  .rail a{display:flex;align-items:center;gap:10px;padding:5px 0;color:var(--ink-3);text-decoration:none;font-size:12px;font-weight:600;cursor:pointer;}
+  .rail a .dot{width:28px;height:28px;border-radius:50%;background:var(--paper);border:2px solid var(--line-2);display:grid;place-items:center;font:500 10.5px var(--mono);color:var(--ink-3);transition:all .25s var(--ease);flex:none;}
+  .rail a:hover{color:var(--ink);}
+  .rail a.done .dot{border-color:var(--red);color:var(--red);}
+  .rail a.on{color:var(--red);}
+  .rail a.on .dot{background:var(--red);border-color:var(--red);color:#fff;transform:scale(1.12);box-shadow:0 0 0 5px rgba(166,52,70,.14);}
+  .rail li.rp{font:600 9.5px var(--body);letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3);padding:10px 0 3px 38px;white-space:nowrap;}   /* optional part label: section[data-part] */
+
+  /* ---------- Explore mode: a normal web page — title text first, the figure underneath ---------- */
+  .slide{position:relative;padding:62px 0 8px var(--railpad);}
+  .stage{position:relative;width:100%;max-width:1100px;margin:0 auto;padding:0 30px;}
+  .slide+.slide .stage::before{content:"";position:absolute;left:30px;right:30px;top:-36px;height:1px;background:linear-gradient(90deg,var(--line-2),transparent);}
+  /* OPTIONAL part bands for long pages (e.g. Why → The idea → The details): <div class="part" id="part-…"> between groups of chapters.
+     .pmap is a real element, so a Guided scene can show it as a "you are here" page. */
+  .part{position:relative;padding:70px 0 0 var(--railpad);}
+  .part-in{position:relative;max-width:1100px;margin:0 auto;padding:26px 30px 0;border-top:3px solid var(--ink);}
+  .part-k{font:600 11.5px var(--body);letter-spacing:.2em;text-transform:uppercase;color:var(--red);}
+  .part-t{font:400 clamp(30px,3.5vw,46px)/1.04 var(--display);letter-spacing:-.01em;margin:8px 0 8px;} .part-t em{color:var(--red);}
+  .part-d{font-size:16px;line-height:1.55;color:var(--ink-2);max-width:70ch;margin:0 0 18px;}
+  .pmap{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;}
+  .pm{position:relative;border:1.5px solid var(--line);border-radius:14px;padding:12px 16px 12px;background:rgba(255,254,251,.6);opacity:.5;transition:opacity .3s;}
+  .pm.on{opacity:1;border-color:var(--red);background:var(--card);box-shadow:0 14px 28px -20px rgba(120,40,50,.55);}
+  .pm.was{opacity:.8;}
+  .pm .pn{font:500 11px var(--mono);letter-spacing:.06em;color:var(--red);}
+  .pm b{display:block;font:400 25px/1.1 var(--display);margin:2px 0 6px;}
+  .pm ul{list-style:none;margin:0;padding:0;font-size:12.5px;line-height:1.5;color:var(--ink-2);}
+  .pm li{padding-left:14px;position:relative;cursor:pointer;} .pm li::before{content:"";position:absolute;left:1px;top:.62em;width:6px;height:6px;border-radius:50%;background:var(--line-2);} .pm.on li::before{background:var(--red);}
+  .pm li:hover{color:var(--ink);}
+  .cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:22px;row-gap:0;align-items:start;}
+  .narr,.work{display:contents;}
+  .cols .kicker{grid-column:1/-1;order:1;}
+  .cols h1,.cols h2{grid-column:1/-1;order:2;}
+  .cols .sub{grid-column:1/-1;order:3;}
+  .cols .card{grid-column:1/-1;order:4;}
+  .cols .predict{grid-column:1;order:5;margin-top:22px;align-self:start;}
+  .cols .takeaway{grid-column:2;order:5;margin-top:22px;align-self:stretch;}
+  .cols .roadmap,.cols .rules{grid-column:1/-1;order:6;margin-top:22px;}
+  .ghostnum{position:absolute;right:26px;top:-30px;font:italic 170px/1 var(--display);color:rgba(166,52,70,.07);pointer-events:none;user-select:none;z-index:0;}
+  .cols .kicker,.cols h2,.cols .sub,.cols .predict,.cols .takeaway,.cols .roadmap,.cols .rules{position:relative;z-index:1;}
+  .card{position:relative;z-index:1;}
+
+  .kicker{display:flex;align-items:center;gap:10px;font:600 11.5px var(--body);letter-spacing:.16em;text-transform:uppercase;color:var(--red);margin-bottom:10px;}
+  .kicker .num{font:500 11.5px var(--mono);background:var(--red);color:#fff;padding:2px 8px;border-radius:5px;letter-spacing:.04em;}
+  .kicker::after{content:"";height:1px;width:40px;background:var(--red);opacity:.45;}
+  h1,h2{font-family:var(--display);font-weight:400;margin:0;letter-spacing:-.012em;}
+  h2{font-size:clamp(34px,4.4vw,52px);line-height:1.04;max-width:none;}
+  h1{font-size:56px;line-height:.98;}
+  h1 em,h2 em{color:var(--red);font-style:italic;}
+  .sub{font-size:17px;color:var(--ink-2);max-width:70ch;margin:10px 0 20px;}
+  .sub b{color:var(--ink);}
+
+  .card{position:relative;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:28px 24px 18px;
+    box-shadow:0 1px 0 #fff inset,0 24px 50px -30px rgba(70,45,20,.38),0 2px 6px -2px rgba(70,45,20,.08);}
+  .card-tag{position:absolute;left:22px;top:-12px;background:var(--red);color:#fff;font:600 11px var(--body);letter-spacing:.1em;text-transform:uppercase;padding:3px 12px;border-radius:7px 7px 7px 2px;box-shadow:0 4px 10px -4px rgba(127,31,46,.6);}
+  .lbl{font:600 11px var(--body);letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);margin-bottom:6px;}
+  .cap{font-size:13px;color:var(--ink-2);margin:10px 0 0;}
+  .btnrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0 2px;}
+  .btn{border:1px solid var(--line-2);background:#fff;color:var(--ink);padding:7px 15px;border-radius:999px;font:600 13px var(--body);cursor:pointer;transition:all .2s var(--ease);}
+  .btn:hover:not(:disabled){border-color:var(--red);color:var(--red);transform:translateY(-1px);}
+  .btn:active:not(:disabled){transform:translateY(0);}
+  .btn:disabled{opacity:.42;cursor:default;}
+  .btn.primary{background:var(--red);border-color:var(--red);color:#fff;box-shadow:0 8px 18px -10px rgba(127,31,46,.75);}
+  .btn.primary:hover:not(:disabled){color:#fff;filter:brightness(1.08);}
+  .btn.sm{padding:4px 12px;font-size:12px;}
+  .formula-box{margin-top:12px;padding:6px 14px;border-radius:12px;background:var(--paper-2);border:1px solid var(--line);min-height:50px;display:flex;align-items:center;font-size:14px;}
+  .formula-box>div{width:100%;}
+  .formula-box .katex-display{margin:2px 0;overflow-x:auto;overflow-y:hidden;}
+  .formula-box .katex{font-size:1.08em;}
+  .plain-formula{font-family:var(--mono);font-size:12.5px;}
+
+  .takeaway{display:flex;gap:16px;align-items:baseline;padding:16px 22px;background:var(--red-soft);border-left:6px solid var(--red);border-radius:4px 14px 14px 4px;}
+  .takeaway .tk{font:700 11px var(--body);letter-spacing:.14em;text-transform:uppercase;color:var(--red);white-space:nowrap;}
+  .takeaway p{margin:0;font:400 24px/1.22 var(--display);color:var(--ink);}
+  .takeaway p em{color:var(--red);}
+
+  .predict{margin-top:4px;background:var(--note);border:1px solid var(--note-line);border-radius:6px 14px 14px 14px;padding:13px 18px 14px;transform:rotate(-.35deg);box-shadow:0 14px 26px -18px rgba(110,80,10,.55);position:relative;}
+  .predict::before{content:"";position:absolute;left:20px;top:-8px;width:54px;height:15px;background:rgba(255,255,255,.55);border:1px solid rgba(0,0,0,.05);transform:rotate(-3deg);}
+  .p-head{font:700 10.5px var(--body);letter-spacing:.14em;text-transform:uppercase;color:#8a6a10;margin-bottom:4px;}
+  .p-q{margin:0 0 9px;font:400 19px/1.22 var(--display);}
+  .p-opts{display:flex;flex-wrap:wrap;gap:6px;}
+  .p-opts button{border:1.5px solid var(--note-line);background:#fffbe9;border-radius:999px;padding:5px 13px;font:600 12.5px var(--body);cursor:pointer;color:var(--ink);transition:all .2s;}
+  .p-opts button:hover:not(:disabled){background:#fff;border-color:#b8962c;}
+  .p-opts button.right{background:var(--green);border-color:var(--green);color:#fff;}
+  .p-opts button.wrong{background:#fff;border-color:var(--red);color:var(--red);text-decoration:line-through;}
+  .p-opts button:disabled{cursor:default;}
+  .p-ans{margin-top:9px;font-size:13px;line-height:1.45;color:#4a3d10;border-top:1px dashed var(--note-line);padding-top:8px;animation:rise .5s var(--ease);}
+  .p-ans[hidden]{display:none;}
+  @keyframes rise{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+
+  /* entrance animation (replaces scroll-reveal) */
+  .slide .rv{opacity:0;transform:translateY(16px);transition:opacity .7s var(--ease),transform .7s var(--ease);}
+  .slide.seen .rv{opacity:1;transform:none;}
+  .slide.seen .rv.d1{transition-delay:.08s;}.slide.seen .rv.d2{transition-delay:.16s;}.slide.seen .rv.d3{transition-delay:.24s;}
+
+  /* ---------- word tiles ---------- */
+  .tile{display:inline-flex;align-items:center;gap:6px;padding:2px 11px 2px 9px;border-radius:9px;font:500 14px var(--mono);color:var(--ink);white-space:nowrap;
+    background:color-mix(in srgb,var(--tc) 13%,#fff);border:1px solid color-mix(in srgb,var(--tc) 36%,#fff);border-left:5px solid var(--tc);box-shadow:0 2px 0 rgba(0,0,0,.05);}
+  .tile.sm{font-size:12px;padding:0 8px 0 7px;border-radius:7px;border-left-width:4px;}
+  .tile.lg{font-size:20px;padding:4px 13px 4px 11px;border-radius:11px;border-left-width:6px;}
+  .tile.blank{background:transparent;border:2px dashed var(--line-2);border-left:2px dashed var(--line-2);color:var(--ink-3);animation:pulse 1.8s ease-in-out infinite;}
+  .tile.pop{animation:pop .55s var(--ease);}
+  .tile.prompt{--tc:#7C8594;}
+  @keyframes pulse{50%{border-color:var(--red);color:var(--red);}}
+  @keyframes pop{0%{transform:scale(.6);opacity:0;}60%{transform:scale(1.12);}100%{transform:none;opacity:1;}}
+  .sent{display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-height:38px;}
+  .sent .arr{color:var(--line-2);font-size:13px;}
+
+  /* ---------- page title (masthead) ---------- */
+  .masthead{position:relative;padding:92px 0 8px var(--railpad);}
+  .mh-inner{position:relative;max-width:1100px;margin:0 auto;padding:0 30px;}
+  .masthead h1{font-size:clamp(60px,9vw,112px);line-height:.92;max-width:none;margin:4px 0 0;}
+  .mh-sub{font:italic 400 clamp(24px,3.1vw,40px)/1.12 var(--display);color:var(--red);margin:12px 0 0;}
+  .mh-desc{font-size:17.5px;line-height:1.6;color:var(--ink-2);max-width:66ch;margin:20px 0 24px;}
+  .mh-desc b{color:var(--ink);}
+  .mh-actions{display:flex;gap:12px;flex-wrap:wrap;align-items:center;}
+  .btn.big{padding:12px 26px;font-size:15px;}
+  .mh-meta{list-style:none;display:flex;flex-wrap:wrap;gap:6px 22px;margin:22px 0 0;padding:0;font:500 12.5px var(--mono);color:var(--ink-3);}
+  .mh-meta li::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--red);margin-right:8px;vertical-align:1px;opacity:.7;}
+  .brand{font:600 12px var(--body);letter-spacing:.15em;text-transform:uppercase;color:var(--ink-3);margin-bottom:12px;}
+  .brand b{color:var(--red);}
+  .floaters{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:0;}
+  .mh-inner>*:not(.floaters){position:relative;z-index:1;}
+  .floaters .tile{position:absolute;opacity:.5;animation:float 9s ease-in-out infinite;}
+  @keyframes float{50%{transform:translateY(-12px) rotate(var(--r,0deg));}}
+  /* ---------- chapter overview strip (optional) ---------- */
+  .roadmap{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(5,1fr);gap:10px;counter-reset:rm;}
+  .roadmap li{counter-increment:rm;background:rgba(255,254,251,.75);border:1px solid var(--line);border-radius:13px;padding:10px 11px 9px;font-size:11.5px;line-height:1.35;color:var(--ink-2);transition:transform .25s var(--ease),border-color .25s;cursor:pointer;}
+  .roadmap li:hover{transform:translateY(-3px);border-color:var(--red);}
+  .roadmap li::before{content:counter(rm);display:block;font:italic 28px/1 var(--display);color:var(--red);margin-bottom:4px;}
+  .roadmap li b{display:block;color:var(--ink);font-size:12.5px;margin-bottom:1px;}
+  /* ---------- BarList: persistent animated rows ---------- */
+  /* ---------- bar lists ---------- */
+  .bl{position:relative;}
+  .bl-row{position:absolute;left:0;right:0;display:flex;align-items:center;gap:10px;padding:0 8px 0 4px;border-radius:8px;transition:transform .7s var(--ease),background .3s,opacity .4s;}
+  .bl-row.click{cursor:pointer;}
+  .bl-row.click:hover{background:var(--paper-2);}
+  .bl-tile{width:84px;flex:none;}
+  .bl-row .tile{font-size:12.5px;padding:1px 9px 1px 8px;}
+  .bl-track{position:relative;flex:1;height:60%;min-width:50px;}
+  .bl-bar,.bl-ghost,.bl-zero{position:absolute;top:0;bottom:0;display:block;}
+  .bl-bar{border-radius:4px;transition:left .7s var(--ease),width .7s var(--ease),background .3s;}
+  .bl-ghost{z-index:2;pointer-events:none;border:1.5px dashed rgba(33,30,36,.55);border-radius:4px;transition:left .7s var(--ease),width .7s var(--ease),opacity .4s;opacity:0;}
+  .bl-ghost.on{opacity:1;}
+  .bl-zero{width:1px;background:var(--ink-3);top:-3px;bottom:-3px;opacity:0;transition:opacity .4s,left .6s;}
+  .bl-val{width:54px;text-align:right;font:500 12.5px var(--mono);flex:none;}
+  .bl-x{width:50px;font:500 11px var(--mono);color:var(--ink-3);flex:none;}
+  .bl-row.cut .bl-bar{background:repeating-linear-gradient(135deg,#cfd1d9 0 5px,#e7e9ef 5px 10px)!important;}
+  .bl-row.cut .tile{filter:grayscale(1);opacity:.5;}
+  .bl-row.cut .bl-val{color:var(--ink-3);}
+  .bl-row.pick{background:linear-gradient(90deg,var(--red-soft),rgba(248,234,236,0) 85%);box-shadow:inset 4px 0 0 var(--red);}
+  .bl-row.pick .bl-val{color:var(--red);}
+  .bl-row.flash .bl-bar{animation:flash .5s ease-in-out 2;}
+  @keyframes flash{50%{filter:brightness(1.35) saturate(1.3);}}
+
+  /* ---------- controls: knob (slider + live value), presets, round buttons ---------- */
+  .circ{width:30px;height:30px;border-radius:50%;border:1.5px solid var(--line-2);background:#fff;display:grid;place-items:center;font:600 15px var(--body);color:var(--ink-2);cursor:pointer;flex:none;transition:all .2s;padding:0;}
+  .circ:hover:not(:disabled){border-color:var(--red);color:var(--red);}
+  .circ:disabled{opacity:.35;cursor:default;}
+  .circ.primary{background:var(--red);border-color:var(--red);color:#fff;}
+  .circ.primary:hover:not(:disabled){color:#fff;filter:brightness(1.1);}
+  .knob{display:grid;grid-template-columns:1fr auto;gap:0 10px;align-items:center;}
+  .knob .kn-name{font:600 12px var(--body);color:var(--ink-2);}
+  .knob .kn-name small{font:500 11.5px var(--mono);color:var(--ink-3);}
+  .knob b{font:500 14px var(--mono);color:var(--red);}
+  .knob input{grid-column:1/3;}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:22px;background:transparent;margin:0;cursor:pointer;}
+  input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:linear-gradient(90deg,var(--red) var(--fill,50%),var(--line) var(--fill,50%));}
+  input[type=range]::-moz-range-track{height:6px;border-radius:3px;background:var(--line);}
+  input[type=range]::-moz-range-progress{height:6px;border-radius:3px;background:var(--red);}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:#fff;border:3px solid var(--red);margin-top:-7px;box-shadow:0 3px 8px -2px rgba(0,0,0,.4);}
+  input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:#fff;border:3px solid var(--red);}
+  .presets{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px;}
+  .chip{border:1px solid var(--line-2);background:#fff;border-radius:999px;padding:2px 10px;font:500 11.5px var(--mono);cursor:pointer;color:var(--ink-2);transition:all .18s;}
+  .chip:hover{border-color:var(--red);color:var(--red);}
+  .knobrow{margin-top:14px;display:grid;gap:8px;}
+  .plot{width:100%;height:260px;border:1px solid var(--line);border-radius:12px;background:#fff;display:block;}
+  /* ---------- callout cards (rules of thumb) ---------- */
+  .rules{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;}
+  .rule{border:1px solid var(--line);border-radius:14px;padding:12px 16px;background:rgba(255,254,251,.8);}
+  .rule .t{font:italic 22px/1.1 var(--display);color:var(--red);display:flex;flex-direction:column;align-items:flex-start;gap:3px;}
+  .rule .t small{font:500 10.5px var(--mono);color:var(--ink-3);font-style:normal;}
+  .rule p{margin:6px 0 0;font-size:13.5px;line-height:1.45;color:var(--ink-2);}
+
+  /* ---------- Guided tour mode: strict full-screen presentation, one step per page, large type ---------- */
+  html.presenting,html.presenting body{overflow:hidden;}
+  html.presenting .rail,html.presenting .modebox,html.presenting .progress{display:none;}
+  .gp-hide{display:none!important;}
+  /* inside the presentation layer: bigger type for the key elements, less chrome */
+  .pr-fit .bl-row .tile{font-size:14.5px;line-height:1.2;padding:2px 9px 2px 8px;}
+  .pr-fit .bl-val{font-size:14.5px;} .pr-fit .bl-x{font-size:12px;}
+  .pr-fit .tile.sm{font-size:14px;} .pr-fit .tile.lg{font-size:22px;}
+  .pr-fit .sc-z,.pr-fit .sc-p{font-size:14.5px;} .pr-fit .sc-row .tile{font-size:14px;}
+  .pr-fit .stage-info{grid-template-columns:minmax(0,1fr);min-height:0;padding:8px 16px;}
+  .pr-fit .snote{font-size:14px;min-height:0;}
+  .pr-fit .scwrap canvas{height:330px;}
+  .pr-fit .p-q{font-size:23px;} .pr-fit .p-opts button{font-size:15px;padding:7px 16px;} .pr-fit .p-ans{font-size:15.5px;}
+  .pr-fit .rule .t{font-size:23px;} .pr-fit .rule p{font-size:14.5px;} .pr-fit .rule .t small{font-size:12px;}
+  .present{position:fixed;inset:0;z-index:200;display:grid;grid-template-rows:auto minmax(0,1fr) auto;
+    background:radial-gradient(1400px 700px at 6% -10%,rgba(166,52,70,.09),transparent 60%),radial-gradient(1000px 600px at 100% 0%,rgba(31,78,121,.07),transparent 60%),var(--paper);}
+  .present.hidden{display:none;}
+  .pr-prog{position:absolute;left:0;top:0;height:5px;background:linear-gradient(90deg,var(--red),#d05a6b);transition:width .4s var(--ease);}
+  .pr-cap{padding:clamp(14px,2.4vh,34px) clamp(28px,5.5vw,110px) 0;}
+  .pr-meta{display:flex;align-items:center;gap:14px;font:600 clamp(12px,1.05vw,19px) var(--body);letter-spacing:.16em;text-transform:uppercase;color:var(--red);}
+  .pr-meta .pr-badge{background:var(--red);color:#fff;padding:.15em .7em;border-radius:.4em;letter-spacing:.1em;}
+  .pr-meta #prCount{color:var(--ink-2);font-family:var(--mono);letter-spacing:.04em;}
+  .pr-title{font:400 clamp(32px,4.2vw,82px)/1.02 var(--display);margin:.14em 0 0;letter-spacing:-.012em;color:var(--ink);text-wrap:balance;}
+  .pr-title em{font-style:italic;color:var(--red);}                         /* *key words* in a scene title */
+  .pr-text{font:500 clamp(18px,1.9vw,37px)/1.3 var(--body);color:#2E2A33;max-width:min(100%,46em);margin:.4em 0 0;text-wrap:pretty;}
+  .pr-text em{font-style:normal;font-weight:700;color:var(--red-d);}        /* *the one phrase to remember* in a scene text */
+  .pr-body{position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;min-height:0;padding:0 2vw;}
+  .pr-fit{flex:none;width:max-content;transform-origin:center center;padding-top:18px;}   /* room for the card-tag that hangs above the card */
+  .pr-nav{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:clamp(12px,1.6vw,30px);align-items:center;padding:clamp(8px,1.1vh,14px) clamp(28px,5.5vw,110px) clamp(10px,1.7vh,20px);}
+  .pr-btn{font:700 clamp(16px,1.35vw,26px) var(--body);padding:.45em 1.3em;border-radius:999px;border:2px solid var(--line-2);background:#fff;color:var(--ink);cursor:pointer;transition:all .2s var(--ease);}
+  .pr-btn:hover:not(:disabled){border-color:var(--red);color:var(--red);transform:translateY(-2px);}
+  .pr-btn:disabled{opacity:.35;cursor:default;}
+  .pr-btn.primary{background:var(--red);border-color:var(--red);color:#fff;box-shadow:0 14px 26px -14px rgba(127,31,46,.8);}
+  .pr-btn.primary:hover:not(:disabled){color:#fff;filter:brightness(1.08);}
+  .pr-x{font:600 clamp(13px,1.1vw,20px) var(--body);border:none;background:none;color:var(--ink-3);cursor:pointer;padding:.4em .6em;}
+  .pr-x:hover{color:var(--red);}
+  .pr-mid{display:flex;flex-direction:column;align-items:center;gap:8px;min-width:0;}
+  .pr-hint{font:500 clamp(12px,1vw,19px) var(--body);color:var(--ink-2);}
+  .guided-dots{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:center;}
+  .guided-dot{width:8px;height:8px;border-radius:50%;background:var(--line-2);transition:all .25s;}
+  .guided-dot.active{background:var(--red);width:26px;border-radius:5px;}
+
+  /* ---------- narrow screens: natural flow instead of scaled slides ---------- */
+  html.flow .slide{min-height:0;display:block;padding:78px 0 24px;}
+  html.flow .stage{width:auto;max-width:none;padding:0 18px;}
+  html.flow .cols{grid-template-columns:minmax(0,1fr);}
+  html.flow .cols .predict,html.flow .cols .takeaway{grid-column:1;}
+  html.flow .cols .takeaway{margin-top:14px;}
+  html.flow .rules{grid-template-columns:1fr;}
+  html.flow .masthead{padding-top:70px;}
+  html.flow .masthead h1{font-size:60px;}
+  html.flow h2{font-size:40px;} html.flow h1{font-size:46px;}
+  html.flow .ghostnum{font-size:110px;top:-20px;right:6px;}
+  html.flow .floaters{display:none;}
+  html.flow .modebox{top:8px;right:8px;} html.flow .fs span{display:none;}
+  html.flow .takeaway{flex-direction:column;gap:4px;}
+  html.flow .slide .rv{opacity:1;transform:none;}
+  @media (prefers-reduced-motion:reduce){*,*::before{transition-duration:.01ms!important;animation-duration:.01ms!important;}html{scroll-behavior:auto;}}
+  html.flow .part{padding-top:64px;} html.flow .part-in{padding:22px 18px 0;} html.flow .pmap{grid-template-columns:minmax(0,1fr);}
+  html.flow .roadmap{grid-template-columns:repeat(2,minmax(0,1fr));} html.flow .roadmap li,html.flow .mh-meta li{min-width:0;}
+  html.flow .bl-tile{width:70px;} html.flow .bl-val{width:46px;} html.flow .bl-x{width:42px;font-size:10px;}
+
+  /* ============ Speculative Lab: concept-specific components ============
+     identity colours:  draft model q = amber · target model p = blue
+     status colours:    accepted = green · rejected = red (struck) · corrected from the residual = purple · bonus from the target = blue · discarded = grey dashed
+     Words are neutral on this page: colour says WHICH MODEL or WHAT HAPPENED to a token, never which word it is. */
+  :root{--mq:#E08A2E;--mp:#1F4E79;--mok:#0A8F22;--mfix:#7A4FA3;--mdrop:#B9BCC8;}
+  .tile.tk{--tc:#7C8594;}
+  .tile.tk.draft{--tc:var(--mq);} .tile.tk.ok{--tc:var(--mok);} .tile.tk.fix{--tc:var(--mfix);} .tile.tk.bonus{--tc:var(--mp);}
+  .tile.tk.rej{--tc:var(--red);}
+  .tile.tk.drop{--tc:var(--mdrop);opacity:.5;text-decoration:line-through;border-style:dashed;}
+
+  /* shared layout helpers (same as the KV Cache Lab) */
+  .kv-two{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:24px;align-items:start;}
+  .kv-two:has(> .gp-hide){grid-template-columns:minmax(0,1fr);}
+  .side{display:flex;flex-direction:column;gap:10px;min-width:0;}
+  .knob.inline{display:inline-grid;grid-template-columns:auto auto;min-width:200px;margin-left:auto;gap:0 12px;}
+  .knob.inline input{grid-column:1/3;}
+  .seg{display:inline-flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;}
+  .seg .chip{padding:5px 14px;font:600 12.5px var(--body);}
+  .chip.on{background:var(--mc,var(--red));border-color:var(--mc,var(--red));color:#fff;}
+  .note{margin:8px 0 0;font-size:12px;line-height:1.45;color:var(--ink-3);}
+  .legend2{display:flex;gap:6px 16px;flex-wrap:wrap;font-size:12px;color:var(--ink-2);margin:10px 0 0;}
+  .legend2.tight{margin-top:8px;gap:4px 14px;font-size:11.5px;}
+  .legend2 .lg{display:inline-block;width:13px;height:13px;border-radius:4px;vertical-align:-2px;margin-right:6px;}
+  .lg.pip-p,.lg.bar-p{background:var(--mp);} .lg.pip-q,.lg.bar-q{background:var(--mq);} .lg.pip-q{width:9px;height:9px;border-radius:3px;vertical-align:0;}
+  .lg.st-ok{background:color-mix(in srgb,var(--mok) 16%,#fff);border-left:4px solid var(--mok);} .lg.st-fix{background:color-mix(in srgb,var(--mfix) 16%,#fff);border-left:4px solid var(--mfix);} .lg.st-bonus{background:color-mix(in srgb,var(--mp) 16%,#fff);border-left:4px solid var(--mp);}
+  .lg.m-ok{background:var(--mok);opacity:.8;} .lg.m-ex{background:repeating-linear-gradient(135deg,var(--mq) 0 4px,#f6d3a4 4px 8px);} .lg.m-df{background:var(--mfix);}
+  .lg.o-bar{background:#3B3740;} .lg.o-tgt{background:transparent;border-left:3px dashed var(--mp);border-radius:0;width:4px;} .lg.o-dot{background:#fff;border:2.5px solid var(--red);border-radius:50%;width:11px;height:11px;}
+  .verdict{margin:12px 0 0;font:400 21px/1.25 var(--display);min-height:26px;} .verdict em{color:var(--red);}
+  .stats3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px;} .stats3.two{grid-template-columns:repeat(3,minmax(0,1fr));margin-top:0;}
+  .s3{border:1px solid var(--line);border-radius:12px;padding:8px 12px;background:#fff;min-width:0;} .s3 b{font:500 17px var(--mono);color:var(--ink);display:block;} .s3 small{font-size:11.5px;color:var(--ink-3);line-height:1.3;display:block;}
+  .s3.hi{border-color:var(--red);background:var(--red-soft);} .s3.hi b{color:var(--red);} .s3.good{border-color:var(--mok);background:var(--green-soft);} .s3.good b{color:var(--mok);}
+  .knobs2,.knobs3{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin-top:12px;} .knobs3.three{grid-template-columns:repeat(3,minmax(0,1fr));}
+  .plot.tall{height:230px;} .plot.tl{height:190px;} .plot.short{height:150px;}
+  .mt{width:100%;border-collapse:collapse;margin-top:12px;font-size:13px;} .mt th{text-align:right;font:600 11px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);padding:4px 10px;border-bottom:2px solid var(--line);} .mt th:first-child,.mt td:first-child{text-align:left;}
+  .mt td{padding:5px 10px;border-bottom:1px solid #F0EFE8;text-align:right;font:500 13px var(--mono);} .mt td:first-child{font:600 12.5px var(--body);color:var(--ink-2);}
+  .mt .cp{color:var(--mp);} .mt .cq{color:#B36A15;} .mt .sp{color:var(--red);font-weight:500;}
+
+  /* chapter 0: the race */
+  .lanes{display:flex;flex-direction:column;gap:12px;}
+  .lane{display:grid;grid-template-columns:176px minmax(0,1fr) 132px;gap:16px;align-items:center;padding:12px 16px;border:1.5px solid color-mix(in srgb,var(--mc) 35%,#fff);border-left:6px solid var(--mc);border-radius:14px;background:#fff;}
+  .lane-h b{display:block;font:700 14px var(--body);color:var(--mc);} .lane-h span{font-size:12px;color:var(--ink-2);line-height:1.35;display:block;margin-top:2px;}
+  .lane-body{display:flex;flex-wrap:wrap;gap:7px 8px;align-items:flex-end;min-height:52px;}
+  .lane-body .ph0{font-size:13px;color:var(--ink-3);}
+  .rg{display:inline-flex;flex-direction:column;gap:4px;padding:5px 6px 6px;border:1.5px solid var(--line-2);border-radius:10px;background:var(--paper);}
+  .rg.new{animation:pop .45s var(--ease);} .rg.one{padding:5px 4px 6px;border-color:var(--line);}
+  .rg .pips{display:flex;gap:3px;align-items:center;height:12px;} .rg .toks{display:flex;gap:4px;}
+  .pip{display:inline-block;border-radius:3px;} .pip.p{width:12px;height:12px;background:var(--mp);} .pip.q{width:7px;height:7px;background:var(--mq);border-radius:2px;}
+  .lane-n{text-align:right;} .lane-n b{font:400 40px/1 var(--display);color:var(--mc);} .lane-n small{display:block;font-size:11.5px;color:var(--ink-3);} .lane-n .dn{color:#B36A15;font-weight:600;min-height:16px;}
+
+  /* chapter 1: positions, one parallel pass */
+  .vgrid{display:grid;grid-template-columns:128px repeat(var(--n),minmax(0,1fr));gap:6px;align-items:center;margin-bottom:14px;}
+  .vg-h{font:500 11px var(--mono);color:var(--ink-3);text-align:center;} .vg-c{text-align:center;min-width:0;}
+  .vg-l{font:700 12.5px var(--body);line-height:1.2;} .vg-l small{display:block;font:500 11px var(--body);color:var(--ink-3);}
+  .vg-c .tile.sel{outline:2.5px solid var(--red);outline-offset:2px;}
+  .vg-pass{display:grid;grid-template-columns:repeat(var(--k),minmax(0,1fr));gap:6px;padding:6px;border:1.5px solid color-mix(in srgb,var(--mp) 45%,#fff);border-radius:11px;background:var(--blue-soft);margin:0 -6px;}
+  .pchip{border:1.5px solid var(--mp);color:var(--mp);background:#fff;border-radius:8px;font:500 12px var(--mono);padding:3px 0;cursor:pointer;text-align:center;transition:all .2s;}
+  .pchip:hover{background:var(--blue-soft);} .pchip.on{background:var(--mp);color:#fff;box-shadow:0 0 0 3px rgba(166,52,70,.35);}
+  .vtext{border:1px solid var(--line);border-radius:12px;padding:10px 14px;background:#fff;font-size:13px;line-height:1.5;color:var(--ink-2);min-height:92px;} .vtext b{color:var(--ink);} .vtext .cq{color:#B36A15;font-weight:600;} .vtext .cp{color:var(--mp);font-weight:600;}
+
+  /* p-vs-q bars (pair mode = two thin bars; mass mode = overlap / excess / deficit) */
+  .pq{display:flex;flex-direction:column;gap:6px;}
+  .pq-row{display:grid;grid-template-columns:78px minmax(0,1fr) 124px;gap:10px;align-items:center;padding:1px 4px;border-radius:8px;}
+  .pq-row.hi{background:var(--paper-2);box-shadow:inset 3px 0 0 var(--red);}
+  .pq-row.off{opacity:.0;}
+  .pq-track{position:relative;height:26px;background:var(--paper-2);border-radius:5px;}
+  .pq-track i,.pq-track b{position:absolute;display:block;transition:left .35s var(--ease),width .35s var(--ease),opacity .3s;}
+  .pq-q{top:2px;height:10px;left:0;background:var(--mq);border-radius:3px;} .pq-p{top:14px;height:10px;left:0;background:var(--mp);border-radius:3px;}
+  .pq-ok{top:0;bottom:0;left:0;background:var(--mok);opacity:.78;border-radius:5px 0 0 5px;}
+  .pq-ex{top:0;bottom:0;background:repeating-linear-gradient(135deg,var(--mq) 0 5px,#f6d3a4 5px 10px);}
+  .pq-df{top:0;bottom:0;background:var(--mfix);opacity:.88;}
+  .pq-mp,.pq-mq{top:-4px;bottom:-4px;width:0;} .pq-mp{border-left:2.5px solid var(--mp);} .pq-mq{border-left:2.5px dashed #B36A15;}
+  .pq.pair .pq-ok,.pq.pair .pq-ex,.pq.pair .pq-df,.pq.pair .pq-mp,.pq.pair .pq-mq{display:none;}
+  .pq.mass .pq-q,.pq.mass .pq-p{display:none;}
+  .pq-v{font:500 11.5px var(--mono);color:var(--ink-3);text-align:right;white-space:nowrap;} .pq-v .q{color:#B36A15;} .pq-v .p{color:var(--mp);}
+
+  /* chapter 2: one draw */
+  .drawbox{border:1px solid var(--line);border-radius:12px;padding:10px 14px;background:#fff;min-height:104px;font-size:13px;line-height:1.55;color:var(--ink-2);}
+  .drawbox .ln{display:flex;gap:8px;align-items:baseline;} .drawbox .no{font:500 11px var(--mono);color:#fff;background:var(--ink-3);border-radius:50%;width:17px;height:17px;display:inline-grid;place-items:center;flex:none;transform:translateY(2px);}
+  .drawbox b{color:var(--ink);} .drawbox .okc{color:var(--mok);font-weight:700;} .drawbox .noc{color:var(--red);font-weight:700;}
+  .tally{font:500 12px/1.5 var(--mono);color:var(--ink-2);min-height:38px;} .tally b{color:var(--ink);}
+
+  /* chapter 3: what comes out */
+  .ob-row{display:grid;grid-template-columns:78px minmax(0,1fr) 52px;gap:10px;align-items:center;margin-bottom:6px;}
+  .ob-track{position:relative;height:24px;background:var(--paper-2);border-radius:5px;}
+  .ob-bar{position:absolute;left:0;top:4px;bottom:4px;background:#3B3740;border-radius:4px;transition:width .4s var(--ease);}
+  .ob-tgt{position:absolute;top:-3px;bottom:-3px;width:0;border-left:2.5px dashed var(--mp);transition:left .4s var(--ease);}
+  .ob-dot{position:absolute;top:50%;width:11px;height:11px;margin:-5.5px 0 0 -5.5px;border-radius:50%;background:#fff;border:2.5px solid var(--red);transition:left .4s var(--ease),opacity .3s;opacity:0;}
+  .ob-dot.on{opacity:1;}
+  .ob-v{font:500 12px var(--mono);text-align:right;}
+  .tv{padding:8px 12px;border-radius:10px;font-size:13px;line-height:1.4;margin-top:4px;} .tv.good{background:var(--green-soft);color:var(--mok);} .tv.bad{background:var(--red-soft);color:var(--red);} .tv b{font-family:var(--mono);}
+
+  /* chapter 4: a round */
+  .phase{display:flex;gap:6px;align-items:center;margin-bottom:10px;flex-wrap:wrap;}
+  .ph{border:1.5px solid var(--line-2);border-radius:999px;padding:3px 13px;font:600 12.5px var(--body);color:var(--ink-3);background:#fff;transition:all .25s;}
+  .ph.done{color:var(--ink);border-color:color-mix(in srgb,var(--red) 40%,var(--line-2));background:var(--red-soft);} .ph.on{background:var(--red);border-color:var(--red);color:#fff;}
+  .phase .rno{margin-left:auto;font:500 12.5px var(--mono);color:var(--ink-2);}
+  .rd-grid{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:8px;}
+  .rd-col{border:1.5px solid var(--line);border-radius:12px;padding:7px 7px 6px;background:#fff;text-align:center;transition:all .3s var(--ease);min-width:0;}
+  .rd-col .h{font:500 11px var(--mono);color:var(--ink-3);} .rd-col .tile{margin:4px 0 5px;max-width:100%;}
+  .rd-col .r{display:flex;justify-content:space-between;gap:4px;font:500 11.5px var(--mono);color:var(--ink-3);padding:0 2px;} .rd-col .r b{color:var(--ink);font-weight:500;}
+  .rd-col .r.q b{color:#B36A15;} .rd-col .r.p b{color:var(--mp);}
+  .rd-col .mk{font:700 12px var(--body);margin-top:3px;min-height:18px;color:var(--ink-3);}
+  .rd-col .hid{visibility:hidden;}
+  .rd-col.ok{border-color:var(--mok);background:var(--green-soft);} .rd-col.ok .mk{color:var(--mok);}
+  .rd-col.rej{border-color:var(--red);background:var(--red-soft);} .rd-col.rej .mk{color:var(--red);}
+  .rd-col.drop{opacity:.45;border-style:dashed;}
+  .rd-col.fin{border-style:dashed;} .rd-col.fin .sub2{font-size:11px;line-height:1.3;color:var(--ink-3);min-height:42px;}
+  .rd-col.fin.fix{border-style:solid;border-color:var(--mfix);background:#F3EDF8;} .rd-col.fin.fix .mk{color:var(--mfix);}
+  .rd-col.fin.bonus{border-style:solid;border-color:var(--mp);background:var(--blue-soft);} .rd-col.fin.bonus .mk{color:var(--mp);}
+
+  /* ---------- Part I · intuition ---------- */
+  .okc{color:var(--mok);font-weight:700;} .noc{color:var(--red);font-weight:700;}
+  .sub .cq{color:#B36A15;} .sub .cp{color:var(--mp);}
+  .lg.st-rej{background:color-mix(in srgb,var(--red) 14%,#fff);border-left:4px solid var(--red);}
+  .lane-n .tn{color:var(--ink-2);font-weight:600;min-height:16px;}
+  /* chapter 1: a shared clock under the two writers */
+  .clock{display:grid;grid-template-columns:auto minmax(0,1fr) 44px;gap:12px;align-items:center;margin:14px 0 24px;}
+  .clock-l{font:600 11px var(--body);letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);}
+  .clock-track{position:relative;height:10px;border-radius:5px;background:var(--paper-2);}
+  .clock-track i{position:absolute;left:0;top:0;bottom:0;border-radius:5px;background:var(--ink);opacity:.72;}
+  .ck-mk{position:absolute;top:14px;transform:translateX(-50%);font:500 10.5px var(--mono);color:var(--ink-3);white-space:nowrap;}
+  .ck-mk::before{content:"";position:absolute;left:50%;top:-18px;height:18px;border-left:1.5px dashed var(--ink-3);}
+  .ck-mk.end{transform:translateX(-100%);} .ck-mk.end::before{left:100%;}
+  .clock b{font:500 15px var(--mono);text-align:right;}
+  /* chapter 2: the big model's text, one clickable tile per word */
+  .tile.tk.pre{opacity:.65;}
+  .sent.ez{gap:7px 6px;}
+  .sent.ez .tile[data-i]{cursor:pointer;transition:transform .15s var(--ease);} .sent.ez .tile[data-i]:hover{transform:translateY(-2px);}
+  .sent.ez .tile.sel{outline:2.5px solid var(--red);outline-offset:2px;}
+  .stats3.duo{grid-template-columns:repeat(2,minmax(0,1fr));margin-top:0;}
+  #ezBars .pq-row{grid-template-columns:78px minmax(0,1fr) 148px;}
+  /* chapter 3: writing = staircase, checking = one column (both grids are the BIG model, so both are blue) */
+  .ck-two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;}
+  .ck{border:1.5px solid color-mix(in srgb,var(--mc) 30%,#fff);border-top:5px solid var(--mc);border-radius:14px;padding:10px 14px 10px;background:#fff;min-width:0;}
+  .ck-h b{font:700 14px var(--body);color:var(--mc);margin-right:8px;} .ck-h span{font-size:12px;color:var(--ink-2);}
+  .ckg{display:grid;grid-template-columns:70px repeat(var(--n),minmax(0,1fr));gap:4px;align-items:center;margin:10px 0 8px;}
+  .ck-t{font:500 10px var(--mono);color:var(--ink-3);text-align:center;white-space:nowrap;overflow:hidden;} .ck-t.on{color:var(--ink);} .ck-t small{font-size:inherit;}
+  .ck-w{min-width:0;} .ck-w .tile{max-width:100%;}
+  .cc{display:grid;place-items:center;height:24px;border-radius:6px;border:1.5px dashed transparent;font:600 9.5px var(--body);font-style:normal;color:#fff;overflow:hidden;}
+  .cc.todo{border-color:color-mix(in srgb,var(--mp) 45%,#fff);}
+  .cc.idle{background:repeating-linear-gradient(135deg,transparent 0 5px,rgba(33,30,36,.04) 5px 10px);}
+  .cc.on{background:var(--mp);border:1.5px solid var(--mp);} .cc.now{animation:pop .45s var(--ease);}
+  .ck-n{display:flex;align-items:baseline;gap:8px;} .ck-n b{font:400 34px/1 var(--display);color:var(--mc);} .ck-n small{font-size:12px;color:var(--ink-3);}
+
+  /* ---------- Part II · the three-move loop above the race ---------- */
+  .loop3{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) auto minmax(0,1fr) auto;gap:8px;align-items:stretch;margin-bottom:14px;}
+  .l3{display:flex;gap:11px;align-items:flex-start;border:1.5px solid color-mix(in srgb,var(--mc) 38%,#fff);border-left:6px solid var(--mc);border-radius:12px;padding:8px 12px 9px;background:#fff;min-width:0;}
+  .l3.q{--mc:var(--mq);} .l3.p{--mc:var(--mp);} .l3.k{--mc:var(--mok);}
+  .l3 .n{font:italic 32px/1 var(--display);color:var(--mc);}
+  .l3 b{display:block;font:700 14.5px var(--body);color:var(--ink);} .l3 small{display:block;font-size:12px;line-height:1.35;color:var(--ink-2);}
+  .l3a{align-self:center;font-style:normal;color:var(--ink-3);font-size:18px;} .l3a.rep{font:600 11.5px var(--body);white-space:nowrap;}
+  .loop3.go .l3{animation:l3 .7s var(--ease) both;} .loop3.go .l3.p{animation-delay:.22s;} .loop3.go .l3.k{animation-delay:.44s;}
+  @keyframes l3{0%{transform:none;}40%{transform:translateY(-4px);background:color-mix(in srgb,var(--mc) 14%,#fff);box-shadow:0 12px 20px -12px color-mix(in srgb,var(--mc) 80%,transparent);}100%{transform:none;}}
+
+  /* ---------- Part III · implementation: pseudocode + trace ---------- */
+  .cd-two{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:18px;align-items:start;}
+  .code{border:1px solid var(--line);border-radius:12px;background:#fff;padding:8px 0;font:500 12.5px/1.44 var(--mono);overflow-x:auto;}
+  .cl{display:grid;grid-template-columns:32px minmax(0,1fr);align-items:baseline;padding-right:12px;border-left:4px solid transparent;transition:background .25s,opacity .25s,border-color .25s;}
+  .cl .no{text-align:right;padding-right:10px;color:var(--ink-3);font-size:10.5px;user-select:none;}
+  .cl code{white-space:pre;font:inherit;color:var(--ink-2);}
+  .cl code b{color:var(--ink);font-weight:500;} .cl code i{color:var(--ink-3);font-style:normal;} .cl code sub{font-size:.72em;line-height:0;}
+  .cl .cq{color:#B36A15;} .cl .cp{color:var(--mp);}
+  .cl.on{background:var(--red-soft);border-left-color:var(--red);} .cl.on code{color:var(--ink);}
+  .cl.dim{opacity:.36;} .cl.done{opacity:.72;}
+  .trace{border:1px solid var(--line);border-radius:12px;background:#fff;padding:8px 12px;font:500 12px/1.55 var(--mono);color:var(--ink-2);min-height:204px;}
+  .tr-h{font:600 11.5px var(--body);letter-spacing:.02em;color:var(--ink-3);margin-bottom:2px;}      /* no uppercase: it would turn γ into Γ */
+  .tb{display:grid;grid-template-columns:20px minmax(0,1fr);gap:6px;padding:4px 0;border-top:1px dashed var(--line);opacity:.6;}
+  .tr-h+.tb{border-top:none;}
+  .tb.on{opacity:1;} .tb .tn{font:500 11px var(--mono);color:#fff;background:var(--ink-3);border-radius:50%;width:17px;height:17px;display:inline-grid;place-items:center;margin-top:2px;} .tb.on .tn{background:var(--red);}
+  .tb b{color:var(--ink);} .tb .cq{color:#B36A15;} .tb .cp{color:var(--mp);}
+  .rule p code{display:block;margin-top:5px;font:500 11.5px var(--mono);background:var(--paper-2);padding:3px 7px;border-radius:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+  /* Guided layer: a little more room and size for the dense bits */
+  .pr-fit .pq-v,.pr-fit .ob-v,.pr-fit .rd-col .r,.pr-fit .tally{font-size:13px;} .pr-fit .vtext,.pr-fit .drawbox{font-size:14px;} .pr-fit .s3 small,.pr-fit .note{font-size:12.5px;}
+  .pr-fit .kv-two:has(> .gp-hide) .pq-row{grid-template-columns:90px minmax(0,1fr) 140px;}
+  .pr-fit .l3 small{font-size:13px;} .pr-fit .ck-t{font-size:11.5px;} .pr-fit .cc{font-size:10.5px;height:27px;} .pr-fit .ck-h span,.pr-fit .ck-n small{font-size:13px;}
+  .pr-fit #ezBars .pq-row{grid-template-columns:90px minmax(0,1fr) 172px;}
+  .pr-fit .code{font-size:13.5px;} .pr-fit .trace{font-size:13px;} .pr-fit .ck-mk{font-size:12px;} .pr-fit .pm ul{font-size:13.5px;}
+
+  html.flow .kv-two,html.flow .lane,html.flow .knobs2,html.flow .knobs3,html.flow .knobs3.three,html.flow .stats3,html.flow .stats3.two{grid-template-columns:minmax(0,1fr);}
+  html.flow .ck-two,html.flow .cd-two,html.flow .loop3,html.flow .stats3.duo{grid-template-columns:minmax(0,1fr);} html.flow .l3a{display:none;}
+  html.flow .ckg{grid-template-columns:52px repeat(var(--n),minmax(0,1fr));gap:3px;} html.flow .ck-t small{display:none;} html.flow .cc{font-size:0;} html.flow .ckg .tile{font-size:9.5px;padding:0 3px;border-left-width:3px;}
+  html.flow .ck-mk{font-size:9.5px;} html.flow .clock{grid-template-columns:auto minmax(0,1fr) 36px;gap:8px;}
+  html.flow .lane-n{text-align:left;} html.flow .knob.inline{margin-left:0;width:100%;}
+  html.flow .vgrid{grid-template-columns:64px repeat(var(--n),minmax(0,1fr));gap:3px;} html.flow .vg-l{font-size:10px;} html.flow .vg-l small{display:none;} html.flow .vgrid .tile{font-size:9.5px;padding:0 3px;border-left-width:3px;}
+  html.flow .pchip{font-size:9.5px;} html.flow .vg-pass{gap:3px;padding:3px;margin:0 -3px;}
+  html.flow .rd-grid{grid-template-columns:repeat(3,minmax(0,1fr));} html.flow .pq-row{grid-template-columns:60px minmax(0,1fr) 96px;gap:6px;} html.flow .ob-row{grid-template-columns:60px minmax(0,1fr) 44px;gap:6px;}
+
+  /* ---------- Guided = projector ----------
+     (1) Darker secondary ink for everything inside the layer (the grey #8E8A93 is only 3.4:1 on paper).
+     (2) A floor for small type: the card is then scaled ×1.4–2.3, so 13px here is ≥ 18px on a 1080p screen.
+     Kept at the END of the sheet so it wins over component rules of equal specificity. */
+  .present{--ink-2:#3B3741;--ink-3:#625E69;--line-2:#C4B89E;}
+  .pr-fit .lbl,.pr-fit .card-tag{font-size:13px;}
+  .pr-fit .cap,.pr-fit .note,.pr-fit .snote,.pr-fit .legend,.pr-fit .legend2,.pr-fit .legend2.tight{font-size:13.5px;}
+  .pr-fit .kn-name{font-size:13.5px;} .pr-fit .kn-name small{font-size:13px;} .pr-fit .bl-x{font-size:13.5px;}
+  .pr-fit .chip,.pr-fit .seg .chip,.pr-fit .ctx,.pr-fit .segmented.sm button,.pr-fit .btn.sm{font-size:13.5px;} .pr-fit .btn{font-size:14.5px;} .pr-fit .ctx small{font-size:12px;}
+  .pr-fit .formula-box{font-size:16px;}
+  .pr-fit .cl .no{font-size:12px;} .pr-fit .cl code sub{font-size:.8em;} .pr-fit .tr-h,.pr-fit .vg-h,.pr-fit .rd-col .h{font-size:13px;}
+  .pr-fit .mt th{font-size:12.5px;} .pr-fit .tb .tn{font-size:12px;} .pr-fit .lane-h span,.pr-fit .lane-n small{font-size:13px;}
+</style>
+</head>
+<body>
+<!-- ============================================================================================
+  LECTURE EXPLAINER TEMPLATE  (companion-concept-explainer skill)
+  One self-contained page, two modes over ONE set of live panels:
+    • Explore       – ordinary vertical web page: page title, then per chapter  title → one-line idea → big card → predict + takeaway
+    • Guided tour   – strict full-screen presentation layer, ONE STEP PER PAGE, large type, real card moved in & scaled to fill the screen
+  Regions you replace for a new concept are fenced with  «REPLACE»  comments. Everything else is the shared shell.
+  The demo concept here is a toy ("weighted votes → shares, and a sharpness knob p") so every shell feature is exercised.
+============================================================================================ -->
+<div class="progress"><i id="progressFill"></i></div>
+<nav class="rail" id="rail" aria-label="Chapters"><ol id="railList"></ol></nav>
+<div class="modebox">
+  <div class="segmented" role="group" aria-label="Mode">
+    <button id="modeExplore" aria-pressed="true">Explore</button>
+    <button id="modeGuided" aria-pressed="false">Guided tour</button>
+  </div>
+  <button class="fs" id="fsBtn" aria-label="Toggle fullscreen" title="Fullscreen (F)">
+    <svg id="fsIcon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+    <span id="fsLabel">Fullscreen</span>
+  </button>
+</div>
+
+<main id="deck">
+
+<!-- =============== PAGE TITLE =============== -->
+<header class="masthead" id="masthead"><div class="mh-inner">
+  <div class="floaters" aria-hidden="true">
+    <span class="tile tk draft" style="right:230px;top:100px;--r:4deg;animation-delay:-2s">draft</span>
+    <span class="tile tk ok" style="right:110px;top:172px;--r:-5deg;animation-delay:-5s">accept ✓</span>
+    <span class="tile tk rej" style="right:262px;top:240px;--r:3deg;animation-delay:-7s">reject</span>
+    <span class="tile tk fix" style="right:60px;top:300px;--r:-3deg;animation-delay:-1s">correct</span>
+  </div>
+  <div class="brand"><b>DSAI4207</b> · Lecture 6 · Generation, Decoding &amp; Inference</div>
+  <h1>Speculative <em>Lab</em></h1>
+  <p class="mh-sub">Can a small model make a big one faster — same output?</p>
+  <p class="mh-desc">An interactive companion for first-time learners, in three parts. <b>Part I · Why</b> — a big model writes one word per slow call, and two everyday observations hint at a way out. <b>Part II · The idea</b> — a small model guesses ahead and the big model checks: the whole method in one picture. <b>Part III · The details</b> — the accept rule, the correction that keeps the output exact, a round in code, and when it really pays off. <b>Explore</b> by scrolling, or start the <b>Guided tour</b> for a full-screen, one-step-per-page class presentation.</p>
+  <div class="mh-actions">
+    <button class="btn primary big" id="mhTour">▶ Start guided tour</button>
+    <button class="btn big" data-go="part-why">Start exploring ↓</button>
+  </div>
+  <ul class="mh-meta"><li>3 parts · 11 short chapters</li><li>10 predict &amp; check questions</li><li><span id="mhSteps">36</span> guided steps</li><li>press F for fullscreen</li></ul>
+</div></header>
+
+<!-- ======================================================================= PART I · WHY ======================================================================= -->
+<div class="part" id="part-why"><div class="part-in">
+  <div class="part-k">Part I of III · Intuition &amp; motivation</div>
+  <div class="part-t">Why do we need a <em>trick</em> at all?</div>
+  <p class="part-d">No formulas yet. First the problem — what makes a large model slow — and then two everyday observations that point to a way out.</p>
+  <div class="pmap">
+    <div class="pm on"><span class="pn">PART I</span><b>Why</b><ul><li data-go="ch-pain">Good is slow, fast is sloppy</li><li data-go="ch-easy">Most words are easy</li><li data-go="ch-check">Checking is faster than writing</li></ul></div>
+    <div class="pm"><span class="pn">PART II</span><b>The idea</b><ul><li data-go="ch-hero">Guess, check, keep</li><li data-go="roadmap">Five questions it raises</li></ul></div>
+    <div class="pm"><span class="pn">PART III</span><b>The details</b><ul><li data-go="ch-verify">One pass · accept rule · correction</li><li data-go="ch-round">A full round, then in code</li><li data-go="ch-speed">Speed-up and trade-off</li></ul></div>
+  </div>
+</div></div>
+
+<!-- =============== 1 · THE DILEMMA =============== -->
+<section class="slide" id="ch-pain" data-label="The dilemma" data-num="1" data-part="Why"><div class="stage">
+  <div class="cols">
+    <div class="narr">
+      <div class="ghostnum">1</div>
+      <div class="kicker rv"><span class="num">01</span>The dilemma</div>
+      <h2 class="rv">Good is slow. <em>Fast is sloppy.</em></h2>
+      <p class="sub rv d1">A large model is a careful writer, but it writes one word per call and every call is expensive. A model ten times smaller answers ten times quicker — yet it is not the writer we asked for. Press <b>Write</b> and watch both.</p>
+      <div class="predict rv d2" id="prA" data-answer="1">
+        <div class="p-head">✎ Pause &amp; predict</div>
+        <p class="p-q">A GPU does thousands of things at once. Why can’t the big model produce all 20 words in a single call?</p>
+        <div class="p-opts"><button>It could — nobody built it</button><button>Each word depends on the ones before it</button></div>
+        <div class="p-ans" hidden><b>Each word needs the previous ones.</b> Word 5 is chosen by reading words 1 to 4, so it cannot be computed before word 4 exists. Writing is a chain: 20 words, 20 calls, one after another — even with a KV cache.</div>
+      </div>
+    </div>
+    <div class="work">
+      <div class="card rv d1"><span class="card-tag">Press Write</span>
+        <div class="lanes">
+          <div class="lane" style="--mc:var(--mp)"><div class="lane-h"><b>Big model</b><span>the writer we want — one slow call per word</span></div><div class="lane-body" id="pnBig"></div><div class="lane-n"><b id="pnBigN">0</b><small>of 20 words</small><small id="pnBigT" class="tn"></small></div></div>
+          <div class="lane" style="--mc:var(--mq)"><div class="lane-h"><b>Small model</b><span>ten times quicker per word</span></div><div class="lane-body" id="pnSmall"></div><div class="lane-n"><b id="pnSmallN">0</b><small>of 20 words</small><small id="pnSmallT" class="tn"></small></div></div>
+        </div>
+        <div class="clock"><span class="clock-l">time</span><div class="clock-track"><i id="pnFill"></i><span class="ck-mk" style="left:10%">small model done</span><span class="ck-mk end" style="left:100%">big model done</span></div><b id="pnClock">0.0</b></div>
+        <div class="legend2"><span><i class="lg pip-p"></i>one slow big-model call</span><span><i class="lg pip-q"></i>one quick small-model call</span><span><i class="lg st-rej"></i>a word the big model would pick less than 15% of the time here</span></div>
+        <div class="btnrow">
+          <button class="btn primary" id="pnPlay">▶ Write 20 words</button><button class="btn" id="pnReset">Reset ↺</button>
+          <label class="knob inline"><span class="kn-name">time <small>1 = one big-model call</small></span><b data-val="tw"></b><input type="range" data-param="tw" min="0" max="20" step="0.1"></label>
+        </div>
+        <p class="verdict" id="pnVerdict"></p>
+        <p class="cap">Recall the <b>KV Cache Lab</b>: a cache makes each call cheaper, but the big model must still be called once for every new word.</p>
+      </div>
+      <div class="takeaway rv d2"><span class="tk">Takeaway</span><p>We want the big model’s <em>words</em> at something like the small model’s <em>speed</em>.</p></div>
+    </div>
+  </div>
+</div></section>
+
+<!-- =============== 2 · MOST WORDS ARE EASY =============== -->
+<section class="slide" id="ch-easy" data-label="Easy words" data-num="2"><div class="stage">
+  <div class="cols">
+    <div class="narr">
+      <div class="ghostnum">2</div>
+      <div class="kicker rv"><span class="num">02</span>A first lucky fact</div>
+      <h2 class="rv">Most words are <em>easy</em>.</h2>
+      <p class="sub rv d1">Here are the big model’s 20 words again. At every position we ask the small model for its first guess. Green means it would have guessed the very same word; red means it would have said something else. Click a word.</p>
+      <div class="predict rv d2" id="prB" data-answer="2">
+        <div class="p-head">✎ Pause &amp; predict</div>
+        <p class="p-q">The small model is a much weaker writer. For how many of the big model’s 20 words is its first guess exactly that word?</p>
+        <div class="p-opts"><button>About a quarter</button><button>About half</button><button>Most of them</button></div>
+        <div class="p-ans" hidden><b>Most of them — <span id="ezAnsN">15</span> of 20 here.</b> After “sat on” almost any model says “the”; after “mat” comes a full stop. The two models only part ways at a few real forks, such as <i>cat</i> or <i>dog</i>.</div>
+      </div>
+    </div>
+    <div class="work">
+      <div class="card rv d1"><span class="card-tag">Click a word</span>
+        <div class="lbl">The big model’s 20 words</div>
+        <div class="sent ez" id="ezSent"></div>
+        <div class="legend2 tight"><span><i class="lg st-ok"></i>easy: the small model’s first guess is the same word</span><span><i class="lg st-rej"></i>hard: it would have guessed a different word</span></div>
+        <div class="kv-two" style="margin-top:14px">
+          <div class="lcol">
+            <div class="lbl" id="ezCap"></div>
+            <div id="ezBars"></div>
+            <div class="legend2 tight"><span><i class="lg bar-q"></i>small model</span><span><i class="lg bar-p"></i>big model</span></div>
+          </div>
+          <div class="side">
+            <div class="vtext" id="ezText"></div>
+            <div class="stats3 duo" id="ezStats"></div>
+            <label class="knob"><span class="kn-name">small-model quality <small>0 = sloppy · 1 = identical</small></span><b data-val="qual"></b><input type="range" data-param="qual" min="0" max="1" step="0.05"></label>
+          </div>
+        </div>
+      </div>
+      <div class="takeaway rv d2"><span class="tk">Takeaway</span><p>The big model’s care is only needed at a <em>few hard words</em>.</p></div>
+    </div>
+  </div>
+</div></section>
+
+<!-- =============== 3 · CHECKING IS FASTER THAN WRITING =============== -->
+<section class="slide" id="ch-check" data-label="Checking" data-num="3"><div class="stage">
+  <div class="cols">
+    <div class="narr">
+      <div class="ghostnum">3</div>
+      <div class="kicker rv"><span class="num">03</span>A second lucky fact</div>
+      <h2 class="rv">Checking is faster than <em>writing</em>.</h2>
+      <p class="sub rv d1">To write word 4, the big model must wait for word 3. But if the words are already on the page — guessed by someone else — nothing has to wait: the model can read them all in one call and say, for every position, what it would have written there.</p>
+      <div class="predict rv d2" id="prC" data-answer="1">
+        <div class="p-head">✎ Pause &amp; predict</div>
+        <p class="p-q">Five guessed words are already on the page. How many big-model calls does it take to check all five?</p>
+        <div class="p-opts"><button>Five — one per word</button><button>One — all positions together</button></div>
+        <div class="p-ans" hidden><b>One.</b> Every position only needs to <i>read</i> the words before it, and they are all there. It is the same reason a long prompt is processed in a single pass (prefill in the KV Cache Lab).</div>
+      </div>
+    </div>
+    <div class="work">
+      <div class="card rv d1"><span class="card-tag">Tick the clock</span>
+        <div class="ck-two">
+          <div class="ck" style="--mc:var(--mp)"><div class="ck-h"><b>Writing</b><span>each word waits for the one before it</span></div><div class="ckg" id="ckW"></div><div class="ck-n"><b id="ckWN">0</b><small id="ckWL">big-model calls</small></div></div>
+          <div class="ck" style="--mc:var(--mp)"><div class="ck-h"><b>Checking</b><span>the guessed words are already on the page</span></div><div class="ckg" id="ckC"></div><div class="ck-n"><b id="ckCN">0</b><small id="ckCL">big-model calls</small></div></div>
+        </div>
+        <div class="btnrow">
+          <button class="btn primary" id="ckStep">Next tick ▶</button><button class="btn" id="ckAuto">Auto-play</button><button class="btn" id="ckReset">Reset ↺</button>
+          <label class="knob inline"><span class="kn-name">words</span><b data-val="nC"></b><input type="range" data-param="nC" min="2" max="8" step="1"></label>
+        </div>
+        <p class="verdict" id="ckVerdict"></p>
+        <p class="cap">One tick is one call of the big model. A call that looks at a handful of positions takes about as long as a call that looks at one — the GPU handles them side by side.</p>
+      </div>
+      <div class="takeaway rv d2"><span class="tk">Takeaway</span><p>Writing n words takes n calls. Checking n words takes <em>one</em>.</p></div>
+    </div>
+  </div>
+</div></section>
+
+<!-- ======================================================================= PART II · THE IDEA ======================================================================= -->
+<div class="part" id="part-idea"><div class="part-in">
+  <div class="part-k">Part II of III · The approach</div>
+  <div class="part-t">Let the small model guess. <em>Let the big model check.</em></div>
+  <p class="part-d">Put the two facts together — most words are easy, and checking is cheap — and the whole method fits in one picture: a junior writer drafts ahead, the senior writer approves in one look. (In the lecture’s Manga Studio: the Junior Artist sketches, the Artist approves.) Details wait until Part III.</p>
+  <div class="pmap">
+    <div class="pm was"><span class="pn">PART I</span><b>Why</b><ul><li data-go="ch-pain">Good is slow, fast is sloppy</li><li data-go="ch-easy">Most words are easy</li><li data-go="ch-check">Checking is faster than writing</li></ul></div>
+    <div class="pm on"><span class="pn">PART II</span><b>The idea</b><ul><li data-go="ch-hero">Guess, check, keep</li><li data-go="roadmap">Five questions it raises</li></ul></div>
+    <div class="pm"><span class="pn">PART III</span><b>The details</b><ul><li data-go="ch-verify">One pass · accept rule · correction</li><li data-go="ch-round">A full round, then in code</li><li data-go="ch-speed">Speed-up and trade-off</li></ul></div>
+  </div>
+</div></div>
+
+<!-- =============== 4 · THE IDEA IN ONE PICTURE (the loop + a race) =============== -->
+<section class="slide" id="ch-hero" data-label="The idea" data-num="4" data-part="Idea"><div class="stage">
+  <div class="cols">
+    <div class="narr">
+      <div class="ghostnum">4</div>
+      <div class="kicker rv"><span class="num">04</span>The idea in one picture</div>
+      <h2 class="rv">Guess, check, <em>keep</em>.</h2>
+      <p class="sub rv d1">Two names first. The big model is the <b>target</b>: its text is what we want. The small one is the <b>draft</b> model. One <b>round</b> has three moves — and from here on we say <i>token</i> for a word or word piece. Press <b>Next round</b> and count how often each lane calls the target.</p>
+      <div class="predict rv d2" id="prD" data-answer="2">
+        <div class="p-head">✎ Pause &amp; predict</div>
+        <p class="p-q">The draft model proposed most of the tokens. Whose writing is the final text?</p>
+        <div class="p-opts"><button>A blend of both models</button><button>Mostly the draft’s</button><button>Exactly the target’s</button></div>
+        <div class="p-ans" hidden><b>Exactly the target’s.</b> The draft only decides which tokens get <i>proposed</i>. The target has the last word on every one of them, and its own token replaces the first miss. Part III shows the rule that makes this exact — not merely close.</div>
+      </div>
+    </div>
+    <div class="work">
+      <div class="card rv d2"><span class="card-tag">Run a few rounds</span>
+        <div class="loop3" id="hLoop">
+          <div class="l3 q"><span class="n">1</span><div><b>Guess</b><small>The draft model writes a few tokens ahead — fast.</small></div></div>
+          <i class="l3a">→</i>
+          <div class="l3 p"><span class="n">2</span><div><b>Check</b><small>The target reads all of them in <u>one</u> call.</small></div></div>
+          <i class="l3a">→</i>
+          <div class="l3 k"><span class="n">3</span><div><b>Keep</b><small>Keep what passes, fix the first miss, drop the rest.</small></div></div>
+          <i class="l3a rep">↻ repeat</i>
+        </div>
+        <div class="lanes">
+          <div class="lane" style="--mc:var(--mp)"><div class="lane-h"><b>Standard decode</b><span>one target call for every token</span></div><div class="lane-body" id="hStd"></div><div class="lane-n"><b id="hStdN">0</b><small>target calls</small></div></div>
+          <div class="lane" style="--mc:var(--mq)"><div class="lane-h"><b>Draft + verify</b><span>the draft guesses, the target checks once per round</span></div><div class="lane-body" id="hSpec"></div><div class="lane-n"><b id="hSpecN" style="color:var(--mp)">0</b><small>target calls</small><small id="hDraftN" class="dn"></small></div></div>
+        </div>
+        <div class="legend2"><span><i class="lg pip-p"></i>one target call</span><span><i class="lg pip-q"></i>one cheap draft call</span><span><i class="lg st-ok"></i>draft token kept</span><span><i class="lg st-fix"></i>the target’s fix</span><span><i class="lg st-bonus"></i>bonus token from the target</span></div>
+        <div class="btnrow">
+          <button class="btn primary" id="h0Step">Next round ▶</button><button class="btn" id="h0Auto">Auto-play</button><button class="btn" id="h0Reset">Reset ↺</button><button class="btn" data-reroll>Re-roll ↻</button>
+          <label class="knob inline"><span class="kn-name">round</span><b data-val="step0"></b><input type="range" data-param="step0" min="0" max="7" step="1"></label>
+        </div>
+        <p class="verdict" id="hVerdict"></p>
+      </div>
+      <div class="takeaway rv d2"><span class="tk">Takeaway</span><p>The target is called once per <em>round</em>, not once per <em>token</em>.</p></div>
+      <ol class="roadmap rv d3" id="roadmap">
+        <li data-go="ch-verify"><b>One pass</b>How can one call check many tokens?</li>
+        <li data-go="ch-accept"><b>Accept rule</b>When is a guess good enough to keep?</li>
+        <li data-go="ch-preserve"><b>Correction</b>What do we write after a miss?</li>
+        <li data-go="ch-round"><b>A round, in code</b>How do the pieces fit together?</li>
+        <li data-go="ch-speed"><b>Speed-up</b>When is it really faster?</li>
+      </ol>
+    </div>
+  </div>
+</div></section>
+
+<!-- ======================================================================= PART III · THE DETAILS ======================================================================= -->
+<div class="part" id="part-details"><div class="part-in">
+  <div class="part-k">Part III of III · Details &amp; implementation</div>
+  <div class="part-t">Now open the <em>box</em>.</div>
+  <p class="part-d">Each chapter answers one of the five questions. The symbols p, q, γ and α appear only when they are needed, and every formula is filled in with the numbers on screen.</p>
+  <div class="pmap">
+    <div class="pm was"><span class="pn">PART I</span><b>Why</b><ul><li data-go="ch-pain">Good is slow, fast is sloppy</li><li data-go="ch-easy">Most words are easy</li><li data-go="ch-check">Checking is faster than writing</li></ul></div>
+    <div class="pm was"><span class="pn">PART II</span><b>The idea</b><ul><li data-go="ch-hero">Guess, check, keep</li><li data-go="roadmap">Five questions it raises</li></ul></div>
+    <div class="pm on"><span class="pn">PART III</span><b>The details</b><ul><li data-go="ch-verify">One pass · accept rule · correction</li><li data-go="ch-round">A full round, then in code</li><li data-go="ch-speed">Speed-up and trade-off</li></ul></div>
+  </div>
+</div></div>
+
+<!-- =============== 5 · ONE PASS VERIFIES MANY =============== -->
+<section class="slide" id="ch-verify" data-label="One pass" data-num="5" data-part="Details"><div class="stage">
+  <div class="cols">
+    <div class="narr">
+      <div class="ghostnum">5</div>
+      <div class="kicker rv"><span class="num">05</span>Question 1 · one pass</div>
+      <h2 class="rv">One pass gives the target’s view at <em>every position</em>.</h2>
+      <p class="sub rv d1">Call the number of drafted tokens γ. The draft samples each of them from its own distribution <b class="cq">q</b>. One target pass then returns the target’s distribution <b class="cp">p</b> at all γ positions — plus one more, for the token after them. Click a position to compare the two models.</p>
+      <div class="predict rv d2" id="pr1" data-answer="1">
+        <div class="p-head">✎ Pause &amp; predict</div>
+        <p class="p-q">The check at position 3 was computed assuming guesses 1 and 2 are right. Guess 2 turns out to be wrong. Is the check at position 3 still usable?</p>
+        <div class="p-opts"><button>Yes — it is already computed</button><button>No — it read the wrong context</button></div>
+        <div class="p-ans" hidden><b>No.</b> p₃ was computed after reading x₁ and x₂. Once x₂ is replaced, everything after it was conditioned on a token that is no longer in the text. That is why a round always stops at the first rejection.</div>
+      </div>
+    </div>
+    <div class="work">
+      <div class="card rv d1"><span class="card-tag">Click a position</span>
+        <div class="vgrid" id="vGrid"></div>
+        <div class="kv-two">
+          <div class="lcol"><div class="lbl" id="vCap"></div><div id="vBars"></div></div>
+          <div class="side">
+            <div class="vtext" id="vText"></div>
+            <label class="knob"><span class="kn-name">draft length <small>γ</small></span><b data-val="g"></b><input type="range" data-param="g" min="1" max="8" step="1"></label>
+            <div class="legend2 tight"><span><i class="lg bar-q"></i>draft q</span><span><i class="lg bar-p"></i>target p</span></div>
+          </div>
+        </div>
+        <div class="formula-box"><div id="vFormula"></div></div>
+      </div>
+      <div class="takeaway rv d2"><span class="tk">Takeaway</span><p>γ cheap draft calls, then <em>one</em> target pass that returns γ&nbsp;+&nbsp;1 distributions.</p></div>
+    </div>
+  </div>
+</div></section>
+
+<!-- =============== 6 · THE ACCEPT RULE =============== -->
+<section class="slide" id="ch-accept" data-label="Accept" data-num="6"><div class="stage">
+  <div class="cols">
+    <div class="narr">
+      <div class="ghostnum">6</div>
+      <div class="kicker rv"><span class="num">06</span>Question 2 · the accept rule</div>
+      <h2 class="rv">Keep a guess as often as the target <em>agrees</em>.</h2>
+      <p class="sub rv d1">In Part I, “agree” meant “same first guess”. But models roll dice, so agreement comes in degrees: the draft proposes a token with probability q, and the target would have chosen it with probability p. One position, two possible tokens — drag both and press Draw.</p>
+      <div class="predict rv d2" id="pr2" data-answer="2">
+        <div class="p-head">✎ Pause &amp; predict</div>
+        <p class="p-q">The draft proposes A with q = 0.8, but the target only gives A p = 0.6. What should we do with a proposed A?</p>
+        <div class="p-opts"><button>Always keep it</button><button>Never keep it</button><button>Keep it some of the time</button></div>
+        <div class="p-ans" hidden><b>Some of the time — with probability p / q = 0.75.</b> The draft proposes A too often, so we thin it out by exactly the right factor. B is proposed too rarely (q = 0.2 &lt; p = 0.4), so a proposed B is always kept.</div>
+      </div>
+    </div>
+    <div class="work">
+      <div class="card rv d1"><span class="card-tag">Set p and q, then draw</span>
+        <div class="kv-two">
+          <div class="lcol">
+            <div class="lbl">One position · two tokens</div>
+            <div id="aBars"></div>
+            <div class="legend2 tight"><span><i class="lg m-ok"></i>both agree</span><span><i class="lg m-ex"></i>draft too eager</span><span><i class="lg m-df"></i>draft too shy</span></div>
+            <div class="knobs2">
+              <label class="knob"><span class="kn-name">target <small>p(A)</small></span><b data-val="pA"></b><input type="range" data-param="pA" min="0.05" max="0.95" step="0.05"></label>
+              <label class="knob"><span class="kn-name">draft <small>q(A)</small></span><b data-val="qA"></b><input type="range" data-param="qA" min="0.05" max="0.95" step="0.05"></label>
+            </div>
+          </div>
+          <div class="side">
+            <div class="stats3 two" id="aStats"></div>
+            <div class="drawbox" id="aDraw"></div>
+            <div class="btnrow"><button class="btn primary" id="aDraw1">Draw 1</button><button class="btn" id="aDraw200">Draw 200</button><button class="btn" id="aClear">Clear</button></div>
+            <div class="tally" id="aTally"></div>
+          </div>
+        </div>
+        <div class="formula-box"><div id="aFormula"></div></div>
+      </div>
+      <div class="takeaway rv d2"><span class="tk">Takeaway</span><p>Accept a draft token with probability <em>min(1,&nbsp;p&nbsp;/&nbsp;q)</em>.</p></div>
+    </div>
+  </div>
+</div></section>
+
+<!-- =============== 7 · WHY THE OUTPUT IS UNCHANGED =============== -->
+<section class="slide" id="ch-preserve" data-label="Correction" data-num="7"><div class="stage">
+  <div class="cols">
+    <div class="narr">
+      <div class="ghostnum">7</div>
+      <div class="kicker rv"><span class="num">07</span>Question 3 · the correction</div>
+      <h2 class="rv">Corrections go where the draft was <em>too shy</em>.</h2>
+      <p class="sub rv d1">After a rejection we must still output a token. Sample it from the <b>residual</b> — the part of the target’s probability the draft did not cover (purple). Switch the rule and compare what comes out with the target.</p>
+      <div class="predict rv d2" id="pr3" data-answer="1">
+        <div class="p-head">✎ Pause &amp; predict</div>
+        <p class="p-q">After a rejection, why not simply sample the replacement from the target p?</p>
+        <div class="p-opts"><button>That works just as well</button><button>It favours tokens the draft already over-proposed</button></div>
+        <div class="p-ans" hidden><b>It double-counts.</b> Accepted draws already supplied min(p, q) for every token. Adding a plain sample from p on top gives too much to tokens the draft likes. Only the missing part, max(0, p − q), must be added back — try the middle button.</div>
+      </div>
+    </div>
+    <div class="work">
+      <div class="card rv d1"><span class="card-tag">Pick the correction rule</span>
+        <div class="seg" role="group" aria-label="Correction rule">
+          <button class="chip" data-preset="scheme:0">Draft only</button><button class="chip" data-preset="scheme:1">Reject → resample from p</button><button class="chip" data-preset="scheme:2">Reject → residual (speculative)</button>
+        </div>
+        <div class="kv-two">
+          <div class="lcol">
+            <div class="lbl">Target p vs. draft q · “the cat sat on the ___”</div>
+            <div id="rBars"></div>
+            <div class="legend2 tight"><span><i class="lg m-ok"></i>both agree</span><span><i class="lg m-ex"></i>draft too eager</span><span><i class="lg m-df"></i>draft too shy = residual</span></div>
+            <label class="knob" style="margin-top:10px"><span class="kn-name">draft quality <small>0 = sloppy · 1 = identical</small></span><b data-val="qual"></b><input type="range" data-param="qual" min="0" max="1" step="0.05"></label>
+          </div>
+          <div class="side">
+            <div class="lbl">What actually comes out</div>
+            <div id="rOut"></div>
+            <div class="tv" id="rTv"></div>
+            <div class="btnrow"><button class="btn primary" id="rDraw">Draw 2,000</button><button class="btn" id="rClear">Clear</button></div>
+            <div class="legend2 tight"><span><i class="lg o-bar"></i>output</span><span><i class="lg o-tgt"></i>target p</span><span><i class="lg o-dot"></i>sampled</span></div>
+          </div>
+        </div>
+        <div class="formula-box"><div id="rFormula"></div></div>
+      </div>
+      <div class="takeaway rv d2"><span class="tk">Takeaway</span><p>Accept + residual correction reproduces the target distribution <em>exactly</em>.</p></div>
+    </div>
+  </div>
+</div></section>
+
+<!-- =============== 8 · A FULL ROUND =============== -->
+<section class="slide" id="ch-round" data-label="A round" data-num="8"><div class="stage">
+  <div class="cols">
+    <div class="narr">
+      <div class="ghostnum">8</div>
+      <div class="kicker rv"><span class="num">08</span>Question 4 · a full round</div>
+      <h2 class="rv">Keep the prefix, <em>correct once</em>, drop the rest.</h2>
+      <p class="sub rv d1">Now the three moves from Part II with real numbers. Check the draft tokens left to right: everything before the first rejection is kept, the rejected position is corrected from the residual, and later drafts are thrown away because their context is now wrong.</p>
+      <div class="predict rv d2" id="pr4" data-answer="1">
+        <div class="p-head">✎ Pause &amp; predict</div>
+        <p class="p-q">All γ = 4 draft tokens are accepted. How many tokens does this round add to the text?</p>
+        <div class="p-opts"><button>4</button><button>5</button></div>
+        <div class="p-ans" hidden><b>Five.</b> The same target pass already produced the distribution for the position after the last draft token, so one more token is sampled from it for free. A round always commits between 1 and γ + 1 tokens.</div>
+      </div>
+    </div>
+    <div class="work">
+      <div class="card rv d1"><span class="card-tag">Step through a round</span>
+        <div class="phase" id="rdPhase"></div>
+        <div class="rd-grid" id="rdGrid"></div>
+        <div class="lbl" style="margin-top:12px">Text so far</div>
+        <div class="sent" id="rdSent"></div>
+        <div class="btnrow">
+          <button class="btn primary" id="r4Step">Next ▶</button><button class="btn" id="r4Auto">Auto-play</button><button class="btn" id="r4Reset">Reset ↺</button><button class="btn" data-reroll>Re-roll ↻</button>
+          <label class="knob inline"><span class="kn-name">step</span><b data-val="step4"></b><input type="range" data-param="step4" min="0" max="20" step="1"></label>
+        </div>
+        <div class="knobs2">
+          <label class="knob"><span class="kn-name">draft length <small>γ</small></span><b data-val="g"></b><input type="range" data-param="g" min="1" max="8" step="1"></label>
+          <label class="knob"><span class="kn-name">draft quality</span><b data-val="qual"></b><input type="range" data-param="qual" min="0" max="1" step="0.05"></label>
+        </div>
+        <div class="stats3" id="rdStats"></div>
+        <div class="formula-box"><div id="rdFormula"></div></div>
+      </div>
+      <div class="takeaway rv d2"><span class="tk">Takeaway</span><p>Each target call commits <em>1 to γ&nbsp;+&nbsp;1</em> tokens — more when the draft is good.</p></div>
+    </div>
+  </div>
+</div></section>
+
+<!-- =============== 9 · IN CODE =============== -->
+<section class="slide" id="ch-code" data-label="In code" data-num="9"><div class="stage">
+  <div class="cols">
+    <div class="narr">
+      <div class="ghostnum">9</div>
+      <div class="kicker rv"><span class="num">09</span>Question 4, continued · implementation</div>
+      <h2 class="rv">The whole round fits in <em>seventeen lines</em>.</h2>
+      <p class="sub rv d1">The same three moves as pseudocode. Step through the round you just watched: the executing lines light up, with their numbers on the right.</p>
+      <div class="predict rv d2" id="prE" data-answer="1">
+        <div class="p-head">✎ Pause &amp; predict</div>
+        <p class="p-q">Set the temperature to 0, so the target always picks its single top token. What does line 10 turn into?</p>
+        <div class="p-opts"><button>Accept every draft token</button><button>Accept only the target’s top token</button><button>Nothing changes</button></div>
+        <div class="p-ans" hidden><b>An exact-match test.</b> At temperature 0 the target puts probability 1 on one token and 0 on all others, so p / q is at least 1 for that token and 0 for the rest. The rule becomes “keep the guess if it is what the target would have picked” — the Part I intuition is the special case.</div>
+      </div>
+    </div>
+    <div class="work">
+      <div class="card rv d1"><span class="card-tag">Step through the code</span>
+        <div class="phase" id="cdPhase"></div>
+        <div class="cd-two">
+          <div class="code" id="cdCode"></div>
+          <div class="side">
+            <div class="lbl">What these lines just did</div>
+            <div class="trace" id="cdTrace"></div>
+            <div class="lbl" style="margin-top:4px">Text so far</div>
+            <div class="sent" id="cdSent"></div>
+          </div>
+        </div>
+        <div class="btnrow">
+          <button class="btn primary" id="cdStep">Next ▶</button><button class="btn" id="cdAuto">Auto-play</button><button class="btn" id="cdReset">Reset ↺</button>
+          <label class="knob inline"><span class="kn-name">step</span><b data-val="step4"></b><input type="range" data-param="step4" min="0" max="20" step="1"></label>
+        </div>
+      </div>
+      <div class="takeaway rv d2"><span class="tk">Takeaway</span><p>Draft, verify, commit — then <em>repeat</em> from the longer prefix.</p></div>
+      <div class="rules rv d3" id="impl">
+        <div class="rule"><div class="t">Two caches<small>roll back after a miss</small></div><p>Each model keeps its own KV cache. After a rejection, the entries of the discarded draft tokens are dropped and the next round continues from the accepted prefix.</p></div>
+        <div class="rule"><div class="t">p and q are final<small>after temperature, top-k, top-p</small></div><p>Apply the decoding settings first; the rule compares what is left. So the target’s sampling settings are preserved as well.</p></div>
+        <div class="rule"><div class="t">One argument<small>in a library</small></div><p>Hugging Face Transformers calls this assisted generation — one extra argument: <code>generate(…, assistant_model=draft)</code></p></div>
+      </div>
+    </div>
+  </div>
+</div></section>
+
+<!-- =============== 10 · WHEN DOES IT SAVE TIME =============== -->
+<section class="slide" id="ch-speed" data-label="Speed-up" data-num="10"><div class="stage">
+  <div class="cols">
+    <div class="narr">
+      <div class="ghostnum">10</div>
+      <div class="kicker rv"><span class="num">10</span>Question 5 · when does drafting save time?</div>
+      <h2 class="rv">Tokens per round, <em>divided by</em> cost per round.</h2>
+      <p class="sub rv d1">A round costs γ draft calls plus one target call, and returns a few tokens. Three numbers decide whether that beats standard decoding: the acceptance rate α, the draft’s relative cost c, and the draft length γ.</p>
+      <div class="predict rv d2" id="pr5" data-answer="1">
+        <div class="p-head">✎ Pause &amp; predict</div>
+        <p class="p-q">The draft is accepted 60% of the time and each draft call costs 30% of a target call. With γ = 5, is drafting faster?</p>
+        <div class="p-opts"><button>Yes, clearly</button><button>No — slightly slower</button></div>
+        <div class="p-ans" hidden><b>Slower.</b> A round yields about 2.4 tokens but costs 5 × 0.3 + 1 = 2.5 target-call units: 0.95×. A sloppy or expensive draft can make things worse — set α = 0.60 and c = 0.30 and look below the dashed line.</div>
+      </div>
+    </div>
+    <div class="work">
+      <div class="card rv d1"><span class="card-tag">Find the break-even</span>
+        <canvas id="spCanvas" class="plot tall"></canvas>
+        <div class="knobs3 three">
+          <label class="knob"><span class="kn-name">acceptance rate <small>α</small></span><b data-val="alpha"></b><input type="range" data-param="alpha" min="0.3" max="0.98" step="0.01"></label>
+          <label class="knob"><span class="kn-name">draft cost <small>c = draft ÷ target</small></span><b data-val="c"></b><input type="range" data-param="c" min="0.01" max="0.5" step="0.01"></label>
+          <label class="knob"><span class="kn-name">draft length <small>γ</small></span><b data-val="g"></b><input type="range" data-param="g" min="1" max="8" step="1"></label>
+        </div>
+        <div class="btnrow"><button class="btn sm" id="spUse">Use α measured from the toy draft</button><span class="note" id="spUseNote" style="margin:0"></span></div>
+        <div class="stats3" id="spStats"></div>
+        <div class="formula-box"><div id="spFormula"></div></div>
+        <p class="note">Analytic model of Leviathan, Kalman &amp; Matias (2023): acceptances are treated as independent with rate α; one verification pass over γ + 1 positions takes about as long as one target call; c is the time of a draft call divided by a target call. It predicts shapes, not benchmarks.</p>
+      </div>
+      <div class="takeaway rv d2"><span class="tk">Takeaway</span><p>Drafting pays off when α is high and c is small — and it can be <em>slower</em>.</p></div>
+    </div>
+  </div>
+</div></section>
+
+<!-- =============== 11 · COMPARE =============== -->
+<section class="slide" id="ch-compare" data-label="Trade-off" data-num="11"><div class="stage">
+  <div class="cols">
+    <div class="narr">
+      <div class="ghostnum">11</div>
+      <div class="kicker rv"><span class="num">11</span>Putting it together</div>
+      <h2 class="rv">Same distribution, <em>a different schedule</em>.</h2>
+      <p class="sub rv d1">Back to the dilemma of Part I. One request, drawn both ways on the same time axis as in the KV Cache Lab. Each tick is a token reaching the user: standard decoding ticks evenly, draft-and-verify delivers tokens in bursts.</p>
+    </div>
+    <div class="work">
+      <div class="card rv d1"><span class="card-tag">Read the timeline</span>
+        <canvas id="tlCanvas" class="plot tl"></canvas>
+        <div class="knobs3 three">
+          <label class="knob"><span class="kn-name">draft length <small>γ</small></span><b data-val="g"></b><input type="range" data-param="g" min="1" max="8" step="1"></label>
+          <label class="knob"><span class="kn-name">draft quality</span><b data-val="qual"></b><input type="range" data-param="qual" min="0" max="1" step="0.05"></label>
+          <label class="knob"><span class="kn-name">draft cost <small>c</small></span><b data-val="c"></b><input type="range" data-param="c" min="0.01" max="0.5" step="0.01"></label>
+        </div>
+        <table class="mt" id="tlTable"></table>
+        <p class="note">Time is counted in target-call units (one cached decode step = 1). Prefill is the same in both lanes, so the first token is not faster.</p>
+      </div>
+      <div class="takeaway rv d2"><span class="tk">Takeaway</span><p>Speed comes from a <em>second model</em> — never from a different answer.</p></div>
+      <div class="rules rv d3" id="rules">
+        <div class="rule"><div class="t">What stays the same?<small>the output distribution</small></div><p>Tokens are still samples from the target model, with its temperature, top-k or top-p settings.</p></div>
+        <div class="rule"><div class="t">What gets faster?<small>fewer target calls</small></div><p>Decode time, when the draft is cheap and usually right. Prefill and time-to-first-token do not improve.</p></div>
+        <div class="rule"><div class="t">What does it cost?<small>a second model</small></div><p>Draft compute, its own KV cache in memory, wasted work after a rejection, and burstier streaming.</p></div>
+      </div>
+    </div>
+  </div>
+</div></section>
+
+</main>
+
+<!-- Guided tour presentation layer (ids are part of the contract) -->
+<div class="present hidden" id="guidedBar" role="dialog" aria-label="Guided tour">
+  <div class="pr-prog" id="prProg"></div>
+  <div class="pr-cap">
+    <div class="pr-meta"><span class="pr-badge">Guided tour</span><span id="prCount"></span></div>
+    <h2 class="pr-title" id="guidedTitle"></h2>
+    <p class="pr-text" id="guidedText"></p>
+  </div>
+  <div class="pr-body" id="prBody"><div class="pr-fit" id="prFit"></div></div>
+  <div class="pr-nav">
+    <button class="pr-btn" id="guidedPrev">‹ Prev</button>
+    <div class="pr-mid"><div class="guided-dots" id="guidedDots"></div><div class="pr-hint">← → or Space to turn pages · F fullscreen · Esc to exit</div></div>
+    <button class="pr-btn primary" id="guidedNext">Next ›</button>
+    <button class="pr-x" id="guidedExit">✕ Exit</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script>
+(function(){
+  "use strict";
+  /* ================= 0 · utils ================= */
+  function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
+  function easeOutCubic(t){return 1-Math.pow(1-t,3);}
+  function $(id){return document.getElementById(id);}
+  function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}   // ALWAYS escape names put into innerHTML
+  function pct(p){if(p<=0) return "0%"; if(p<0.001) return "<0.1%"; return (p*100).toFixed(1)+"%";}
+
+    /* ================= 1 · DOMAIN: models, state, pure computation ================= */
+  /* ---- pure computation (no DOM): toy target model p, draft model q, speculative sampling ---- */
+  var SD=(function(){
+    // Target model p = the Decoding Lab's toy model, made endless ("." starts a new sentence), without <eos>, with a thinner tail.
+    var VOCAB=["the","cat","dog","bird","sat","ran","slept","on","mat","home","away","."],V=VOCAB.length,IDX={};
+    VOCAB.forEach(function(w,i){IDX[w]=i;});
+    var TABLE={"the":{cat:2.5,dog:2.3,bird:1.3,mat:0.6},"cat":{sat:2.3,ran:1.5,slept:1.4,".":0.3},"dog":{ran:2.9,sat:1.1,slept:1.0,".":0.1},
+      "bird":{slept:1.6,ran:1.6,sat:1.5,".":0.4},"sat":{on:3.0,".":1.1},"ran":{home:2.4,away:2.1,on:1.0,".":0.9},"slept":{on:2.4,".":1.6},
+      "on":{the:3.2},"on the":{mat:2.4,cat:1.7,dog:1.6,bird:0.9},"mat":{".":3.0},"home":{".":3.2},"away":{".":3.2},".":{the:3.4}};
+    var NOISE=6;                                     // how far a poor draft's logits can drift from the target's
+    function hashStr(s){var h=1779033703;for(var i=0;i<s.length;i++){h=Math.imul(h^s.charCodeAt(i),3432918353);h=(h<<13)|(h>>>19);}return h>>>0;}
+    function mulberry32(seed){var a=seed>>>0;return function(){a=(a+0x6D2B79F5)|0;var t=Math.imul(a^(a>>>15),1|a);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296;};}
+    function ctxKey(ctx){var n=ctx.length,k1=VOCAB[ctx[n-1]],k2=n>1?VOCAB[ctx[n-2]]+" "+k1:null;return (k2&&TABLE[k2])?k2:k1;}
+    function softmax(z){var m=Math.max.apply(null,z),e=z.map(function(v){return Math.exp(v-m);}),s=0;e.forEach(function(v){s+=v;});return e.map(function(v){return v/s;});}
+    function pLogits(ctx){var key=ctxKey(ctx),tab=TABLE[key],z=[];
+      for(var i=0;i<V;i++){var w=VOCAB[i];z.push(tab[w]!==undefined?tab[w]:-4.5+(mulberry32(hashStr(key+"|"+w))()-0.5));}return z;}
+    function pDist(ctx){return softmax(pLogits(ctx));}                                  // target model
+    function qDist(ctx,s){var key=ctxKey(ctx),z=pLogits(ctx);                           // draft model: s = quality in [0,1]; s = 1 ⇒ q = p
+      return softmax(z.map(function(v,i){return v+(1-s)*NOISE*(mulberry32(hashStr("draft|"+key+"|"+VOCAB[i]))()*2-1);}));}
+    function draw(dist,u){var c=0,i;for(i=0;i<dist.length;i++){c+=dist[i];if(u<c&&dist[i]>0) return i;}for(i=dist.length-1;i>=0;i--) if(dist[i]>0) return i;return 0;}
+    function beta(p,q){var b=0;for(var i=0;i<p.length;i++) b+=Math.min(p[i],q[i]);return b;}          // P(accept) = Σ min(p,q)
+    function residual(p,q){var r=p.map(function(v,i){return Math.max(0,v-q[i]);}),s=0;r.forEach(function(v){s+=v;});return s>1e-12?r.map(function(v){return v/s;}):p.slice();}
+    function accept(p,q,x){return Math.min(1,p[x]/q[x]);}
+    /* one speculative step for ONE position: returns {x (drafted), a, u, ok, out, kind} */
+    function specToken(p,q,rng,scheme){                 // scheme: 2 = residual (correct) · 1 = on reject resample from p (naive, wrong) · 0 = draft only
+      var x=draw(q,rng());if(scheme===0) return {x:x,ok:true,out:x,kind:"draft"};
+      var a=accept(p,q,x),u=rng();if(u<a) return {x:x,a:a,u:u,ok:true,out:x,kind:"ok"};
+      var d=scheme===2?residual(p,q):p;return {x:x,a:a,u:u,ok:false,out:draw(d,rng()),kind:"fix"};
+    }
+    /* exact output distribution of one position under each scheme */
+    function outDist(p,q,scheme){
+      if(scheme===0) return q.slice();
+      var b=beta(p,q),d=scheme===2?residual(p,q):p;
+      return p.map(function(_,i){return Math.min(p[i],q[i])+(1-b)*d[i];});
+    }
+    /* a whole generation: rounds of (draft g tokens → verify in one target pass → accept prefix → correct / bonus) */
+    function run(N,g,s,seed){
+      var rng=mulberry32(hashStr("run:"+seed)),ctx=[IDX.the],out=[],rounds=[];
+      while(out.length<N){
+        var c2=ctx.slice(),drafts=[],i;
+        for(i=0;i<g;i++){var q=qDist(c2,s),p=pDist(c2),x=draw(q,rng());drafts.push({tok:x,q:q[x],p:p[x],a:Math.min(1,p[x]/q[x]),pd:p,qd:q,ctx:c2.slice(),st:"drop",u:null});c2.push(x);}
+        var pLast=pDist(c2),n=0,rej=-1;
+        for(i=0;i<g;i++){var u=rng();drafts[i].u=u;if(u<drafts[i].a){drafts[i].st="ok";n++;}else{drafts[i].st="rej";rej=i;break;}}
+        var fin,uu=rng();
+        if(rej>=0){var r=residual(drafts[rej].pd,drafts[rej].qd);fin={tok:draw(r,uu),kind:"fix",pos:rej,dist:r,ctx:drafts[rej].ctx};}
+        else fin={tok:draw(pLast,uu),kind:"bonus",pos:g,dist:pLast,ctx:c2.slice()};
+        var committed=drafts.slice(0,n).map(function(d){return d.tok;}).concat([fin.tok]);
+        rounds.push({drafts:drafts,n:n,fin:fin,committed:committed,before:out.length,pLast:pLast});
+        out=out.concat(committed);ctx=ctx.concat(committed);
+      }
+      return {rounds:rounds,tokens:out};
+    }
+    /* long-run statistics for a draft quality s and draft length g */
+    function stats(s,g){
+      var R=run(1500,g,s,"stats"),acc=0,ev=0;
+      R.rounds.forEach(function(r){r.drafts.forEach(function(d){if(d.st==="ok"){acc++;ev++;}else if(d.st==="rej") ev++;});});
+      return {alpha:acc/ev,perRound:R.tokens.length/R.rounds.length,rounds:R.rounds.length,tokens:R.tokens.length};
+    }
+    /* Part I helpers. plain: N tokens written by ONE model alone (who = "p" target, "q" draft at quality s). */
+    function argmax(d){var k=0;for(var i=1;i<d.length;i++) if(d[i]>d[k]) k=i;return k;}
+    function plain(N,s,seed,who){
+      var rng=mulberry32(hashStr("plain:"+who+":"+seed)),ctx=[IDX.the],out=[];
+      for(var i=0;i<N;i++){var p=pDist(ctx),q=qDist(ctx,s),x=draw(who==="q"?q:p,rng());out.push({tok:x,p:p[x],q:q[x],pd:p,qd:q,ctx:ctx.slice()});ctx.push(x);}
+      return out;
+    }
+    /* annotate: a fixed text seen by both models — at each position, is the draft's FIRST guess the word that was written? */
+    function annotate(tokens,s){
+      var ctx=[IDX.the];
+      return tokens.map(function(x){var p=pDist(ctx),q=qDist(ctx,s),qt=argmax(q),o={tok:x,pd:p,qd:q,p:p[x],q:q[x],qTop:qt,pTop:argmax(p),same:qt===x,ctx:ctx.slice()};ctx.push(x);return o;});
+    }
+    function expTokens(alpha,g){return alpha>=1-1e-9?g+1:(1-Math.pow(alpha,g+1))/(1-alpha);}        // E[tokens per round]
+    function speedup(alpha,g,c){return expTokens(alpha,g)/(g*c+1);}                                   // walltime improvement factor
+    return {VOCAB:VOCAB,V:V,IDX:IDX,hashStr:hashStr,mulberry32:mulberry32,pDist:pDist,qDist:qDist,draw:draw,beta:beta,residual:residual,accept:accept,
+      specToken:specToken,outDist:outDist,run:run,stats:stats,expTokens:expTokens,speedup:speedup,softmax:softmax,plain:plain,annotate:annotate,argmax:argmax};
+  })();
+
+  // Identity colours: draft model q = amber, target model p = blue. Status colours: accepted green, rejected red, residual correction purple.
+  // Words are NEUTRAL on this page — a tile's colour says which model produced it or what happened to it.
+  var MC={q:"#E08A2E",p:"#1F4E79",ok:"#0A8F22",fix:"#7A4FA3",rej:"#A63446",pre:"#7C8594",sp:"#2F8F83"};
+  var OTHERS=99,NTOK=16;
+  function colOf(){return "#7C8594";}
+  function nameOf(id){return id===OTHERS?"others":SD.VOCAB[id];}
+  function tileHtml(id,cls,label){return '<span class="tile tk '+(cls||"")+'">'+esc(label||nameOf(id))+'</span>';}
+  function fmtInt(x){return String(Math.round(x));}
+  function f2(x){return x.toFixed(2);}
+  function f3(x){return x.toFixed(3);}
+  function f1(x){return x.toFixed(1);}
+  function pct(x){return Math.round(x*100)+"%";}
+  function words(ids){return ids.map(nameOf).join(" ");}
+
+  var state={g:4,qual:0.7,seed:1,step0:0,sel1:1,pA:0.6,qA:0.8,scheme:2,step4:0,alpha:0.8,c:0.1,tw:0,selE:5,nC:5,tc:0,
+             mode:"explore",guidedIndex:0,cur:0,fsByGuided:false};
+  var PARAMS={g:{fmt:fmtInt},qual:{fmt:f2},seed:{fmt:fmtInt},step0:{fmt:fmtInt},sel1:{fmt:fmtInt},pA:{fmt:f2},qA:{fmt:f2},
+              scheme:{fmt:fmtInt},step4:{fmt:fmtInt},alpha:{fmt:f2},c:{fmt:f2},tw:{fmt:f1},selE:{fmt:fmtInt},nC:{fmt:fmtInt},tc:{fmt:fmtInt}};
+  function S(k){return Math.floor(state[k]+1e-6);}                    // tweened steps may be fractional
+  function G(){return clamp(Math.round(state.g),1,8);}
+  function Q(){return Math.round(state.qual*100)/100;}
+
+  var runCache={},statCache={};
+  function getRun(){var k=G()+"|"+Q()+"|"+Math.round(state.seed);if(!runCache[k]) runCache[k]=SD.run(NTOK,G(),Q(),Math.round(state.seed));return runCache[k];}
+  function getStats(){var q=Math.round(state.qual*20)/20,k=G()+"|"+q;if(!statCache[k]) statCache[k]=SD.stats(q,G());return statCache[k];}
+
+  // chapter 3: one explicit position with five words (so every number on screen can be checked by hand)
+  var W3=["mat","cat","dog","bird","home"],P3=[0.45,0.25,0.15,0.10,0.05],E3=[1.0,-0.8,0.3,-1.0,0.6];
+  function q3(){return SD.softmax(P3.map(function(v,i){return Math.log(v)+(1-state.qual)*1.6*E3[i];}));}
+
+  // Part I (intuition): one fixed text written by the big model, one written by the small model alone. No symbols yet.
+  var REF=SD.run(NTOK,4,0.7,1).tokens.slice(0,20);            // the big model's 20 words — the same text the Part II race writes before a re-roll
+  var SMALL=SD.plain(20,0.7,10,"q"),CS=0.1,ODD=0.15;           // the small model alone: 10× quicker per word; ODD = "the big model would pick this word < 15% of the time here"
+  var refCache={};
+  function refView(){var q=Q();if(!refCache[q]) refCache[q]=SD.annotate(REF,q);return refCache[q];}   // both models' view of every position of REF
+  function NC(){return clamp(Math.round(state.nC),2,8);}
+
+  /* ================= 2 · SHELL: params, tween loop, canvas, formulas, caches ================= */
+  function GF(f){return state.mode==="guided"?f.replace(/([\d.]+)px/,function(_,n){return (n*1.18).toFixed(1)+"px";}):f;}   // canvas text: ×1.18 in Guided
+  function GC3(){return state.mode==="guided"?"#625E69":"#8E8A93";}                                                // …and darker greys
+  function GC2(){return state.mode==="guided"?"#3B3741":"#5A5660";}
+  var STAGE_S=1;                                              // on-screen scale of the moved card in Guided mode (keeps canvases crisp)
+  function syncSliders(name){
+    document.querySelectorAll('input[data-param="'+name+'"]').forEach(function(sl){sl.value=state[name];var f=(state[name]-sl.min)/(sl.max-sl.min)*100;sl.style.setProperty("--fill",f+"%");});
+    document.querySelectorAll('[data-val="'+name+'"]').forEach(function(b){b.textContent=PARAMS[name].fmt(state[name]);});
+  }
+  function setParam(name,val){state[name]=val;syncSliders(name);}
+  function tweenParam(name,target,dur){tweenScalar("param:"+name,function(){return state[name];},function(v){setParam(name,v);},target,dur);}
+  document.querySelectorAll("input[data-param]").forEach(function(sl){
+    var name=sl.getAttribute("data-param");
+    sl.addEventListener("input",function(){removeTween("param:"+name);setParam(name,+sl.value);renderDynamic();});   // a user drag always cancels a running tween
+  });
+  document.querySelectorAll("[data-preset]").forEach(function(b){
+    b.addEventListener("click",function(){var a=b.getAttribute("data-preset").split(":");removeTween("param:"+a[0]);setParam(a[0],parseFloat(a[1]));renderDynamic();});
+  });
+  Object.keys(PARAMS).forEach(syncSliders);
+
+  var tweens=new Map(),loopRunning=false;
+  function addTween(key,fn){tweens.set(key,fn);ensureLoop();}
+  function removeTween(key){tweens.delete(key);}
+  function ensureLoop(){
+    if(loopRunning) return;loopRunning=true;
+    function frame(now){tweens.forEach(function(fn,key){if(!fn(16,now)) tweens.delete(key);});renderDynamic();if(tweens.size>0) requestAnimationFrame(frame);else loopRunning=false;}
+    requestAnimationFrame(frame);
+  }
+  function tweenScalar(key,getCur,setVal,target,duration,ease){
+    var start=getCur(),t0=performance.now();duration=duration||600;ease=ease||easeOutCubic;
+    addTween(key,function(dt,now){var t=Math.min(1,(now-t0)/duration);setVal(start+(target-start)*ease(t));if(t>=1){setVal(target);return false;}return true;});
+  }
+  function setupCanvas(canvas,w,h){
+    var dpr=(window.devicePixelRatio||1)*STAGE_S;               // × STAGE_S so a scaled-up card stays sharp
+    canvas.width=Math.max(1,Math.round(w*dpr));canvas.height=Math.max(1,Math.round(h*dpr));
+    var ctx=canvas.getContext("2d");ctx.setTransform(dpr,0,0,dpr,0,0);return ctx;
+  }
+  var MONO="'DM Mono',ui-monospace,Menlo,monospace",SANS="'Hanken Grotesk',system-ui,sans-serif";
+  function renderFormula(el,tex,plain){
+    if(typeof window.katex!=="undefined"){try{window.katex.render(tex,el,{throwOnError:false,displayMode:true});return;}catch(e){}}
+    el.innerHTML='<div class="plain-formula">'+plain+'</div>';                 // CDN failed → plain text, never blank
+  }
+  var lastContent={},lastTime={},pendingTimer={};
+  function fm(key,el,tex,plain){                                                // throttled + content-diffed + TRAILING render (never leaves a stale value)
+    if(lastContent[key]===tex) return;
+    var now=performance.now();
+    if(lastTime[key]!=null&&now-lastTime[key]<90){clearTimeout(pendingTimer[key]);pendingTimer[key]=setTimeout(function(){if(lastContent[key]!==tex){lastTime[key]=performance.now();lastContent[key]=tex;renderFormula(el,tex,plain);}},100);return;}
+    clearTimeout(pendingTimer[key]);lastTime[key]=now;lastContent[key]=tex;renderFormula(el,tex,plain);
+  }
+  var sigs={};
+  function changed(key,sig){if(sigs[key]===sig) return false;sigs[key]=sig;return true;}   // cheap "did my inputs change?" guard for DOM-rebuilding renders
+
+  /* ================= 3 · SHELL: BarList — persistent rows that slide & resize via CSS transitions ================= */
+  var BARLISTS=[];
+  function BarList(el,ids,rowH,onClick){
+    this.el=el;this.rowH=rowH;this.rows={};this.count=ids.length;this.limit=0;el.classList.add("bl");el.style.height=(ids.length*rowH)+"px";BARLISTS.push(this);
+    var self=this;
+    ids.forEach(function(id,i){
+      var r=document.createElement("div");r.className="bl-row"+(onClick&&id!==OTHERS?" click":"");r.style.height=rowH+"px";r.style.transform="translateY("+(i*rowH)+"px)";r.setAttribute("data-id",id);
+      r.innerHTML='<span class="bl-tile">'+tileHtml(id)+'</span><div class="bl-track"><i class="bl-zero"></i><i class="bl-ghost"></i><i class="bl-bar" style="background:'+colOf(id)+'"></i></div><span class="bl-val"></span><span class="bl-x"></span>';
+      el.appendChild(r);
+      self.rows[id]={el:r,ghost:r.querySelector(".bl-ghost"),bar:r.querySelector(".bl-bar"),zero:r.querySelector(".bl-zero"),val:r.querySelector(".bl-val"),x:r.querySelector(".bl-x")};
+    });
+    if(onClick) el.addEventListener("click",function(e){var r=e.target.closest(".bl-row");if(r) onClick(+r.getAttribute("data-id"));});
+  }
+  BarList.prototype.setLimit=function(n){this.limit=n||0;this.el.style.height=((this.limit||this.count)*this.rowH)+"px";};   // Guided: show only the top-n rows
+  /* spec[id]={rank,l,w,gl,gw,ghost,zero,cls,val,x}   l/w are % of the track; cls: "pick" | "cut" | "flash" */
+  BarList.prototype.update=function(spec){
+    for(var id in spec){
+      var s=spec[id],R=this.rows[id];if(!R) continue;
+      R.el.style.transform="translateY("+(s.rank*this.rowH)+"px)";R.el.style.display=(this.limit&&s.rank>=this.limit)?"none":"";
+      R.el.className="bl-row"+(R.el.className.indexOf("click")>=0?" click":"")+(s.cls?" "+s.cls:"");
+      R.bar.style.left=s.l+"%";R.bar.style.width=s.w+"%";
+      R.ghost.style.left=(s.gl||0)+"%";R.ghost.style.width=(s.gw||0)+"%";R.ghost.classList.toggle("on",!!s.ghost);
+      if(s.zero!=null){R.zero.style.left=s.zero+"%";R.zero.style.opacity=1;}else R.zero.style.opacity=0;
+      R.val.textContent=s.val==null?"":s.val;R.x.textContent=s.x||"";
+    }
+  };
+  function absPct(p,ref){return p>0?Math.max(p/ref*88,0.9):0;}
+
+    /* ================= 4 · PANELS: one cheap, idempotent render function per card ================= */
+  /* ---- steppers (Next ▶ / Auto-play / Reset share a step parameter with a slider) ---- */
+  var autos={};
+  function stopAuto(key){if(autos[key]){clearTimeout(autos[key].t);var b=autos[key].btn;delete autos[key];if(b) b.textContent="Auto-play";}}
+  function stopAll(){Object.keys(autos).forEach(stopAuto);}
+  function setupStepper(key,ids,maxFn,ms){
+    $(ids.step).addEventListener("click",function(){stopAuto(key);removeTween("param:"+key);setParam(key,Math.min(maxFn(),S(key)+1));renderDynamic();});
+    $(ids.reset).addEventListener("click",function(){stopAuto(key);removeTween("param:"+key);setParam(key,0);renderDynamic();});
+    $(ids.auto).addEventListener("click",function(){
+      if(autos[key]){stopAuto(key);return;}
+      removeTween("param:"+key);if(S(key)>=maxFn()) setParam(key,0);
+      var btn=$(ids.auto);btn.textContent="Pause";
+      function tick(){if(S(key)>=maxFn()){stopAuto(key);return;}setParam(key,S(key)+1);renderDynamic();autos[key].t=setTimeout(tick,ms);}
+      autos[key]={btn:btn,t:setTimeout(tick,150)};
+    });
+  }
+  function setMax(name,max){
+    document.querySelectorAll('input[data-param="'+name+'"]').forEach(function(sl){sl.max=max;});
+    if(state[name]>max) state[name]=max;
+    syncSliders(name);
+  }
+  setupStepper("step0",{step:"h0Step",auto:"h0Auto",reset:"h0Reset"},function(){return getRun().rounds.length;},950);
+  setupStepper("step4",{step:"r4Step",auto:"r4Auto",reset:"r4Reset"},function(){return getRun().rounds.length*3-1;},1100);
+  setupStepper("step4",{step:"cdStep",auto:"cdAuto",reset:"cdReset"},function(){return getRun().rounds.length*3-1;},1100);   // the code chapter steps the SAME round
+  setupStepper("tc",{step:"ckStep",auto:"ckAuto",reset:"ckReset"},function(){return NC();},800);
+  document.querySelectorAll("[data-reroll]").forEach(function(b){b.addEventListener("click",function(){
+    stopAll();["step0","step4","seed"].forEach(function(k){removeTween("param:"+k);});
+    setParam("seed",Math.round(state.seed)+1);setParam("step0",0);setParam("step4",0);renderDynamic();});});
+  function syncChips(){
+    document.querySelectorAll("[data-preset]").forEach(function(b){var a=b.getAttribute("data-preset").split(":");
+      if(a[0]==="scheme") b.classList.toggle("on",String(Math.round(state.scheme))===a[1]);});
+  }
+  function sub(n){return String(n).split("").map(function(d){return "₀₁₂₃₄₅₆₇₈₉"[+d];}).join("");}
+
+  /* ---- p-vs-q bars: persistent DOM rows, widths animated by CSS ---- */
+  function PQ(el,n,mode){
+    this.rows=[];el.classList.add("pq",mode);
+    for(var i=0;i<n;i++){
+      var r=document.createElement("div");r.className="pq-row";
+      r.innerHTML='<span class="pq-l"></span><div class="pq-track"><i class="pq-ok"></i><i class="pq-ex"></i><i class="pq-df"></i><i class="pq-q"></i><i class="pq-p"></i><b class="pq-mq"></b><b class="pq-mp"></b></div><span class="pq-v"></span>';
+      el.appendChild(r);
+      this.rows.push({el:r,l:r.querySelector(".pq-l"),ok:r.querySelector(".pq-ok"),ex:r.querySelector(".pq-ex"),df:r.querySelector(".pq-df"),
+        q:r.querySelector(".pq-q"),p:r.querySelector(".pq-p"),mq:r.querySelector(".pq-mq"),mp:r.querySelector(".pq-mp"),v:r.querySelector(".pq-v"),lab:null});
+    }
+  }
+  /* rows[i] = {label, p, q (or null), hi}; ref = value that fills the track */
+  PQ.prototype.update=function(rows,ref,vf){
+    this.rows.forEach(function(R,i){
+      var d=rows[i];if(!d){R.el.classList.add("off");return;}
+      R.el.className="pq-row"+(d.hi?" hi":"");
+      if(R.lab!==d.label){R.lab=d.label;R.l.innerHTML='<span class="tile tk sm">'+esc(d.label)+'</span>';}
+      var p=d.p,q=d.q,hasQ=(q!=null),w=function(v){return Math.max(0,Math.min(100,v/ref*100));};
+      R.q.style.width=hasQ?w(q)+"%":"0";R.q.style.opacity=hasQ?1:0;R.p.style.width=w(p)+"%";
+      var lo=hasQ?Math.min(p,q):p;
+      R.ok.style.width=w(lo)+"%";
+      R.ex.style.left=w(lo)+"%";R.ex.style.width=(hasQ&&q>p)?(w(q)-w(lo))+"%":"0";
+      R.df.style.left=w(lo)+"%";R.df.style.width=(hasQ&&p>q)?(w(p)-w(lo))+"%":"0";
+      R.mp.style.left=w(p)+"%";R.mq.style.left=hasQ?w(q)+"%":"0";R.mq.style.opacity=hasQ?1:0;
+      R.v.innerHTML=vf?vf(d):(hasQ?'<span class="q">q '+f2(q)+'</span> · ':'')+'<span class="p">p '+f2(p)+'</span>';
+    });
+  };
+
+  /* ---- Part II · the idea: the three-move loop and a race ---- */
+  function renderHook(){
+    var rounds=getRun().rounds,nR=rounds.length;
+    if(changed("hMax",nR)) setMax("step0",nR);
+    var t=Math.min(S("step0"),nR);
+    if(!changed("hook",[G(),Q(),Math.round(state.seed),t].join("|"))) return;
+    var std="",spec="",tokens=0,drafts=0;
+    for(var r=0;r<t;r++){
+      var rd=rounds[r];drafts+=rd.drafts.length;
+      var pips='<span class="pips">'+rd.drafts.map(function(){return '<i class="pip q"></i>';}).join("")+'<i class="pip p"></i></span>';
+      var toks=rd.drafts.slice(0,rd.n).map(function(d){return tileHtml(d.tok,"sm ok");}).join("")+tileHtml(rd.fin.tok,"sm "+rd.fin.kind);
+      spec+='<span class="rg'+(r===t-1?" new":"")+'">'+pips+'<span class="toks">'+toks+'</span></span>';
+      rd.committed.forEach(function(tk){std+='<span class="rg one"><span class="pips"><i class="pip p"></i></span><span class="toks">'+tileHtml(tk,"sm")+'</span></span>';tokens++;});
+    }
+    var lp=$("hLoop");lp.classList.remove("go");if(t>0){void lp.offsetWidth;lp.classList.add("go");}      // the three moves light up once per new round
+    $("hStd").innerHTML=std||'<span class="ph0">nothing written yet — press Next round ▶</span>';
+    $("hSpec").innerHTML=spec||'<span class="ph0">nothing written yet</span>';
+    $("hStdN").textContent=tokens;$("hSpecN").textContent=t;$("hDraftN").textContent=t?"+ "+drafts+" draft calls":"";
+    var asPart1=(G()===4&&Q()===0.7&&Math.round(state.seed)===1);
+    $("hVerdict").innerHTML=t===0?"Both lanes will write the same "+(asPart1?"20 words as the big model in Part I":"text")+". Watch the target-call counters.":
+      tokens+" tokens: <em>"+t+" target call"+(t>1?"s":"")+" instead of "+tokens+"</em>, plus "+drafts+" cheap draft calls — and the text is still sampled from the target’s distribution.";
+  }
+
+  /* ---- Part III · question 1: one pass, γ + 1 distributions ---- */
+  var vPQ=new PQ($("vBars"),6,"pair");
+  $("vGrid").addEventListener("click",function(e){var c=e.target.closest("[data-pos]");if(c){removeTween("param:sel1");setParam("sel1",+c.getAttribute("data-pos"));renderDynamic();}});
+  function topRows(p,q,hi,k){k=k||5;
+    var idx=p.map(function(_,i){return i;}).sort(function(a,b){return Math.max(p[b],q?q[b]:0)-Math.max(p[a],q?q[a]:0)||a-b;}),top=idx.slice(0,k);
+    if(hi!=null&&top.indexOf(hi)<0) top[k-1]=hi;
+    var rows=top.map(function(i){return {label:nameOf(i),p:p[i],q:q?q[i]:null,hi:i===hi};}),rp=1,rq=1;
+    top.forEach(function(i){rp-=p[i];if(q) rq-=q[i];});
+    rows.push({label:"others",p:Math.max(rp,0),q:q?Math.max(rq,0):null,hi:false});
+    return rows;
+  }
+  function renderVerify(){
+    var rd=getRun().rounds[0],g=rd.drafts.length,sel=clamp(Math.round(state.sel1),1,g+1);
+    if(changed("vGrid",[G(),Q(),Math.round(state.seed),sel].join("|"))){
+      var h='<span></span><span class="vg-h">prompt</span>',i;
+      for(i=1;i<=g;i++) h+='<span class="vg-h">x'+sub(i)+'</span>';
+      h+='<span class="vg-h">next</span>';
+      h+='<span class="vg-l" style="color:#B36A15">Draft model q<small>'+g+' call'+(g>1?"s":"")+', one by one</small></span><span class="vg-c">'+tileHtml(SD.IDX.the,"sm")+'</span>';
+      for(i=1;i<=g;i++) h+='<span class="vg-c">'+tileHtml(rd.drafts[i-1].tok,"sm draft"+(i===sel?" sel":""))+'</span>';
+      h+='<span class="vg-c"><span class="tile sm blank">?</span></span>';
+      h+='<span class="vg-l" style="color:var(--mp)">Target model p<small>one parallel pass</small></span><span></span><div class="vg-pass" style="grid-column:3/-1;--k:'+(g+1)+'">';
+      for(i=1;i<=g+1;i++) h+='<button class="pchip'+(i===sel?" on":"")+'" data-pos="'+i+'">p'+sub(i)+'</button>';
+      $("vGrid").style.setProperty("--n",g+2);$("vGrid").innerHTML=h+'</div>';
+    }
+    var isNext=(sel===g+1),d=isNext?null:rd.drafts[sel-1],p=isNext?rd.pLast:d.pd,q=isNext?null:d.qd,ctx=isNext?rd.drafts[g-1].ctx.concat([rd.drafts[g-1].tok]):d.ctx;
+    var rows=topRows(p,q,isNext?null:d.tok),ref=0.05;rows.forEach(function(r){ref=Math.max(ref,r.p,r.q||0);});
+    vPQ.update(rows,ref*1.04);
+    $("vCap").textContent="Position "+sel+" · after “"+words(ctx)+"”";
+    var txt=isNext?'If all '+g+' draft tokens are accepted, the next token is sampled from <span class="cp">p'+sub(g+1)+'</span> — the same pass already computed it, so it is free.':
+      'The draft sampled <b>“'+esc(nameOf(d.tok))+'”</b> here with <span class="cq">q'+sub(sel)+' = '+f2(d.q)+'</span>. The target, reading the same context, gives it <span class="cp">p'+sub(sel)+' = '+f2(d.p)+'</span>. '+(d.p>=d.q?'The target likes it at least as much as the draft did.':'The draft was more eager than the target.');
+    if(changed("vText",txt)) $("vText").innerHTML=txt;
+    var tex="p_{"+sel+"}(x)=p\\big(x\\mid\\text{"+words(ctx)+"}\\big)\\qquad\\text{one target pass}\\;\\Rightarrow\\;p_1,\\dots,p_{"+(g+1)+"}";
+    fm("v",$("vFormula"),tex,"p_"+sel+"(x) = p(x | "+words(ctx)+")    one target pass -> p_1 ... p_"+(g+1));
+  }
+
+  /* ---- chapter 2: the accept rule on one position with two tokens ---- */
+  var aPQ=new PQ($("aBars"),2,"mass"),aS=null,aCtr=0;
+  function aReset(){aS={n:0,pa:0,ka:0,pb:0,kb:0,last:null};}
+  aReset();
+  function aDist(){return {p:[state.pA,1-state.pA],q:[state.qA,1-state.qA]};}
+  function aDraw(n){
+    var d=aDist();
+    for(var i=0;i<n;i++){
+      aCtr++;var rng=SD.mulberry32(SD.hashStr("acc:"+aCtr)),x=SD.draw(d.q,rng()),a=SD.accept(d.p,d.q,x),u=rng(),ok=u<a;
+      aS.n++;if(x===0){aS.pa++;if(ok) aS.ka++;}else{aS.pb++;if(ok) aS.kb++;}
+      aS.last={x:x,a:a,u:u,ok:ok};
+    }
+  }
+  $("aDraw1").addEventListener("click",function(){aDraw(1);renderDynamic();});
+  $("aDraw200").addEventListener("click",function(){aDraw(200);renderDynamic();});
+  $("aClear").addEventListener("click",function(){aReset();renderDynamic();});
+  function renderAccept(){
+    if(changed("aCfg",f3(state.pA)+"|"+f3(state.qA))) aReset();
+    var d=aDist(),aA=SD.accept(d.p,d.q,0),aB=SD.accept(d.p,d.q,1),b=SD.beta(d.p,d.q);
+    aPQ.update([{label:"A",p:d.p[0],q:d.q[0]},{label:"B",p:d.p[1],q:d.q[1]}],1);
+    var st='<div class="s3"><b>'+f2(aA)+'</b><small>keep a proposed A</small></div><div class="s3"><b>'+f2(aB)+'</b><small>keep a proposed B</small></div><div class="s3 good"><b>'+f2(b)+'</b><small>accepted overall (β)</small></div>';
+    if(changed("aStats",st)) $("aStats").innerHTML=st;
+    var L=aS.last,box;
+    if(!L) box='<div class="ln"><span class="no">1</span><span>The draft samples a token from q.</span></div><div class="ln"><span class="no">2</span><span>We keep it with probability min(1, p / q).</span></div><div class="ln"><span class="no">3</span><span>Press <b>Draw 1</b> to try.</span></div>';
+    else{var nm=L.x===0?"A":"B";
+      box='<div class="ln"><span class="no">1</span><span>The draft samples from q → <b>'+nm+'</b></span></div>'+
+          '<div class="ln"><span class="no">2</span><span>Keep with probability <b>'+f2(L.a)+'</b>; drew u = <b>'+f2(L.u)+'</b> → '+(L.ok?'<span class="okc">✓ keep '+nm+'</span>':'<span class="noc">✗ reject '+nm+'</span>')+'</span></div>'+
+          '<div class="ln"><span class="no">3</span><span>'+(L.ok?'The token is committed.':'A replacement is needed — that is the next idea.')+'</span></div>';}
+    if(changed("aDraw",box)) $("aDraw").innerHTML=box;
+    var tl=aS.n?('<b>'+aS.n+'</b> draw'+(aS.n>1?"s":"")+' · A proposed '+aS.pa+'×, kept '+aS.ka+(aS.pa?' ('+Math.round(aS.ka/aS.pa*100)+'%)':'')+' · B proposed '+aS.pb+'×, kept '+aS.kb+(aS.pb?' ('+Math.round(aS.kb/aS.pb*100)+'%)':'')+'<br>accepted overall <b>'+Math.round((aS.ka+aS.kb)/aS.n*100)+'%</b> — expected β = '+Math.round(b*100)+'%'):'No draws yet.';
+    if(changed("aTally",tl)) $("aTally").innerHTML=tl;
+    var tex="a(\\mathrm{A})=\\min\\!\\Big(1,\\dfrac{p(\\mathrm{A})}{q(\\mathrm{A})}\\Big)=\\min\\!\\Big(1,\\dfrac{"+f2(d.p[0])+"}{"+f2(d.q[0])+"}\\Big)="+f2(aA)+"\\qquad\\beta=\\sum_x\\min\\big(p(x),q(x)\\big)="+f2(Math.min(d.p[0],d.q[0]))+"+"+f2(Math.min(d.p[1],d.q[1]))+"="+f2(b);
+    fm("a",$("aFormula"),tex,"a(A) = min(1, p/q) = min(1, "+f2(d.p[0])+"/"+f2(d.q[0])+") = "+f2(aA)+"    beta = sum_x min(p,q) = "+f2(b));
+  }
+
+  /* ---- chapter 3: the correction and what comes out ---- */
+  var rPQ=new PQ($("rBars"),5,"mass"),rS=null,rCtr=0;
+  (function(){var h="";for(var i=0;i<5;i++) h+='<div class="ob-row"><span><span class="tile tk sm">'+W3[i]+'</span></span><div class="ob-track"><i class="ob-bar"></i><i class="ob-tgt"></i><i class="ob-dot"></i></div><span class="ob-v"></span></div>';$("rOut").innerHTML=h;})();
+  var rRows=Array.prototype.slice.call($("rOut").querySelectorAll(".ob-row")).map(function(r){return {bar:r.querySelector(".ob-bar"),tgt:r.querySelector(".ob-tgt"),dot:r.querySelector(".ob-dot"),v:r.querySelector(".ob-v")};});
+  function rReset(){rS={n:0,cnt:[0,0,0,0,0]};}
+  rReset();
+  $("rDraw").addEventListener("click",function(){
+    var q=q3(),sc=Math.round(state.scheme);rCtr++;var rng=SD.mulberry32(SD.hashStr("pres:"+rCtr));
+    for(var i=0;i<2000;i++){rS.cnt[SD.specToken(P3,q,rng,sc).out]++;rS.n++;}
+    renderDynamic();});
+  $("rClear").addEventListener("click",function(){rReset();renderDynamic();});
+  function renderPreserve(){
+    var q=q3(),sc=Math.round(state.scheme);
+    if(changed("rCfg",sc+"|"+Q())) rReset();
+    var ref=0.05,i;for(i=0;i<5;i++) ref=Math.max(ref,P3[i],q[i]);ref*=1.04;
+    rPQ.update(W3.map(function(w,i){return {label:w,p:P3[i],q:q[i]};}),ref);
+    var out=SD.outDist(P3,q,sc),tv=0,ref2=0.05;
+    for(i=0;i<5;i++){tv+=Math.abs(out[i]-P3[i]);ref2=Math.max(ref2,out[i],P3[i],rS.n?rS.cnt[i]/rS.n:0);}
+    tv/=2;ref2*=1.06;
+    rRows.forEach(function(R,i){
+      R.bar.style.width=(out[i]/ref2*100)+"%";R.tgt.style.left=(P3[i]/ref2*100)+"%";
+      R.dot.classList.toggle("on",rS.n>0);if(rS.n) R.dot.style.left=(rS.cnt[i]/rS.n/ref2*100)+"%";
+      R.v.textContent=f3(out[i]);
+    });
+    var b=SD.beta(P3,q),tvh=(tv<0.0005?'<b>Matches the target exactly</b> — distance 0.000.':'<b>Off target by '+f3(tv)+'</b> (total variation distance).')+' Accepted '+Math.round(b*100)+'% of the time.'+(rS.n?' Sampled '+rS.n.toLocaleString("en-US")+' times.':'');
+    $("rTv").className="tv "+(tv<0.0005?"good":"bad");if(changed("rTv",tvh)) $("rTv").innerHTML=tvh;
+    var k=0,tex,plain;
+    if(sc===2){for(i=1;i<5;i++) if(P3[i]-q[i]>P3[k]-q[k]) k=i;
+      var r=SD.residual(P3,q);
+      tex=b>0.9995?"q=p\\;\\Rightarrow\\;\\text{every draft token is accepted, no correction needed}":
+        "P(\\mathrm{"+W3[k]+"})=\\underbrace{\\min(p,q)}_{\\text{accepted}}+\\underbrace{(1-\\beta)\\,r(\\mathrm{"+W3[k]+"})}_{\\text{corrections}}="+f3(Math.min(P3[k],q[k]))+"+"+f3(1-b)+"\\cdot"+f3(r[k])+"="+f3(out[k])+"=p(\\mathrm{"+W3[k]+"})";
+      plain="P("+W3[k]+") = min(p,q) + (1-beta) r = "+f3(Math.min(P3[k],q[k]))+" + "+f3(1-b)+"*"+f3(r[k])+" = "+f3(out[k])+" = p("+W3[k]+")";}
+    else{for(i=1;i<5;i++) if(q[i]-P3[i]>q[k]-P3[k]) k=i;
+      if(sc===1){tex="P(\\mathrm{"+W3[k]+"})=\\min(p,q)+(1-\\beta)\\,p(\\mathrm{"+W3[k]+"})="+f3(Math.min(P3[k],q[k]))+"+"+f3(1-b)+"\\cdot"+f3(P3[k])+"="+f3(out[k])+(Math.abs(out[k]-P3[k])>0.0005?"\\;\\ne\\;":"=")+"p(\\mathrm{"+W3[k]+"})="+f3(P3[k]);
+        plain="P("+W3[k]+") = min(p,q) + (1-beta) p = "+f3(out[k])+" vs p = "+f3(P3[k]);}
+      else{tex="P(\\mathrm{"+W3[k]+"})=q(\\mathrm{"+W3[k]+"})="+f3(q[k])+(Math.abs(q[k]-P3[k])>0.0005?"\\;\\ne\\;":"=")+"p(\\mathrm{"+W3[k]+"})="+f3(P3[k])+"\\qquad\\text{(no target model involved)}";
+        plain="P("+W3[k]+") = q = "+f3(q[k])+" vs p = "+f3(P3[k]);}}
+    fm("r",$("rFormula"),tex,plain);
+  }
+
+  /* ---- chapter 4: a full round, in three moves ---- */
+  var PH=["1 · Draft","2 · Verify","3 · Commit"];
+  function roundAt(){                                   // ONE decision function: which round and which move does step4 point at?
+    var R=getRun(),rounds=R.rounds,nR=rounds.length,mx=nR*3-1,st=Math.min(S("step4"),mx),r=Math.floor(st/3);
+    return {R:R,rounds:rounds,nR:nR,mx:mx,st:st,r:r,ph:st%3,rd:rounds[r]};
+  }
+  function phaseHtml(ph,r,nR){return PH.map(function(t,k){return '<span class="ph'+(k<ph?" done":k===ph?" on":"")+'">'+t+'</span>';}).join("")+'<span class="rno">round '+(r+1)+' of '+nR+'</span>';}
+  function sentHtml(R,rd,ph){
+    var s=tileHtml(SD.IDX.the,"sm");
+    R.tokens.slice(0,rd.before).forEach(function(tk){s+=tileHtml(tk,"sm");});
+    if(ph===2){rd.drafts.slice(0,rd.n).forEach(function(d){s+=tileHtml(d.tok,"sm ok pop");});s+=tileHtml(rd.fin.tok,"sm pop "+rd.fin.kind);}
+    return s;
+  }
+  function renderRound(){
+    var A=roundAt(),R=A.R,rounds=A.rounds,nR=A.nR,mx=A.mx;
+    if(changed("rdMax",mx)) setMax("step4",mx);
+    var st=A.st,r=A.r,ph=A.ph,rd=A.rd,g=rd.drafts.length,i;
+    if(changed("round",[G(),Q(),Math.round(state.seed),st].join("|"))){
+      $("rdPhase").innerHTML=phaseHtml(ph,r,nR);
+      var h="";
+      for(i=0;i<g;i++){var d=rd.drafts[i],sv=ph>=1,cls=sv?d.st:"",ev=(d.st==="ok"||d.st==="rej");
+        h+='<div class="rd-col '+cls+'"><div class="h">x'+sub(i+1)+'</div>'+tileHtml(d.tok,"sm "+(sv?d.st:"draft"))+
+           '<div class="r q"><span>q</span><b>'+f2(d.q)+'</b></div>'+
+           '<div class="r p'+(sv?"":" hid")+'"><span>p</span><b>'+f2(d.p)+'</b></div>'+
+           '<div class="r'+(sv&&ev?"":" hid")+'"><span>keep</span><b>'+f2(d.a)+'</b></div>'+
+           '<div class="r'+(sv&&ev?"":" hid")+'"><span>u</span><b>'+(ev?f2(d.u):"–")+'</b></div>'+
+           '<div class="mk">'+(sv?(d.st==="ok"?"✓ keep":d.st==="rej"?"✗ reject":"discarded"):"drafted")+'</div></div>';}
+      var f=rd.fin,show=ph===2;
+      h+='<div class="rd-col fin '+(show?f.kind:"")+'"><div class="h">'+(show?(f.kind==="fix"?"correction":"bonus"):"then")+'</div>'+
+         (show?tileHtml(f.tok,"sm "+f.kind):'<span class="tile sm blank">?</span>')+
+         '<div class="sub2">'+(show?(f.kind==="fix"?"sampled from the residual at x"+sub(f.pos+1):"sampled from p"+sub(g+1)+" — free"):(ph===0?"the target has not looked yet":"decided in the next move"))+'</div>'+
+         '<div class="mk">'+(show?(f.kind==="fix"?"target’s fix":"all accepted"):"")+'</div></div>';
+      $("rdGrid").style.setProperty("--n",g+1);$("rdGrid").innerHTML=h;
+      $("rdSent").innerHTML=sentHtml(R,rd,ph);
+    }
+    var sofar=rd.before+(ph===2?rd.committed.length:0),calls=r+(ph>=1?1:0),stt=getStats();
+    var sh='<div class="s3'+(ph===2?" hi":"")+'"><b>'+(ph===2?rd.committed.length+" token"+(rd.committed.length>1?"s":""):"—")+'</b><small>'+(ph===2?"committed by this round ("+rd.n+" accepted + 1)":"this round commits accepted + 1")+'</small></div>'+
+      '<div class="s3"><b>'+sofar+' / '+calls+'</b><small>tokens written / target calls so far</small></div>'+
+      '<div class="s3 good"><b>'+f2(stt.perRound)+'</b><small>tokens per target call over a long run · α = '+f2(stt.alpha)+'</small></div>';
+    if(changed("rdStats",sh)) $("rdStats").innerHTML=sh;
+    var G_=G(),E=SD.expTokens(stt.alpha,G_);
+    var tex="\\mathbb E[\\text{tokens per round}]=\\dfrac{1-\\alpha^{\\gamma+1}}{1-\\alpha}=\\dfrac{1-"+f2(stt.alpha)+"^{"+(G_+1)+"}}{1-"+f2(stt.alpha)+"}="+f2(E)+"\\qquad(\\text{measured: }"+f2(stt.perRound)+")";
+    fm("rd",$("rdFormula"),tex,"E[tokens per round] = (1 - a^(g+1)) / (1 - a) = "+f2(E)+"   (measured: "+f2(stt.perRound)+")");
+  }
+
+  /* ---- chapter 5: speed-up vs draft length ---- */
+  $("spUse").addEventListener("click",function(){var a=Math.round(getStats().alpha*100)/100;removeTween("param:alpha");setParam("alpha",clamp(a,0.3,0.98));renderDynamic();});
+  function renderSpeed(){
+    var cv=$("spCanvas"),W=cv.clientWidth||700,H=cv.clientHeight||230,ctx=setupCanvas(cv,W,H);ctx.clearRect(0,0,W,H);
+    var a=state.alpha,c=state.c,g=G(),L=52,R=22,T=16,B=38,pw=W-L-R,ph=H-T-B,k,best=1,ymax=1.3;
+    for(k=1;k<=8;k++){var v=SD.speedup(a,k,c);if(v>SD.speedup(a,best,c)) best=k;ymax=Math.max(ymax,v);}
+    ymax=Math.ceil(ymax*1.12*2)/2;
+    function X(v){return L+(v-1)/7*pw;} function Y(v){return T+(1-v/ymax)*ph;}
+    ctx.fillStyle="rgba(166,52,70,.07)";ctx.fillRect(L,Y(1),pw,Y(0)-Y(1));
+    ctx.strokeStyle="#EEE7D8";ctx.lineWidth=1;ctx.font=GF("500 10.5px "+MONO);ctx.fillStyle=GC3();ctx.textAlign="right";ctx.textBaseline="middle";
+    for(var yv=0;yv<=ymax+1e-9;yv+=0.5){ctx.beginPath();ctx.moveTo(L,Y(yv));ctx.lineTo(L+pw,Y(yv));ctx.stroke();ctx.fillText(yv.toFixed(1)+"×",L-8,Y(yv));}
+    ctx.textAlign="center";ctx.textBaseline="top";for(k=1;k<=8;k++) ctx.fillText(k,X(k),T+ph+7);
+    ctx.fillStyle=GC2();ctx.font=GF("600 11.5px "+SANS);ctx.fillText("draft length γ",L+pw/2,H-16);
+    ctx.setLineDash([6,4]);ctx.strokeStyle="#A63446";ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(L,Y(1));ctx.lineTo(L+pw,Y(1));ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle="#A63446";ctx.font=GF("600 11px "+SANS);ctx.textAlign="left";ctx.textBaseline="bottom";ctx.fillText("1.0× = standard decode",L+8,Y(1)-4);
+    ctx.textBaseline="top";ctx.fillStyle="rgba(166,52,70,.75)";ctx.fillText("slower than standard",L+8,Y(1)+5);
+    ctx.strokeStyle=MC.sp;ctx.lineWidth=3;ctx.beginPath();for(k=1;k<=8;k++){if(k===1) ctx.moveTo(X(k),Y(SD.speedup(a,k,c)));else ctx.lineTo(X(k),Y(SD.speedup(a,k,c)));}ctx.stroke();
+    for(k=1;k<=8;k++){ctx.beginPath();ctx.arc(X(k),Y(SD.speedup(a,k,c)),4,0,Math.PI*2);ctx.fillStyle=MC.sp;ctx.fill();}
+    var sp=SD.speedup(a,g,c);
+    ctx.setLineDash([4,4]);ctx.strokeStyle="rgba(33,30,36,.35)";ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(X(g),T+ph);ctx.lineTo(X(g),Y(sp));ctx.stroke();ctx.setLineDash([]);
+    ctx.beginPath();ctx.arc(X(g),Y(sp),8,0,Math.PI*2);ctx.fillStyle="#fff";ctx.fill();ctx.lineWidth=3;ctx.strokeStyle="#A63446";ctx.stroke();
+    ctx.font=GF("600 12.5px "+SANS);ctx.fillStyle="#211E24";ctx.textBaseline="bottom";ctx.textAlign=g>=7?"right":"left";ctx.fillText(sp.toFixed(2)+"×",X(g)+(g>=7?-12:12),Y(sp)-6);
+    if(best!==g){ctx.font=GF("600 11px "+SANS);ctx.fillStyle=MC.sp;ctx.textAlign="center";ctx.textBaseline="bottom";ctx.fillText("best γ = "+best,X(best),Y(SD.speedup(a,best,c))-9);}
+    var E=SD.expTokens(a,g),cost=g*c+1;
+    var sh='<div class="s3"><b>'+f2(E)+'</b><small>tokens per round</small></div><div class="s3"><b>'+f2(cost)+'</b><small>cost per round, in target calls ('+g+' × '+f2(c)+' + 1)</small></div>'+
+      '<div class="s3 '+(sp>=1?"good":"hi")+'"><b>'+f2(sp)+'×</b><small>'+(sp>=1?"faster than standard decode":"slower than standard decode")+' · best γ = '+best+'</small></div>';
+    if(changed("spStats",sh)) $("spStats").innerHTML=sh;
+    var stt=getStats(),nt="toy draft at quality "+f2(Q())+": α ≈ "+f2(stt.alpha);
+    if(changed("spNote",nt)) $("spUseNote").textContent=nt;
+    var tex="\\text{speed-up}=\\dfrac{1-\\alpha^{\\gamma+1}}{(1-\\alpha)(\\gamma c+1)}=\\dfrac{1-"+f2(a)+"^{"+(g+1)+"}}{(1-"+f2(a)+")("+g+"\\cdot"+f2(c)+"+1)}=\\dfrac{"+f2(E)+"}{"+f2(cost)+"}="+f2(sp)+"\\times";
+    fm("sp",$("spFormula"),tex,"speed-up = (1 - a^(g+1)) / ((1 - a)(g c + 1)) = "+f2(E)+" / "+f2(cost)+" = "+f2(sp)+"x");
+  }
+
+  /* ---- chapter 6: the same request on one time axis ---- */
+  function renderTimeline(){
+    var cv=$("tlCanvas"),W=cv.clientWidth||700,H=cv.clientHeight||190,ctx=setupCanvas(cv,W,H);ctx.clearRect(0,0,W,H);
+    var Rn=getRun(),rounds=Rn.rounds,Tn=Rn.tokens.length,c=state.c,PRE=2,specT=0,drafts=0;
+    rounds.forEach(function(r){specT+=r.drafts.length*c+1;drafts+=r.drafts.length;});
+    var L=118,R=(state.mode==="guided"?106:86),T=30,B=36,pw=W-L-R,total=PRE+Math.max(Tn,specT),sc=pw/total,lh=44,y0=T,y1=T+lh+40;
+    function label(y,txt,col){ctx.font=GF("600 12px "+SANS);ctx.fillStyle=col;ctx.textAlign="right";ctx.textBaseline="middle";ctx.fillText(txt,L-10,y+lh/2);}
+    function pre(y){ctx.fillStyle=MC.pre;ctx.fillRect(L,y,PRE*sc,lh);if(PRE*sc>44){ctx.fillStyle="#fff";ctx.font=GF("600 11px "+SANS);ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("prefill",L+PRE*sc/2,y+lh/2);}}
+    function tick(x,y){ctx.fillStyle="#211E24";ctx.beginPath();ctx.moveTo(x,y+lh+3);ctx.lineTo(x-3.5,y+lh+10);ctx.lineTo(x+3.5,y+lh+10);ctx.closePath();ctx.fill();}
+    function endLabel(x,y,v){ctx.fillStyle="#211E24";ctx.font=GF("500 11.5px "+MONO);ctx.textAlign="left";ctx.textBaseline="middle";ctx.fillText(v.toFixed(1)+" units",x+8,y+lh/2);}
+    label(y0,"Standard decode",MC.p);pre(y0);
+    var x=L+PRE*sc,i;
+    for(i=0;i<Tn;i++){ctx.fillStyle=MC.p;ctx.fillRect(x+0.5,y0,Math.max(1,sc-1),lh);x+=sc;tick(x,y0);}
+    endLabel(x,y0,PRE+Tn);
+    label(y1,"Draft + verify","#B36A15");pre(y1);x=L+PRE*sc;
+    rounds.forEach(function(r){
+      var dw=r.drafts.length*c*sc;ctx.fillStyle=MC.q;ctx.fillRect(x+0.5,y1+lh*0.22,Math.max(1,dw-1),lh*0.56);x+=dw;
+      ctx.fillStyle=MC.p;ctx.fillRect(x+0.5,y1,Math.max(1,sc-1),lh);x+=sc;
+      for(var k=0;k<r.committed.length;k++) tick(x-k*5,y1);
+    });
+    endLabel(x,y1,PRE+specT);
+    ctx.font=GF("500 10.5px "+SANS);ctx.fillStyle=GC3();ctx.textAlign="left";ctx.textBaseline="top";
+    ctx.fillText("▲ a token reaches the user",L,y1+lh+14);
+    ctx.textAlign="right";ctx.fillText("time →  (1 unit = one target call)",L+pw,y1+lh+14);
+    ctx.textAlign="left";ctx.textBaseline="bottom";ctx.fillText("amber = draft calls · blue = target calls",L,y0-6);
+    var stt=getStats(),pred=SD.speedup(stt.alpha,G(),c),meas=Tn/specT;
+    var tb='<tr><th></th><th class="cp">Standard decode</th><th class="cq">Draft + verify</th></tr>'+
+      '<tr><td>Target calls</td><td class="cp">'+Tn+'</td><td class="cp">'+rounds.length+'</td></tr>'+
+      '<tr><td>Draft calls</td><td>0</td><td class="cq">'+drafts+'</td></tr>'+
+      '<tr><td>Decode time (target-call units)</td><td>'+Tn.toFixed(1)+'</td><td>'+specT.toFixed(1)+'</td></tr>'+
+      '<tr><td>Speed-up on these '+Tn+' tokens</td><td>1.00×</td><td class="sp">'+f2(meas)+'×</td></tr>'+
+      '<tr><td>Long-run speed-up · formula with α = '+f2(stt.alpha)+'</td><td>1.00×</td><td class="sp">'+f2(pred)+'×</td></tr>';
+    if(changed("tlTable",tb)) $("tlTable").innerHTML=tb;
+  }
+
+  /* ================= Part I · WHY (intuition only: "big model / small model", words, no symbols) ================= */
+  /* ---- chapter 1: the dilemma — a careful slow writer and a quick sloppy one ---- */
+  var ODD_REF=SD.annotate(REF,0.7).filter(function(v){return v.p<ODD;}).length,ODD_SMALL=SMALL.filter(function(o){return o.p<ODD;}).length;
+  $("pnPlay").addEventListener("click",function(){removeTween("param:tw");if(state.tw>=19.95) setParam("tw",0);lin("tw",20,(20-state.tw)*420);renderDynamic();});
+  $("pnReset").addEventListener("click",function(){removeTween("param:tw");setParam("tw",0);renderDynamic();});
+  function renderPain(){
+    var t=clamp(state.tw,0,20),nb=Math.min(20,Math.floor(t+1e-6)),ns=Math.min(20,Math.floor(t/CS+1e-6)),i;
+    $("pnFill").style.width=(t/20*100)+"%";
+    var ck=f1(t);if(changed("pnClock",ck)) $("pnClock").textContent=ck;
+    if(!changed("pain",nb+"|"+ns)) return;
+    var hb="",hs="";
+    for(i=0;i<nb;i++) hb+='<span class="rg one'+(i===nb-1&&nb<20?" new":"")+'"><span class="pips"><i class="pip p"></i></span><span class="toks">'+tileHtml(REF[i],"sm")+'</span></span>';
+    for(i=0;i<ns;i++) hs+='<span class="rg one"><span class="pips"><i class="pip q"></i></span><span class="toks">'+tileHtml(SMALL[i].tok,"sm"+(SMALL[i].p<ODD?" rej":""))+'</span></span>';
+    $("pnBig").innerHTML=hb||'<span class="ph0">nothing written yet — press Write ▶</span>';
+    $("pnSmall").innerHTML=hs||'<span class="ph0">nothing written yet</span>';
+    $("pnBigN").textContent=nb;$("pnSmallN").textContent=ns;
+    $("pnBigT").textContent=nb>=20?"done at time 20":"";$("pnSmallT").textContent=ns>=20?"done at time 2":"";
+    $("pnVerdict").innerHTML=t<=0?"Both models read the same prompt, “the”, and write 20 words each.":
+      nb<20?"The small model "+(ns>=20?"finished at time 2":"is racing ahead")+" — the big model has written <em>"+nb+" of 20</em> word"+(nb===1?"":"s")+".":
+      "Ten times quicker — but <em>"+ODD_SMALL+" of the small model’s 20 words</em> (red) are ones the big model would rarely write. In the big model’s own text: "+(ODD_REF||"none")+".";
+  }
+
+  /* ---- chapter 2: most words are easy — is the small model's FIRST guess the word the big model wrote? ---- */
+  var ezPQ=new PQ($("ezBars"),5,"pair");
+  $("ezSent").addEventListener("click",function(e){var c=e.target.closest("[data-i]");if(c){removeTween("param:selE");setParam("selE",+c.getAttribute("data-i"));renderDynamic();}});
+  $("ezAnsN").textContent=SD.annotate(REF,0.7).filter(function(v){return v.same;}).length;        // the predict answer quotes the default small model
+  function renderEasy(){
+    var V=refView(),n=V.length,same=0,i;for(i=0;i<n;i++) if(V[i].same) same++;
+    var sel=clamp(Math.round(state.selE),0,n-1),d=V[sel];
+    if(changed("ezSent",Q()+"|"+sel)){
+      var h='<span class="tile tk sm pre">the</span>';
+      for(i=0;i<n;i++) h+='<span class="tile tk sm '+(V[i].same?"ok":"rej")+(i===sel?" sel":"")+'" data-i="'+i+'">'+esc(nameOf(V[i].tok))+'</span>';
+      $("ezSent").innerHTML=h;
+    }
+    var rows=topRows(d.pd,d.qd,d.tok,4),ref=0.05;rows.forEach(function(r){ref=Math.max(ref,r.p,r.q||0);});
+    ezPQ.update(rows,ref*1.04,function(r){return '<span class="q">small '+pct(r.q)+'</span> · <span class="p">big '+pct(r.p)+'</span>';});
+    var ctx=d.ctx.length>5?"… "+words(d.ctx.slice(-5)):words(d.ctx);
+    $("ezCap").textContent="Word "+(sel+1)+" · next word after “"+ctx+"”";
+    var txt='The big model wrote <b>“'+esc(nameOf(d.tok))+'”</b>. The small model’s first guess here is <b>“'+esc(nameOf(d.qTop))+'”</b> — '+
+      (d.same?'<span class="okc">the same word</span>. An easy position: the big model’s care was not needed.':
+        '<span class="noc">a different word</span>. '+(Q()>=0.999?'The two models are identical now; the big model simply did not write its own first choice, because it samples.':'A hard position: here the big model’s judgement matters.'));
+    if(changed("ezText",txt)) $("ezText").innerHTML=txt;
+    var st='<div class="s3 good"><b>'+same+' of '+n+'</b><small>easy — same first guess</small></div><div class="s3 hi"><b>'+(n-same)+'</b><small>hard — the models disagree</small></div>';
+    if(changed("ezStats",st)) $("ezStats").innerHTML=st;
+  }
+
+  /* ---- chapter 3: writing is a staircase, checking is one column ---- */
+  function renderCheck(){
+    var n=NC();if(state.tc>n) state.tc=n;
+    var t=Math.min(S("tc"),n),i,j;
+    if(!changed("check",n+"|"+t)) return;
+    var hw='<span></span>',hc='<span></span>';
+    for(j=1;j<=n;j++){hw+='<span class="ck-t'+(j<=t?" on":"")+'"><small>tick </small>'+j+'</span>';hc+='<span class="ck-t'+(j===1&&t>=1?" on":"")+'"><small>tick </small>'+j+'</span>';}
+    for(i=1;i<=n;i++){
+      hw+='<span class="ck-w">'+(i<=t?tileHtml(REF[i-1],"sm"+(i===t?" pop":"")):'<span class="tile sm blank">?</span>')+'</span>';
+      hc+='<span class="ck-w">'+tileHtml(REF[i-1],"sm draft")+'</span>';
+      for(j=1;j<=n;j++){
+        hw+='<i class="cc'+(j===i?(j<=t?" on"+(j===t?" now":""):" todo"):"")+'">'+(j===i&&j<=t?"write":"")+'</i>';
+        hc+='<i class="cc'+(j===1?(t>=1?" on"+(t===1?" now":""):" todo"):" idle")+'">'+(j===1&&t>=1?"check":"")+'</i>';
+      }
+    }
+    $("ckW").style.setProperty("--n",n);$("ckC").style.setProperty("--n",n);$("ckW").innerHTML=hw;$("ckC").innerHTML=hc;
+    $("ckWN").textContent=t;$("ckCN").textContent=t>=1?1:0;
+    $("ckWL").textContent="of "+n+" big-model calls";$("ckCL").textContent=t>=1?"big-model call — all "+n+" positions checked":"big-model calls";
+    $("ckVerdict").innerHTML=t===0?"Left: the big model writes "+n+" words itself. Right: the same "+n+" words were guessed by someone else and only need checking.":
+      t<n?"After "+t+" tick"+(t>1?"s":"")+": <em>"+t+" of "+n+"</em> word"+(t>1?"s":"")+" written on the left — all "+n+" already checked on the right.":
+      "<em>"+n+" calls to write, 1 call to check.</em> The other "+(n-1)+" tick"+(n>2?"s are":" is")+" the time a good guesser could save.";
+  }
+  /* ---- Part III · implementation: the round as pseudocode, driven by the SAME step parameter as the round stepper ---- */
+  /* [move (0 draft · 1 verify · 2 commit, -1 header), html, branch] — subscripts are <sub>, never special glyphs */
+  var CODE=[
+    [-1,'<b>round</b>(prefix, γ):'],
+    [0,'  <i># 1 · draft — γ cheap calls, one after another</i>'],
+    [0,'  <b>for</b> i = 1 … γ:'],
+    [0,'      q<sub>i</sub> ← <span class="cq">draft</span>(prefix, x<sub>1</sub> … x<sub>i−1</sub>)'],
+    [0,'      x<sub>i</sub> ~ q<sub>i</sub>'],
+    [1,'  <i># 2 · verify — ONE call of the target</i>'],
+    [1,'  p<sub>1</sub> … p<sub>γ+1</sub> ← <span class="cp">target</span>(prefix, x<sub>1</sub> … x<sub>γ</sub>)'],
+    [1,'  n ← 0'],
+    [1,'  <b>for</b> i = 1 … γ:'],
+    [1,'      <b>if</b> rand() &lt; min(1, p<sub>i</sub>(x<sub>i</sub>) / q<sub>i</sub>(x<sub>i</sub>)):  n ← n + 1'],
+    [1,'      <b>else</b>: <b>break</b>                  <i># first rejection</i>'],
+    [2,'  <i># 3 · commit — one more token, always from the target</i>'],
+    [2,'  <b>if</b> n &lt; γ:                       <i># a guess was rejected</i>',"fix"],
+    [2,'      y ~ normalize(max(0, p<sub>n+1</sub> − q<sub>n+1</sub>))',"fix"],
+    [2,'  <b>else</b>:                            <i># all γ accepted: bonus</i>',"bonus"],
+    [2,'      y ~ p<sub>γ+1</sub>',"bonus"],
+    [2,'  <b>return</b> prefix, x<sub>1</sub> … x<sub>n</sub>, y     <i># n + 1 new tokens</i>']
+  ];
+  function renderCode(){
+    var A=roundAt(),rd=A.rd,ph=A.ph,g=rd.drafts.length,f=rd.fin,i;
+    if(!changed("code",[G(),Q(),Math.round(state.seed),A.st].join("|"))) return;
+    $("cdPhase").innerHTML=phaseHtml(ph,A.r,A.nR);
+    $("cdCode").innerHTML=CODE.map(function(L,k){
+      var cls=L[0]<0?"":(L[0]===ph?(L[2]&&L[2]!==f.kind?" dim":" on"):(L[0]<ph?" done":""));
+      return '<div class="cl'+cls+'"><span class="no">'+(k+1)+'</span><code>'+L[1]+'</code></div>';}).join("");
+    var tr='<div class="tr-h">Round '+(A.r+1)+' of '+A.nR+' · γ = '+g+'</div>';
+    tr+='<div class="tb'+(ph===0?" on":"")+'"><span class="tn">1</span><div>'+rd.drafts.map(function(d,k){return 'x'+sub(k+1)+' = <b>'+esc(nameOf(d.tok))+'</b> <span class="cq">q '+f2(d.q)+'</span>';}).join(" · ")+'</div></div>';
+    if(ph>=1){
+      var ln="";
+      for(i=0;i<g;i++){var d=rd.drafts[i];if(d.st==="drop") break;
+        ln+='<div>x'+sub(i+1)+': '+f2(d.u)+(d.st==="ok"?" &lt; ":" ≥ ")+'min(1, <span class="cp">'+f2(d.p)+'</span> / <span class="cq">'+f2(d.q)+'</span>) = '+f2(d.a)+' → '+(d.st==="ok"?'<span class="okc">keep</span>':'<span class="noc">reject, break</span>')+'</div>';}
+      tr+='<div class="tb'+(ph===1?" on":"")+'"><span class="tn">2</span><div>'+ln+'<div>n = <b>'+rd.n+'</b></div></div></div>';
+    }
+    if(ph>=2){
+      tr+='<div class="tb on"><span class="tn">3</span><div>'+(f.kind==="fix"?'n = '+rd.n+' &lt; γ = '+g+' → y = <b>'+esc(nameOf(f.tok))+'</b> from the residual at position '+(f.pos+1):
+        'n = γ = '+g+' → y = <b>'+esc(nameOf(f.tok))+'</b> from p'+sub(g+1)+' — free')+'<div>returns <b>'+rd.committed.length+'</b> new token'+(rd.committed.length>1?"s":"")+': '+esc(words(rd.committed))+'</div></div></div>';
+    }
+    $("cdTrace").innerHTML=tr;
+    $("cdSent").innerHTML=sentHtml(A.R,rd,ph);
+  }
+  function renderStatic(){}
+  function renderDynamic(){syncChips();renderPain();renderEasy();renderCheck();renderHook();renderVerify();renderAccept();renderPreserve();renderRound();renderCode();renderSpeed();renderTimeline();}
+
+  /* ================= 5 · SHELL: predict cards, rail, progress, entrance, layout, fullscreen, keys ================= */
+  document.querySelectorAll(".predict").forEach(function(p){
+    var ans=+p.getAttribute("data-answer"),btns=p.querySelectorAll(".p-opts button");
+    btns.forEach(function(b,i){b.addEventListener("click",function(){btns.forEach(function(x,j){x.classList.toggle("right",j===ans);x.classList.toggle("wrong",j===i&&i!==ans);x.disabled=true;});p.querySelector(".p-ans").hidden=false;});});
+  });
+  function resetPredicts(){document.querySelectorAll(".predict").forEach(function(p){p.querySelectorAll(".p-opts button").forEach(function(x){x.classList.remove("right","wrong");x.disabled=false;});p.querySelector(".p-ans").hidden=true;});}
+
+  var chapters=Array.prototype.slice.call(document.querySelectorAll(".slide"));
+  (function(){
+    var h='<span class="fill" id="railFill"></span>';
+    chapters.forEach(function(c){var pt=c.getAttribute("data-part");if(pt) h+='<li class="rp">'+pt+'</li>';   // optional: first chapter of a part carries data-part="Why"
+      h+='<li><a data-go="'+c.id+'"><span class="dot">'+c.getAttribute("data-num")+'</span><span class="lb">'+c.getAttribute("data-label")+'</span></a></li>';});
+    $("railList").innerHTML=h;
+  })();
+  function goto(id){var t=$(id);if(t) t.scrollIntoView({behavior:"smooth",block:"start"});}
+  document.addEventListener("click",function(e){var a=e.target.closest("[data-go]");if(a) goto(a.getAttribute("data-go"));});
+  function onScroll(){
+    var y=window.scrollY,vh=window.innerHeight,doc=document.documentElement.scrollHeight-vh;
+    $("progressFill").style.width=(doc>0?y/doc*100:0)+"%";
+    var cur=0;chapters.forEach(function(c,i){if(c.getBoundingClientRect().top<vh*0.5) cur=i;});state.cur=cur;
+    var items=document.querySelectorAll(".rail a");
+    items.forEach(function(a,i){a.classList.toggle("on",i===cur);a.classList.toggle("done",i<cur);});
+    var f=$("railFill");if(f&&items[cur]){var ol=$("railList"),it=items[cur].getBoundingClientRect(),o=ol.getBoundingClientRect();f.style.height=Math.max(0,it.top+it.height/2-o.top-14)+"px";}
+  }
+  window.addEventListener("scroll",onScroll,{passive:true});
+  chapters[0].classList.add("seen");                                            // entrance animation is per-slide: .slide.seen .rv
+  if("IntersectionObserver" in window){var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting) e.target.classList.add("seen");});},{threshold:0.2});chapters.forEach(function(c){io.observe(c);});}
+  else chapters.forEach(function(c){c.classList.add("seen");});
+
+  function fit(){
+    var de=document.documentElement,vw=window.innerWidth;
+    de.classList.toggle("flow",vw<900);                                          // narrow screens: everything single-column
+    de.style.setProperty("--railpad",(vw>=1260)?"110px":"0px");
+  }
+  function relayout(){fit();sigs={};renderStatic();renderDynamic();if(state.mode==="guided") fitPresent();onScroll();}
+  var fsBtn=$("fsBtn");
+  function fsOK(){return !!(document.fullscreenEnabled||document.webkitFullscreenEnabled);}
+  function isFs(){return !!(document.fullscreenElement||document.webkitFullscreenElement);}
+  function enterFs(){var el=document.documentElement,f=el.requestFullscreen||el.webkitRequestFullscreen;if(!f) return null;var p=f.call(el);if(p&&p.catch) p.catch(function(){state.fsByGuided=false;});return p;}
+  function leaveFs(){var f=document.exitFullscreen||document.webkitExitFullscreen;if(f&&isFs()) f.call(document);}
+  function toggleFs(){if(isFs()){state.fsByGuided=false;leaveFs();}else{if(state.mode==="guided") state.fsByGuided=true;enterFs();}}
+  /* A tour opened from a link cannot go full-screen by itself (browsers want a user gesture first): the first click or key press does it. */
+  var fsArmed=false;
+  function fsOnGesture(e){
+    if(!fsArmed||state.mode!=="guided") return;
+    if(e.type==="keydown"&&(e.key==="Escape"||e.key==="f"||e.key==="F"||e.metaKey||e.ctrlKey||e.altKey)) return;
+    if(e.target&&e.target.closest&&e.target.closest("#guidedExit")) return;
+    fsArmed=false;if(!isFs()&&fsOK()){state.fsByGuided=true;enterFs();}
+  }
+  document.addEventListener("click",fsOnGesture,true);document.addEventListener("keydown",fsOnGesture,true);
+  if(!fsOK()) fsBtn.hidden=true;
+  fsBtn.addEventListener("click",toggleFs);
+  function syncFs(){
+    var on=isFs();$("fsLabel").textContent=on?"Exit":"Fullscreen";
+    $("fsIcon").innerHTML=on?'<path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>':'<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>';
+    if(!on&&state.mode==="guided"&&state.fsByGuided){state.fsByGuided=false;exitGuided();return;}   // Esc leaves fullscreen → leave the tour too
+    setTimeout(relayout,120);
+  }
+  document.addEventListener("fullscreenchange",syncFs);document.addEventListener("webkitfullscreenchange",syncFs);
+  document.addEventListener("keydown",function(e){
+    if(e.metaKey||e.ctrlKey||e.altKey) return;
+    var k=e.key,tag=(e.target&&e.target.tagName)||"";
+    if(state.mode==="guided"){                                                    // keys work even when a slider has focus
+      var onBtn=(tag==="BUTTON");
+      if(k==="ArrowRight"||k==="ArrowDown"||k==="PageDown"||((k===" "||k==="Enter")&&!onBtn)){$("guidedNext").click();e.preventDefault();}
+      else if(k==="ArrowLeft"||k==="ArrowUp"||k==="PageUp"||k==="Backspace"){$("guidedPrev").click();e.preventDefault();}
+      else if(k==="Home"){runScene(0);e.preventDefault();}
+      else if(k==="End"){runScene(SCENES.length-1);e.preventDefault();}
+      else if(k==="Escape"){exitGuided();e.preventDefault();}
+      else if(k==="f"||k==="F"){toggleFs();e.preventDefault();}
+      return;
+    }
+    if(/INPUT|SELECT|TEXTAREA/.test(tag)) return;
+    if(k==="f"||k==="F"){toggleFs();e.preventDefault();}
+  });
+
+    /* ================= 6 · GUIDED SCENES: one page = one idea (target = a REAL element; run = the same setters as Explore) =================
+     Order = the page's cognitive ladder:  Part I why (no symbols)  →  Part II the idea in one picture  →  Part III details, maths, code. */
+  function quiet(){stopAll();Object.keys(PARAMS).forEach(function(k){removeTween("param:"+k);});}
+  function lin(name,target,ms){tweenScalar("param:"+name,function(){return state[name];},function(v){setParam(name,v);},target,ms,function(t){return t;});}   // linear: steps tick evenly
+  function CARD(id){return "#"+id+" .work .card";}
+  function PART(id){return "#"+id+" .pmap";}
+  function base(){quiet();setParam("seed",1);setParam("g",4);setParam("qual",0.7);}
+  function ask(id,text){return {title:"Pause & *predict*",text:text,target:"#"+id,w:820,run:function(){quiet();resetPredicts();}};}
+  var RD=[".knobs2",".formula-box",".stats3",".btnrow"];
+  var SCENES=[
+    /* ---------------- Part I · why ---------------- */
+    {title:"Part I · Why do we need a *trick* at all?",text:"Three parts. First the problem and two lucky facts, then the whole idea in one picture, then the details. *No formulas until Part III.*",target:PART("part-why"),w:980,
+      run:function(){base();resetPredicts();setParam("tw",0);setParam("tc",0);setParam("step0",0);setParam("step4",0);}},
+    {id:"pain",title:"Good is slow. *Fast is sloppy.*",text:"The big model needs *one slow call per word*. A model ten times smaller is done long before — but look at the red words it writes.",target:CARD("ch-pain"),w:1040,hide:[".cap",".btnrow"],
+      run:function(){base();setParam("tw",0);lin("tw",20,9000);}},
+    ask("prA","A GPU does thousands of things at once. Why can’t the big model produce all 20 words in a single call?"),
+    ask("prB","The small model is a much weaker writer. For how many of the big model’s 20 words is its first guess exactly that word?"),
+    {title:"Lucky fact 1: most words are *easy*",text:"Green: the small model’s first guess is *the very word the big model wrote*. Only at a few real forks — cat or dog? — do they disagree.",target:CARD("ch-easy"),w:1040,hide:[".knob"],
+      run:function(){base();setParam("selE",5);}},
+    ask("prC","Five guessed words are already on the page. How many big-model calls does it take to check all five?"),
+    {id:"check",title:"Lucky fact 2: checking is *faster* than writing",text:"Writing is a staircase: each word waits for the one before. Checking is a single column: *every position is read in the same call*.",target:CARD("ch-check"),w:1040,hide:[".cap",".btnrow"],
+      run:function(){quiet();setParam("nC",5);setParam("tc",0);lin("tc",5,5200);}},
+    /* ---------------- Part II · the idea ---------------- */
+    {title:"Part II · Let the small model *guess*, let the big model *check*",text:"Easy words plus cheap checking: *that is the whole method*. First the workflow — the exact rules wait until Part III.",target:PART("part-idea"),w:980,run:function(){quiet();}},
+    {id:"idea",title:"One round: *guess, check, keep*",text:"The draft model writes a few tokens ahead. The target reads them *in one call*, keeps what passes, fixes the first miss and drops the rest.",target:CARD("ch-hero"),w:1000,hide:[".card-tag",".lanes",".legend2",".btnrow",".verdict"],
+      run:function(){base();setParam("step0",0);}},
+    {title:"Run it: count the *target calls*",text:"Each round is a few cheap draft calls (small amber squares) and *one target call* (blue). Count the blue squares in each lane.",target:CARD("ch-hero"),w:1040,hide:[".btnrow",".loop3"],
+      run:function(){base();setParam("step0",0);lin("step0",getRun().rounds.length,7000);}},
+    ask("prD","The draft model proposed most of the tokens. Whose writing is the final text?"),
+    {title:"*Five questions* the details must answer",text:"The picture is simple, but *every move hides a question*. Part III takes them one at a time.",target:"#roadmap",w:1000,run:function(){quiet();}},
+    /* ---------------- Part III · the details ---------------- */
+    {title:"Part III · Now *open the box*",text:"Symbols appear *only when needed*: q is the draft’s distribution, p the target’s, γ the draft length, α the acceptance rate.",target:PART("part-details"),w:980,run:function(){quiet();}},
+    {id:"verify",title:"The draft writes γ tokens, *one after another*",text:"A small model is fast, so guessing five tokens ahead is cheap. Each guess is sampled from *the draft’s own distribution q*.",target:CARD("ch-verify"),w:1040,hide:[".kv-two",".formula-box"],
+      run:function(){base();setParam("g",5);setParam("sel1",1);}},
+    {title:"The target checks every position in *one pass*",text:"The draft tokens already exist, so the target reads them together and reports its own distribution at each position — *five checks and one extra*.",target:CARD("ch-verify"),w:1040,hide:[".formula-box"],
+      run:function(){base();setParam("g",5);setParam("sel1",1);lin("sel1",6,5200);}},
+    ask("pr1","The check at position 3 assumed guesses 1 and 2 are right. Guess 2 turns out to be wrong. Is the check at position 3 still usable?"),
+    {id:"accept",title:"Should we *keep* a draft token?",text:"The draft proposes A 80% of the time; the target wants A only 60% of the time. Green is *the part both models agree on*.",target:CARD("ch-accept"),w:900,hide:[".side",".formula-box"],
+      run:function(){quiet();setParam("pA",0.6);setParam("qA",0.8);aReset();}},
+    ask("pr2","The draft proposes A with q = 0.8, but the target only gives A p = 0.6. What should we do with a proposed A?"),
+    {title:"Accept with probability *min(1, p / q)*",text:"A proposed A is *kept 75% of the time*; a proposed B is always kept. Two hundred draws land close to the prediction.",target:CARD("ch-accept"),w:1040,
+      run:function(){quiet();setParam("pA",0.6);setParam("qA",0.8);aReset();aDraw(200);}},
+    {title:"A rejection *still needs a token*",text:"Sample it from the residual — the purple part of the target’s probability that the draft did not cover. What comes out *matches the target exactly*.",target:CARD("ch-preserve"),w:1040,hide:[".formula-box"],
+      run:function(){quiet();setParam("qual",0.7);setParam("scheme",2);rReset();}},
+    ask("pr3","After a rejection, why not simply sample the replacement from the target p?"),
+    {title:"Resampling from p counts some words *twice*",text:"It adds too much to the words the draft already over-proposed. The output *drifts away from the target*.",target:CARD("ch-preserve"),w:1040,hide:[".formula-box"],
+      run:function(){quiet();setParam("qual",0.7);setParam("scheme",1);rReset();}},
+    {title:"A worse draft changes how often — *never what*",text:"Lower the draft quality: fewer tokens are accepted, yet with the residual rule the output *stays exactly on the target*.",target:CARD("ch-preserve"),w:1040,hide:[".formula-box"],
+      run:function(){quiet();setParam("scheme",2);setParam("qual",0.7);lin("qual",0.1,3200);}},
+    {title:"A round, move 1: *draft*",text:"The draft model proposes γ = 4 tokens. So far *only its own probabilities q* are known.",target:CARD("ch-round"),w:1040,hide:RD,
+      run:function(){base();setParam("step4",6);}},
+    {title:"Move 2: *verify*",text:"One target pass gives p at every position. Left to right, each token is kept with probability min(1, p / q) — *until the first rejection*.",target:CARD("ch-round"),w:1040,hide:RD,
+      run:function(){base();setParam("step4",7);}},
+    {title:"Move 3: *commit*",text:"*Keep the accepted prefix*, replace the rejected token with a sample from the residual, and discard the drafts after it.",target:CARD("ch-round"),w:1040,hide:RD,
+      run:function(){base();setParam("step4",8);}},
+    ask("pr4","All γ = 4 draft tokens are accepted. How many tokens does this round add to the text?"),
+    {title:"All accepted: *one bonus token*",text:"If every draft token survives, the same target pass has already produced the next distribution — *a fifth token for free*.",target:CARD("ch-round"),w:1040,hide:RD,
+      run:function(){base();setParam("step4",2);}},
+    {title:"How many tokens per *target call*?",text:"*Between 1 and γ + 1.* The better the draft, the longer the accepted prefix — and the formula predicts the average.",target:CARD("ch-round"),w:960,hide:[".phase",".rd-grid",".lbl",".sent",".btnrow"],
+      run:function(){base();setParam("step4",8);}},
+    {title:"The same round, *as code*",text:"*Seventeen lines.* The highlighted block moves through draft, verify and commit for the round you just watched.",target:CARD("ch-code"),w:1060,hide:[".btnrow"],
+      run:function(){base();setParam("step4",6);lin("step4",8,5200);}},
+    ask("prE","Set the temperature to 0, so the target always picks its single top token. What does line 10 turn into?"),
+    {title:"What a *real implementation* adds",text:"*Two KV caches* that roll back after a miss, decoding settings applied before the rule, and a library call that hides all of it.",target:"#impl",w:1000,run:function(){quiet();}},
+    {id:"speed",title:"*Speed-up* = tokens per round ÷ cost per round",text:"A round costs γ draft calls plus one target call. With α = 0.8 and a draft ten times cheaper, γ = 4 gives *about 2.4×*.",target:CARD("ch-speed"),w:1040,hide:[".note",".btnrow"],
+      run:function(){quiet();setParam("alpha",0.8);setParam("c",0.1);setParam("g",4);}},
+    {title:"Longer drafts: more tokens, *more waste*",text:"Raising γ helps at first; then most of the extra draft calls are thrown away. *There is a best γ.*",target:CARD("ch-speed"),w:1040,hide:[".note",".btnrow",".formula-box"],
+      run:function(){quiet();setParam("alpha",0.8);setParam("c",0.1);setParam("g",1);lin("g",8,4200);}},
+    ask("pr5","The draft is accepted 60% of the time and each draft call costs 30% of a target call. With γ = 5, is drafting faster?"),
+    {title:"A sloppy or costly draft can be *slower*",text:"With α = 0.6 and c = 0.3 the curve dips below the dashed line: *drafting loses to plain decoding*.",target:CARD("ch-speed"),w:1040,hide:[".note",".btnrow",".formula-box"],
+      run:function(){quiet();setParam("g",5);setParam("alpha",0.8);setParam("c",0.1);tweenParam("alpha",0.6,1800);tweenParam("c",0.3,1800);}},
+    {title:"Back to the dilemma: same words, *sooner*",text:"Standard decoding delivers tokens evenly. Draft-and-verify delivers them *in bursts and finishes sooner*; prefill is unchanged.",target:CARD("ch-compare"),w:1040,hide:[".note"],
+      run:function(){base();setParam("c",0.1);}},
+    {title:"What changes, and what *does not*",text:"The schedule and the cost change. *The distribution of the text does not.*",target:"#ch-compare .rules",w:1000,run:function(){quiet();}}
+  ];
+
+  /* ================= 7 · SHELL: Guided tour presentation layer =================
+     The REAL interactive element is moved into #prFit, the hidden parts are removed, and the result is scaled (transform) to fill the body area.
+     A ResizeObserver re-fits whenever the element's height changes (e.g. a predict answer appears). Exiting puts everything back. */
+  var moved=null,KMAX=2.6;
+  function restoreMoved(){
+    if(!moved) return;
+    var m=moved;moved=null;if(m.ro) m.ro.disconnect();
+    m.hidden.forEach(function(h){h.classList.remove("gp-hide");});m.el.style.width=m.w0;
+    if(m.limit) BARLISTS.forEach(function(b){b.setLimit(0);});
+    if(m.ph.parentNode){m.ph.parentNode.insertBefore(m.el,m.ph);m.ph.parentNode.removeChild(m.ph);}
+  }
+  function fitPresent(){
+    if(state.mode!=="guided"||!moved) return;
+    var body=$("prBody"),fitEl=$("prFit");fitEl.style.transform="none";
+    var bw=body.clientWidth*0.96,bh=body.clientHeight-12,w=fitEl.offsetWidth,h=fitEl.offsetHeight;if(!w||!h) return;
+    var k=Math.min(bw/w,bh/h,KMAX);fitEl.style.transform="scale("+k.toFixed(4)+")";
+    if(Math.abs(k-STAGE_S)>0.01){STAGE_S=k;renderDynamic();}
+  }
+  function showTarget(sc){
+    restoreMoved();
+    var el=sc.target?document.querySelector(sc.target):null;if(!el) return;
+    var ph=document.createComment("pr");el.parentNode.insertBefore(ph,el);$("prFit").appendChild(el);
+    var w0=el.style.width;el.style.width=(sc.w||980)+"px";
+    var hidden=[];(sc.hide||[]).forEach(function(q){el.querySelectorAll(q).forEach(function(h){h.classList.add("gp-hide");hidden.push(h);});});
+    moved={el:el,ph:ph,w0:w0,hidden:hidden,limit:!!sc.limit};
+    if(sc.limit) BARLISTS.forEach(function(b){b.setLimit(sc.limit);});
+    if("ResizeObserver" in window){moved.ro=new ResizeObserver(function(){requestAnimationFrame(fitPresent);});moved.ro.observe(el);}
+  }
+  function renderDots(){$("guidedDots").innerHTML="";SCENES.forEach(function(_,i){var d=document.createElement("span");d.className="guided-dot"+(i===state.guidedIndex?" active":"");$("guidedDots").appendChild(d);});}
+  function sceneText(s){return esc(s).replace(/\*([^*]+)\*/g,"<em>$1</em>");}                 // *key phrase* → accent
+  function runScene(idx,preset){
+    idx=clamp(idx,0,SCENES.length-1);state.guidedIndex=idx;var sc=SCENES[idx];
+    $("guidedTitle").innerHTML=sceneText(sc.title);$("guidedText").innerHTML=sceneText(sc.text);renderDots();
+    $("prCount").textContent="Step "+(idx+1)+" / "+SCENES.length;$("prProg").style.width=((idx+1)/SCENES.length*100)+"%";
+    if(sc.run) sc.run();
+    if(preset) preset();                                                       // a deep link's parameters win over the scene's own
+    showTarget(sc);renderStatic();renderDynamic();fitPresent();
+    $("guidedPrev").disabled=(idx===0);$("guidedNext").textContent=(idx===SCENES.length-1)?"Finish":"Next ›";
+  }
+  function enterGuided(idx,preset,fromLink){
+    state.mode="guided";$("modeExplore").setAttribute("aria-pressed","false");$("modeGuided").setAttribute("aria-pressed","true");
+    document.documentElement.classList.add("presenting");$("guidedBar").classList.remove("hidden");
+    fsArmed=false;if(fsOK()&&!isFs()){if(fromLink) fsArmed=true;else{state.fsByGuided=true;enterFs();}}                        // must run inside the click handler (user gesture)
+    runScene(typeof idx==="number"?idx:0,preset);setTimeout(function(){if(state.mode==="guided") relayout();},250);
+  }
+  function exitGuided(){
+    state.mode="explore";$("modeExplore").setAttribute("aria-pressed","true");$("modeGuided").setAttribute("aria-pressed","false");
+    restoreMoved();STAGE_S=1;document.documentElement.classList.remove("presenting");$("guidedBar").classList.add("hidden");
+    if(state.fsByGuided&&isFs()){state.fsByGuided=false;leaveFs();}else state.fsByGuided=false;
+    fsArmed=false;fit();sigs={};renderStatic();renderDynamic();
+    var ch=$(SCENES[state.guidedIndex].ch);if(ch){ch.classList.add("seen");ch.scrollIntoView({behavior:"instant",block:"start"});}   // leave the tour where you are
+    onScroll();
+  }
+  $("modeExplore").addEventListener("click",function(){if(state.mode==="guided") exitGuided();});
+  $("modeGuided").addEventListener("click",function(){if(state.mode==="explore") enterGuided();});
+  $("mhTour").addEventListener("click",function(){if(state.mode==="explore") enterGuided();});
+  $("guidedNext").addEventListener("click",function(){if(state.guidedIndex>=SCENES.length-1){exitGuided();return;}runScene(state.guidedIndex+1);});
+  $("guidedPrev").addEventListener("click",function(){runScene(state.guidedIndex-1);});
+  $("guidedExit").addEventListener("click",exitGuided);
+  $("mhSteps").textContent=SCENES.length;
+  var rt=null;window.addEventListener("resize",function(){clearTimeout(rt);rt=setTimeout(relayout,150);});
+  if(document.fonts&&document.fonts.ready) document.fonts.ready.then(function(){sigs={};renderDynamic();});
+
+  /* contract used by scripts/check_browser.py */
+  /* ---- deep links ----
+     page.html#chapter-id?key=value&key=value&open=adv      Explore: scroll to the chapter with these parameters preset
+     page.html#chapter-id?tour=<scene id>&key=value          Guided tour: open that page full-window (first click / key → full-screen);
+                                                             the link's parameters are applied after the scene's own. tour=1 = the chapter's first page.
+     page.html#tour                                          Guided tour from page 1
+     key = any name in PARAMS, or a domain special in LINK_SPECIAL. A slide button should use the tour form. */
+  var LINK_SPECIAL={};
+  function hashParts(){
+    var h=location.hash.replace(/^#/,""),parts=h.split("?"),q={};
+    (parts[1]||"").split("&").forEach(function(kv){var a=kv.split("=");if(a[0]) q[a[0]]=decodeURIComponent(a[1]||"");});
+    return {id:parts[0],q:q};
+  }
+  function rescrollHash(instant){
+    var h=hashParts(),el=h.id?$(h.id):null;if(!el||!el.classList.contains("slide")||state.mode==="guided") return;
+    el.classList.add("seen");
+    setTimeout(function(){el.scrollIntoView({behavior:instant?"auto":"smooth",block:"start"});},instant?30:0);
+  }
+  function applyParams(h,el){
+    Object.keys(h.q).forEach(function(k){
+      if(k==="open"||k==="tour") return;
+      removeTween("param:"+k);
+      if(LINK_SPECIAL[k]) LINK_SPECIAL[k](h.q[k]);
+      else if(PARAMS[k]) setParam(k,parseFloat(h.q[k]));
+    });
+    if(h.q.open==="adv"&&el) el.querySelectorAll("details.adv").forEach(function(d){d.open=true;});
+  }
+  SCENES.forEach(function(s){var e=s.target?document.querySelector(s.target):null,c=e&&e.closest(".slide,.part");s.ch=c?c.id:"";});   // which chapter each tour page belongs to
+  function tourIndex(h){
+    var i,key=h.q.tour;
+    for(i=0;i<SCENES.length;i++) if(key&&(SCENES[i].id===key||SCENES[i].target==="#"+key)) return i;      // tour=<scene id>  (or a predict card's id)
+    for(i=0;i<SCENES.length;i++) if(h.id&&SCENES[i].ch===h.id) return i;                                     // otherwise the first tour page of that chapter
+    return 0;
+  }
+  function applyHash(instant){
+    var h=hashParts(),el=h.id?$(h.id):null;
+    if(h.q.tour!==undefined||h.id==="tour"){                       // …?tour=…  → the Guided tour, on that page, with the link's parameters
+      var preset=function(){applyParams(h,el);};
+      if(state.mode==="guided") runScene(tourIndex(h),preset); else enterGuided(tourIndex(h),preset,true);
+      return;
+    }
+    if(state.mode==="guided") return;
+    if(!el||!el.classList.contains("slide")) return;
+    applyParams(h,el);
+    sigs={};renderStatic();renderDynamic();rescrollHash(instant);
+  }
+  window.addEventListener("hashchange",function(){applyHash(false);});
+  if(document.fonts&&document.fonts.ready) document.fonts.ready.then(function(){if(state.mode==="guided") relayout();});
+
+  window.__demo={state:state,SCENES:SCENES,runScene:runScene,enterGuided:enterGuided,exitGuided:exitGuided,fit:fit,toggleFs:toggleFs,stageScale:function(){return STAGE_S;},fitPresent:fitPresent};
+
+  fit();renderStatic();renderDynamic();onScroll();
+  applyHash(true);if(document.fonts&&document.fonts.ready) document.fonts.ready.then(function(){rescrollHash(true);});
+})();
+</script>
+</body>
+</html>

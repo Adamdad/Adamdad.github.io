@@ -1,0 +1,2165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decoding Lab · Choosing the Next Word</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Hanken+Grotesk:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+  :root{
+    --paper:#FAF6EE; --paper-2:#F2ECDF; --card:#FFFEFB;
+    --ink:#211E24; --ink-2:#5A5660; --ink-3:#8E8A93;
+    --line:#E6DFCF; --line-2:#D6CCB6;
+    --red:#A63446; --red-d:#7F1F2E; --red-soft:#F8EAEC;
+    --blue:#1F4E79; --blue-soft:#E9F1F8;
+    --green:#0A8F22; --green-soft:#E6F4E9;
+    --note:#FFF3C9; --note-line:#E6CE7A;
+    --display:'Instrument Serif','Latin Modern Roman','CMU Serif','Times New Roman',Times,Georgia,serif;
+    --body:'Hanken Grotesk','Avenir Next','Segoe UI',system-ui,sans-serif;
+    --mono:'DM Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --ease:cubic-bezier(.22,.8,.24,1);
+    --s:1; --railpad:0px; --barpad:0px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.55;
+    background:
+      radial-gradient(1200px 600px at 8% -8%,rgba(166,52,70,.07),transparent 60%),
+      radial-gradient(900px 520px at 100% 12%,rgba(31,78,121,.06),transparent 60%),
+      var(--paper);}
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.5;mix-blend-mode:multiply;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .55  0 0 0 0 .45  0 0 0 0 .3  0 0 0 .07 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");}
+  main,.rail,.modebox,.progress{position:relative;z-index:1;}
+
+  /* ---------- chrome ---------- */
+  .progress{position:fixed;left:0;top:0;right:0;height:3px;z-index:80;}
+  .progress i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--red),#d05a6b);}
+  .modebox{position:fixed;top:14px;right:16px;z-index:70;display:flex;gap:8px;align-items:center;}
+  .segmented{display:inline-flex;flex-wrap:wrap;border:1px solid var(--line-2);border-radius:999px;overflow:hidden;background:rgba(255,254,251,.92);backdrop-filter:blur(6px);box-shadow:0 6px 18px -10px rgba(60,40,20,.35);}
+  .segmented button{border:none;background:transparent;padding:7px 15px;font:600 13px var(--body);cursor:pointer;color:var(--ink-2);transition:background .2s,color .2s;}
+  .segmented button+button{border-left:1px solid var(--line);}
+  .segmented button[aria-pressed="true"]{background:var(--red);color:#fff;}
+  .segmented button:hover:not([aria-pressed="true"]){background:var(--red-soft);}
+  .segmented.sm button{padding:4px 12px;font-size:12px;}
+  .fs{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line-2);border-radius:999px;background:rgba(255,254,251,.92);backdrop-filter:blur(6px);padding:7px 14px;font:600 13px var(--body);color:var(--ink-2);cursor:pointer;box-shadow:0 6px 18px -10px rgba(60,40,20,.35);transition:all .2s;}
+  .fs:hover{border-color:var(--red);color:var(--red);}
+  .fs[hidden]{display:none;}
+
+  .rail{position:fixed;left:22px;top:50%;transform:translateY(-50%);z-index:60;display:none;}
+  @media (min-width:1260px){.rail{display:block;}}
+  .rail ol{list-style:none;margin:0;padding:0;position:relative;}
+  .rail ol::before{content:"";position:absolute;left:13px;top:14px;bottom:14px;width:2px;background:var(--line-2);}
+  .rail .fill{position:absolute;left:13px;top:14px;width:2px;background:var(--red);height:0;transition:height .35s var(--ease);}
+  .rail li{position:relative;}
+  .rail a{display:flex;align-items:center;gap:10px;padding:5px 0;color:var(--ink-3);text-decoration:none;font-size:12px;font-weight:600;cursor:pointer;}
+  .rail a .dot{width:28px;height:28px;border-radius:50%;background:var(--paper);border:2px solid var(--line-2);display:grid;place-items:center;font:500 10.5px var(--mono);color:var(--ink-3);transition:all .25s var(--ease);flex:none;}
+  .rail a:hover{color:var(--ink);}
+  .rail a.done .dot{border-color:var(--red);color:var(--red);}
+  .rail a.on{color:var(--red);}
+  .rail a.on .dot{background:var(--red);border-color:var(--red);color:#fff;transform:scale(1.12);box-shadow:0 0 0 5px rgba(166,52,70,.14);}
+
+  /* ---------- Explore mode: a normal web page — title text first, the figure underneath ---------- */
+  .slide{position:relative;padding:62px 0 8px var(--railpad);}
+  .stage{position:relative;width:100%;max-width:1100px;margin:0 auto;padding:0 30px;}
+  .slide+.slide .stage::before{content:"";position:absolute;left:30px;right:30px;top:-36px;height:1px;background:linear-gradient(90deg,var(--line-2),transparent);}
+  .cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:22px;row-gap:0;align-items:start;}
+  .narr,.work{display:contents;}
+  .cols .kicker{grid-column:1/-1;order:1;}
+  .cols h1,.cols h2{grid-column:1/-1;order:2;}
+  .cols .sub{grid-column:1/-1;order:3;}
+  .cols .card{grid-column:1/-1;order:4;}
+  .cols .predict{grid-column:1;order:5;margin-top:22px;align-self:start;}
+  .cols .takeaway{grid-column:2;order:5;margin-top:22px;align-self:stretch;}
+  .cols .roadmap,.cols .rules{grid-column:1/-1;order:6;margin-top:22px;}
+  .ghostnum{position:absolute;right:26px;top:-30px;font:italic 170px/1 var(--display);color:rgba(166,52,70,.07);pointer-events:none;user-select:none;z-index:0;}
+  .cols .kicker,.cols h2,.cols .sub,.cols .predict,.cols .takeaway,.cols .roadmap,.cols .rules{position:relative;z-index:1;}
+  .card{position:relative;z-index:1;}
+
+  .kicker{display:flex;align-items:center;gap:10px;font:600 11.5px var(--body);letter-spacing:.16em;text-transform:uppercase;color:var(--red);margin-bottom:10px;}
+  .kicker .num{font:500 11.5px var(--mono);background:var(--red);color:#fff;padding:2px 8px;border-radius:5px;letter-spacing:.04em;}
+  .kicker::after{content:"";height:1px;width:40px;background:var(--red);opacity:.45;}
+  h1,h2{font-family:var(--display);font-weight:400;margin:0;letter-spacing:-.012em;}
+  h2{font-size:clamp(34px,4.4vw,52px);line-height:1.04;max-width:none;}
+  h1{font-size:56px;line-height:.98;}
+  h1 em,h2 em{color:var(--red);font-style:italic;}
+  .sub{font-size:17px;color:var(--ink-2);max-width:70ch;margin:10px 0 20px;}
+  .sub b{color:var(--ink);}
+
+  .card{position:relative;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:28px 24px 18px;
+    box-shadow:0 1px 0 #fff inset,0 24px 50px -30px rgba(70,45,20,.38),0 2px 6px -2px rgba(70,45,20,.08);}
+  .card-tag{position:absolute;left:22px;top:-12px;background:var(--red);color:#fff;font:600 11px var(--body);letter-spacing:.1em;text-transform:uppercase;padding:3px 12px;border-radius:7px 7px 7px 2px;box-shadow:0 4px 10px -4px rgba(127,31,46,.6);}
+  .lbl{font:600 11px var(--body);letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);margin-bottom:6px;}
+  .cap{font-size:13px;color:var(--ink-2);margin:10px 0 0;}
+  .btnrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0 2px;}
+  .btn{border:1px solid var(--line-2);background:#fff;color:var(--ink);padding:7px 15px;border-radius:999px;font:600 13px var(--body);cursor:pointer;transition:all .2s var(--ease);}
+  .btn:hover:not(:disabled){border-color:var(--red);color:var(--red);transform:translateY(-1px);}
+  .btn:active:not(:disabled){transform:translateY(0);}
+  .btn:disabled{opacity:.42;cursor:default;}
+  .btn.primary{background:var(--red);border-color:var(--red);color:#fff;box-shadow:0 8px 18px -10px rgba(127,31,46,.75);}
+  .btn.primary:hover:not(:disabled){color:#fff;filter:brightness(1.08);}
+  .btn.sm{padding:4px 12px;font-size:12px;}
+  .formula-box{margin-top:12px;padding:6px 14px;border-radius:12px;background:var(--paper-2);border:1px solid var(--line);min-height:50px;display:flex;align-items:center;font-size:14px;}
+  .formula-box>div{width:100%;}
+  .formula-box .katex-display{margin:2px 0;overflow-x:auto;overflow-y:hidden;}
+  .formula-box .katex{font-size:1.08em;}
+  .plain-formula{font-family:var(--mono);font-size:12.5px;}
+
+  .takeaway{display:flex;gap:16px;align-items:baseline;padding:16px 22px;background:var(--red-soft);border-left:6px solid var(--red);border-radius:4px 14px 14px 4px;}
+  .takeaway .tk{font:700 11px var(--body);letter-spacing:.14em;text-transform:uppercase;color:var(--red);white-space:nowrap;}
+  .takeaway p{margin:0;font:400 24px/1.22 var(--display);color:var(--ink);}
+  .takeaway p em{color:var(--red);}
+
+  .predict{margin-top:4px;background:var(--note);border:1px solid var(--note-line);border-radius:6px 14px 14px 14px;padding:13px 18px 14px;transform:rotate(-.35deg);box-shadow:0 14px 26px -18px rgba(110,80,10,.55);position:relative;}
+  .predict::before{content:"";position:absolute;left:20px;top:-8px;width:54px;height:15px;background:rgba(255,255,255,.55);border:1px solid rgba(0,0,0,.05);transform:rotate(-3deg);}
+  .p-head{font:700 10.5px var(--body);letter-spacing:.14em;text-transform:uppercase;color:#8a6a10;margin-bottom:4px;}
+  .p-q{margin:0 0 9px;font:400 19px/1.22 var(--display);}
+  .p-opts{display:flex;flex-wrap:wrap;gap:6px;}
+  .p-opts button{border:1.5px solid var(--note-line);background:#fffbe9;border-radius:999px;padding:5px 13px;font:600 12.5px var(--body);cursor:pointer;color:var(--ink);transition:all .2s;}
+  .p-opts button:hover:not(:disabled){background:#fff;border-color:#b8962c;}
+  .p-opts button.right{background:var(--green);border-color:var(--green);color:#fff;}
+  .p-opts button.wrong{background:#fff;border-color:var(--red);color:var(--red);text-decoration:line-through;}
+  .p-opts button:disabled{cursor:default;}
+  .p-ans{margin-top:9px;font-size:13px;line-height:1.45;color:#4a3d10;border-top:1px dashed var(--note-line);padding-top:8px;animation:rise .5s var(--ease);}
+  .p-ans[hidden]{display:none;}
+  @keyframes rise{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+
+  /* entrance animation (replaces scroll-reveal) */
+  .slide .rv{opacity:0;transform:translateY(16px);transition:opacity .7s var(--ease),transform .7s var(--ease);}
+  .slide.seen .rv{opacity:1;transform:none;}
+  .slide.seen .rv.d1{transition-delay:.08s;}.slide.seen .rv.d2{transition-delay:.16s;}.slide.seen .rv.d3{transition-delay:.24s;}
+
+  /* ---------- word tiles ---------- */
+  .tile{display:inline-flex;align-items:center;gap:6px;padding:2px 11px 2px 9px;border-radius:9px;font:500 14px var(--mono);color:var(--ink);white-space:nowrap;
+    background:color-mix(in srgb,var(--tc) 13%,#fff);border:1px solid color-mix(in srgb,var(--tc) 36%,#fff);border-left:5px solid var(--tc);box-shadow:0 2px 0 rgba(0,0,0,.05);}
+  .tile.sm{font-size:12px;padding:0 8px 0 7px;border-radius:7px;border-left-width:4px;}
+  .tile.lg{font-size:20px;padding:4px 13px 4px 11px;border-radius:11px;border-left-width:6px;}
+  .tile.blank{background:transparent;border:2px dashed var(--line-2);border-left:2px dashed var(--line-2);color:var(--ink-3);animation:pulse 1.8s ease-in-out infinite;}
+  .tile.pop{animation:pop .55s var(--ease);}
+  .tile.prompt{--tc:#7C8594;}
+  @keyframes pulse{50%{border-color:var(--red);color:var(--red);}}
+  @keyframes pop{0%{transform:scale(.6);opacity:0;}60%{transform:scale(1.12);}100%{transform:none;opacity:1;}}
+  .sent{display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-height:38px;}
+  .sent .arr{color:var(--line-2);font-size:13px;}
+
+  /* ---------- hero ---------- */
+  .masthead{position:relative;padding:92px 0 8px var(--railpad);}
+  .mh-inner{position:relative;max-width:1100px;margin:0 auto;padding:0 30px;}
+  .masthead h1{font-size:clamp(60px,9vw,112px);line-height:.92;max-width:none;margin:4px 0 0;}
+  .mh-sub{font:italic 400 clamp(24px,3.1vw,40px)/1.12 var(--display);color:var(--red);margin:12px 0 0;}
+  .mh-desc{font-size:17.5px;line-height:1.6;color:var(--ink-2);max-width:66ch;margin:20px 0 24px;}
+  .mh-desc b{color:var(--ink);}
+  .mh-actions{display:flex;gap:12px;flex-wrap:wrap;align-items:center;}
+  .btn.big{padding:12px 26px;font-size:15px;}
+  .mh-meta{list-style:none;display:flex;flex-wrap:wrap;gap:6px 22px;margin:22px 0 0;padding:0;font:500 12.5px var(--mono);color:var(--ink-3);}
+  .mh-meta li::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--red);margin-right:8px;vertical-align:1px;opacity:.7;}
+  .brand{font:600 12px var(--body);letter-spacing:.15em;text-transform:uppercase;color:var(--ink-3);margin-bottom:12px;}
+  .brand b{color:var(--red);}
+  .floaters{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:0;}
+  .mh-inner>*:not(.floaters){position:relative;z-index:1;}
+  .floaters .tile{position:absolute;opacity:.5;animation:float 9s ease-in-out infinite;}
+  @keyframes float{50%{transform:translateY(-12px) rotate(var(--r,0deg));}}
+  .blankline{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px;}
+  .roadmap{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(5,1fr);gap:10px;counter-reset:rm;}
+  .roadmap li{counter-increment:rm;background:rgba(255,254,251,.75);border:1px solid var(--line);border-radius:13px;padding:10px 11px 9px;font-size:11.5px;line-height:1.35;color:var(--ink-2);transition:transform .25s var(--ease),border-color .25s;cursor:pointer;}
+  .roadmap li:hover{transform:translateY(-3px);border-color:var(--red);}
+  .roadmap li::before{content:counter(rm);display:block;font:italic 28px/1 var(--display);color:var(--red);margin-bottom:4px;}
+  .roadmap li b{display:block;color:var(--ink);font-size:12.5px;margin-bottom:1px;}
+
+  /* ---------- bar lists ---------- */
+  .bl{position:relative;}
+  .bl-row{position:absolute;left:0;right:0;display:flex;align-items:center;gap:10px;padding:0 8px 0 4px;border-radius:8px;transition:transform .7s var(--ease),background .3s,opacity .4s;}
+  .bl-row.click{cursor:pointer;}
+  .bl-row.click:hover{background:var(--paper-2);}
+  .bl-tile{width:84px;flex:none;}
+  .bl-row .tile{font-size:12.5px;padding:1px 9px 1px 8px;}
+  .bl-track{position:relative;flex:1;height:60%;min-width:50px;}
+  .bl-bar,.bl-ghost,.bl-zero{position:absolute;top:0;bottom:0;display:block;}
+  .bl-bar{border-radius:4px;transition:left .7s var(--ease),width .7s var(--ease),background .3s;}
+  .bl-ghost{z-index:2;pointer-events:none;border:1.5px dashed rgba(33,30,36,.55);border-radius:4px;transition:left .7s var(--ease),width .7s var(--ease),opacity .4s;opacity:0;}
+  .bl-ghost.on{opacity:1;}
+  .bl-zero{width:1px;background:var(--ink-3);top:-3px;bottom:-3px;opacity:0;transition:opacity .4s,left .6s;}
+  .bl-val{width:54px;text-align:right;font:500 12.5px var(--mono);flex:none;}
+  .bl-x{width:50px;font:500 11px var(--mono);color:var(--ink-3);flex:none;}
+  .bl-row.cut .bl-bar{background:repeating-linear-gradient(135deg,#cfd1d9 0 5px,#e7e9ef 5px 10px)!important;}
+  .bl-row.cut .tile{filter:grayscale(1);opacity:.5;}
+  .bl-row.cut .bl-val{color:var(--ink-3);}
+  .bl-row.pick{background:linear-gradient(90deg,var(--red-soft),rgba(248,234,236,0) 85%);box-shadow:inset 4px 0 0 var(--red);}
+  .bl-row.pick .bl-val{color:var(--red);}
+  .bl-row.flash .bl-bar{animation:flash .5s ease-in-out 2;}
+  @keyframes flash{50%{filter:brightness(1.35) saturate(1.3);}}
+
+  /* ---------- scores ---------- */
+  .sc-head,.sc-row{display:grid;grid-template-columns:88px minmax(150px,1.35fr) 46px 26px minmax(96px,1fr) 58px;gap:8px;align-items:center;}
+  .sc-head{font:600 10.5px var(--body);letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);padding:0 6px 6px;border-bottom:1px solid var(--line);}
+  .sc-row{padding:5px 6px;border-radius:10px;transition:background .25s;}
+  .sc-row.sel{background:var(--paper-2);}
+  .sc-track{position:relative;height:28px;cursor:ew-resize;touch-action:none;}
+  .sc-track::before{content:"";position:absolute;left:0;right:0;top:50%;height:4px;margin-top:-2px;border-radius:2px;background:var(--line);}
+  .sc-zero{position:absolute;left:50%;top:3px;bottom:3px;width:1.5px;background:var(--ink-3);}
+  .sc-fill{position:absolute;top:50%;height:8px;margin-top:-4px;border-radius:4px;opacity:.85;}
+  .sc-handle{position:absolute;top:50%;width:21px;height:21px;margin:-10px 0 0 -10px;border-radius:50%;background:#fff;border:3px solid var(--tc);box-shadow:0 3px 8px -2px rgba(0,0,0,.35);transition:transform .15s;}
+  .sc-track:hover .sc-handle,.sc-track.drag .sc-handle{transform:scale(1.18);}
+  .sc-z{font:500 12.5px var(--mono);text-align:right;}
+  .sc-arrow{color:var(--line-2);text-align:center;font-size:17px;}
+  .sc-ptrack{height:18px;background:var(--paper-2);border-radius:5px;overflow:hidden;}
+  .sc-pbar{display:block;height:100%;border-radius:5px;transition:width .35s var(--ease);}
+  .sc-p{font:500 13px var(--mono);text-align:right;}
+  .sc-row.off .sc-track{cursor:default;opacity:.55;}
+  .sc-row.off .sc-handle,.sc-row.off .sc-fill{display:none;}
+  .sc-row .note{font-size:12px;color:var(--ink-3);text-align:center;}
+  .sc-sm{margin-top:6px;font-size:12.5px;color:var(--ink-3);display:flex;justify-content:space-between;padding:0 6px;}
+  .sc-sum{font:500 12.5px var(--mono);}
+
+  /* ---------- greedy ---------- */
+  .loop{display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-bottom:16px;}
+  .lp-node{padding:5px 10px;border-radius:11px;border:1.5px solid var(--line-2);background:#fff;font:600 12px var(--body);color:var(--ink-3);transition:all .3s var(--ease);line-height:1.25;}
+  .lp-node small{display:block;font-weight:500;font-size:10px;color:var(--ink-3);}
+  .lp-node.on{background:var(--red);border-color:var(--red);color:#fff;transform:translateY(-3px);box-shadow:0 12px 20px -12px rgba(127,31,46,.8);}
+  .lp-node.on small{color:rgba(255,255,255,.85);}
+  .lp-arrow{color:var(--line-2);font-size:16px;}
+  .lp-back{margin-left:auto;font:italic 19px var(--display);color:var(--ink-3);}
+  .twocol{display:grid;grid-template-columns:minmax(0,.82fr) minmax(0,1.18fr);gap:22px;align-items:start;}
+  .meter{margin-top:12px;padding:10px 14px;border-radius:13px;background:var(--paper-2);border:1px solid var(--line);}
+  .meter-top{display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px;color:var(--ink-2);}
+  .meter-top b{font:400 30px/1 var(--display);color:var(--ink);}
+  .meter-bar{height:8px;border-radius:4px;background:#fff;margin-top:6px;overflow:hidden;border:1px solid var(--line);}
+  .meter-bar i{display:block;height:100%;width:100%;background:linear-gradient(90deg,var(--red),#d98a96);transition:width .6s var(--ease);}
+  .meter small{display:block;margin-top:5px;color:var(--ink-3);font-size:11.5px;line-height:1.35;}
+
+  /* ---------- beam ---------- */
+  .beam-ctrl{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin-bottom:10px;}
+  .adv{font-size:12.5px;color:var(--ink-2);margin-top:8px;}
+  .adv summary{cursor:pointer;font-weight:600;color:var(--ink-3);}
+  .adv[open] summary{color:var(--red);}
+  .adv .knob{margin-top:6px;}
+  .legend{display:flex;gap:12px;font-size:11.5px;color:var(--ink-2);margin-left:auto;}
+  .legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px;background:var(--c);}
+  .treewrap{overflow:auto;max-height:262px;border:1px solid var(--line);border-radius:12px;background:#fff;}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;}
+  .vs-card{border:1px solid var(--line);border-radius:14px;padding:9px 14px;background:#fff;position:relative;}
+  .vs-card.win{border-color:var(--green);background:var(--green-soft);}
+  .vs-card .who{font:700 10.5px var(--body);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);}
+  .vs-card.win .who{color:var(--green);}
+  .vs-card .big{font:400 34px/1 var(--display);margin:3px 0 0;}
+  .vs-card .big small{font:500 11.5px var(--body);color:var(--ink-2);margin-left:7px;}
+  .vs-card .sent{margin-top:6px;min-height:0;}
+  .verdict{margin:8px 0 0;font:400 19px/1.25 var(--display);}
+  .verdict em{color:var(--red);}
+
+  /* ---------- sampling ---------- */
+  .strip-wrap{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
+  .strip{display:flex;gap:5px;flex:1;min-width:0;}
+  .st-btn{flex:1 1 0;min-width:0;border:1.5px solid var(--line-2);background:#fff;border-radius:11px;padding:5px 9px;font:600 12px var(--body);line-height:1.25;color:var(--ink-3);cursor:pointer;text-align:left;transition:all .28s var(--ease);}
+  .st-btn span{display:block;font:500 10px var(--mono);color:var(--ink-3);}
+  .st-btn.done{color:var(--ink);border-color:color-mix(in srgb,var(--red) 40%,var(--line-2));background:var(--red-soft);}
+  .st-btn.cur{background:var(--red);border-color:var(--red);color:#fff;transform:translateY(-2px);box-shadow:0 12px 20px -14px rgba(127,31,46,.85);}
+  .st-btn.cur span{color:rgba(255,255,255,.8);}
+  .circ{width:30px;height:30px;border-radius:50%;border:1.5px solid var(--line-2);background:#fff;display:grid;place-items:center;font:600 15px var(--body);color:var(--ink-2);cursor:pointer;flex:none;transition:all .2s;padding:0;}
+  .circ:hover:not(:disabled){border-color:var(--red);color:var(--red);}
+  .circ:disabled{opacity:.35;cursor:default;}
+  .circ.primary{background:var(--red);border-color:var(--red);color:#fff;}
+  .circ.primary:hover:not(:disabled){color:#fff;filter:brightness(1.1);}
+  .stage-info{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:20px;align-items:center;padding:10px 16px;border-radius:14px;background:var(--paper-2);border:1px solid var(--line);margin-bottom:8px;min-height:92px;}
+  .si-head{display:flex;gap:12px;align-items:flex-start;}
+  .si-num{font:italic 50px/.9 var(--display);color:var(--red);min-width:32px;}
+  .si-head h3{margin:0;font:400 25px/1.05 var(--display);}
+  .si-head .an{margin:2px 0 0;font:italic 16px/1.2 var(--display);color:var(--red);}
+  .si-head .wh{margin:4px 0 0;font-size:12px;line-height:1.4;color:var(--ink-2);}
+  .si-ctrl .blk[hidden]{display:none;}
+  .knob{display:grid;grid-template-columns:1fr auto;gap:0 10px;align-items:center;}
+  .knob .kn-name{font:600 12px var(--body);color:var(--ink-2);}
+  .knob .kn-name small{font:500 11.5px var(--mono);color:var(--ink-3);}
+  .knob b{font:500 14px var(--mono);color:var(--red);}
+  .knob input{grid-column:1/3;}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:22px;background:transparent;margin:0;cursor:pointer;}
+  input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:linear-gradient(90deg,var(--red) var(--fill,50%),var(--line) var(--fill,50%));}
+  input[type=range]::-moz-range-track{height:6px;border-radius:3px;background:var(--line);}
+  input[type=range]::-moz-range-progress{height:6px;border-radius:3px;background:var(--red);}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:#fff;border:3px solid var(--red);margin-top:-7px;box-shadow:0 3px 8px -2px rgba(0,0,0,.4);}
+  input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:#fff;border:3px solid var(--red);}
+  .presets{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px;}
+  .chip{border:1px solid var(--line-2);background:#fff;border-radius:999px;padding:2px 10px;font:500 11.5px var(--mono);cursor:pointer;color:var(--ink-2);transition:all .18s;}
+  .chip:hover{border-color:var(--red);color:var(--red);}
+  .ctxrow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px;}
+  .ctxrow .lbl{margin:0 4px 0 0;}
+  .ctx{border:1.5px solid var(--line-2);background:#fff;border-radius:9px;padding:2px 10px;font:500 12px var(--mono);cursor:pointer;color:var(--ink-2);transition:all .2s;}
+  .ctx small{font:500 9.5px var(--body);letter-spacing:.06em;text-transform:uppercase;margin-left:5px;color:var(--ink-3);}
+  .ctx[aria-pressed="true"]{border-color:var(--red);background:var(--red-soft);color:var(--ink);}
+  .sgrid{display:grid;grid-template-columns:minmax(0,1.5fr) 232px;gap:18px;align-items:start;}
+  .wheelbox{text-align:center;}
+  .wheelbox canvas{width:232px;height:232px;display:block;margin:0 auto;}
+  .winfo{margin-top:4px;font:500 12px var(--mono);color:var(--ink-2);min-height:20px;}
+  .snote{margin:6px 0 0;font-size:12.5px;line-height:1.4;color:var(--ink-2);min-height:36px;}
+  .snote b{color:var(--red);}
+  .sents{display:flex;flex-direction:column;gap:9px;margin-top:10px;}
+  .sents .s{display:flex;align-items:center;gap:12px;padding:9px 14px;border-radius:12px;background:var(--paper-2);}
+  .sents .s .sent{min-height:0;gap:5px;}
+  .sents .s b{margin-left:auto;font:500 12px var(--mono);color:var(--ink-3);white-space:nowrap;}
+  .card-title{font:400 27px/1.1 var(--display);margin:0 0 4px;}
+
+  /* ---------- compare ---------- */
+  .knobs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) auto;gap:18px;align-items:end;margin-bottom:12px;}
+  .cmpgrid{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(0,.92fr);gap:16px;align-items:start;}
+  .cmplist{display:flex;flex-direction:column;gap:6px;}
+  .cmprow{display:grid;grid-template-columns:12px 1fr;gap:10px;padding:6px 11px;border:1px solid var(--line);border-radius:12px;background:#fff;transition:border-color .2s,transform .2s;}
+  .cmprow:hover,.cmprow.hl{border-color:var(--dc);transform:translateX(3px);}
+  .cmprow .d{width:12px;height:12px;border-radius:50%;background:var(--dc);margin-top:4px;}
+  .cmprow .nm{font:700 13px var(--body);display:flex;align-items:baseline;gap:6px;}
+  .cmprow .nm small{font:500 11px var(--mono);color:var(--ink-3);}
+  .cmprow .nm .mt{margin-left:auto;font:500 10.5px var(--mono);color:var(--ink-3);white-space:nowrap;}
+  .cmprow .ex{margin-top:3px;}
+  .cmprow .mt{margin-top:3px;font:500 10.5px var(--mono);color:var(--ink-3);}
+  .cmprow .ex .sent{min-height:0;gap:3px;flex-wrap:nowrap;overflow:hidden;}
+  .scwrap canvas{width:100%;height:372px;border:1px solid var(--line);border-radius:12px;background:#fff;}
+  .rules{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;}
+  .rule{border:1px solid var(--line);border-radius:14px;padding:12px 16px;background:rgba(255,254,251,.8);}
+  .rule .t{font:italic 22px/1.1 var(--display);color:var(--red);display:flex;flex-direction:column;align-items:flex-start;gap:3px;}
+  .rule .t small{font:500 10.5px var(--mono);color:var(--ink-3);font-style:normal;}
+  .rule p{margin:6px 0 0;font-size:13.5px;line-height:1.45;color:var(--ink-2);}
+
+  /* ---------- Guided tour mode: strict full-screen presentation, one step per page, large type ---------- */
+  html.presenting,html.presenting body{overflow:hidden;}
+  html.presenting .rail,html.presenting .modebox,html.presenting .progress{display:none;}
+  .gp-hide{display:none!important;}
+  /* inside the presentation layer: bigger type for the key elements, less chrome */
+  .pr-fit .bl-row .tile{font-size:14.5px;line-height:1.2;padding:2px 9px 2px 8px;}
+  .pr-fit .bl-val{font-size:14.5px;} .pr-fit .bl-x{font-size:12px;}
+  .pr-fit .tile.sm{font-size:14px;} .pr-fit .tile.lg{font-size:22px;}
+  .pr-fit .sc-z,.pr-fit .sc-p{font-size:14.5px;} .pr-fit .sc-row .tile{font-size:14px;}
+  .pr-fit .stage-info{grid-template-columns:minmax(0,1fr);min-height:0;padding:8px 16px;}
+  .pr-fit .snote{font-size:14px;min-height:0;}
+  .pr-fit .scwrap canvas{height:330px;}
+  .pr-fit .p-q{font-size:23px;} .pr-fit .p-opts button{font-size:15px;padding:7px 16px;} .pr-fit .p-ans{font-size:15.5px;}
+  .pr-fit .rule .t{font-size:23px;} .pr-fit .rule p{font-size:14.5px;} .pr-fit .rule .t small{font-size:12px;}
+  .present{position:fixed;inset:0;z-index:200;display:grid;grid-template-rows:auto minmax(0,1fr) auto;
+    background:radial-gradient(1400px 700px at 6% -10%,rgba(166,52,70,.09),transparent 60%),radial-gradient(1000px 600px at 100% 0%,rgba(31,78,121,.07),transparent 60%),var(--paper);}
+  .present.hidden{display:none;}
+  .pr-prog{position:absolute;left:0;top:0;height:5px;background:linear-gradient(90deg,var(--red),#d05a6b);transition:width .4s var(--ease);}
+  .pr-cap{padding:clamp(14px,2.4vh,34px) clamp(28px,5.5vw,110px) 0;}
+  .pr-meta{display:flex;align-items:center;gap:14px;font:600 clamp(12px,1.05vw,19px) var(--body);letter-spacing:.16em;text-transform:uppercase;color:var(--red);}
+  .pr-meta .pr-badge{background:var(--red);color:#fff;padding:.15em .7em;border-radius:.4em;letter-spacing:.1em;}
+  .pr-meta #prCount{color:var(--ink-2);font-family:var(--mono);letter-spacing:.04em;}
+  .pr-title{font:400 clamp(32px,4.2vw,82px)/1.02 var(--display);margin:.14em 0 0;letter-spacing:-.012em;color:var(--ink);text-wrap:balance;}
+  .pr-title em{font-style:italic;color:var(--red);}                         /* *key words* in a scene title */
+  .pr-text{font:500 clamp(18px,1.9vw,37px)/1.3 var(--body);color:#2E2A33;max-width:min(100%,46em);margin:.4em 0 0;text-wrap:pretty;}
+  .pr-text em{font-style:normal;font-weight:700;color:var(--red-d);}        /* *the one phrase to remember* in a scene text */
+  .pr-body{position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;min-height:0;padding:0 2vw;}
+  .pr-fit{flex:none;width:max-content;transform-origin:center center;padding-top:18px;}   /* room for the card-tag that hangs above the card */
+  .pr-nav{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:clamp(12px,1.6vw,30px);align-items:center;padding:clamp(8px,1.1vh,14px) clamp(28px,5.5vw,110px) clamp(10px,1.7vh,20px);}
+  .pr-btn{font:700 clamp(16px,1.35vw,26px) var(--body);padding:.45em 1.3em;border-radius:999px;border:2px solid var(--line-2);background:#fff;color:var(--ink);cursor:pointer;transition:all .2s var(--ease);}
+  .pr-btn:hover:not(:disabled){border-color:var(--red);color:var(--red);transform:translateY(-2px);}
+  .pr-btn:disabled{opacity:.35;cursor:default;}
+  .pr-btn.primary{background:var(--red);border-color:var(--red);color:#fff;box-shadow:0 14px 26px -14px rgba(127,31,46,.8);}
+  .pr-btn.primary:hover:not(:disabled){color:#fff;filter:brightness(1.08);}
+  .pr-x{font:600 clamp(13px,1.1vw,20px) var(--body);border:none;background:none;color:var(--ink-3);cursor:pointer;padding:.4em .6em;}
+  .pr-x:hover{color:var(--red);}
+  .pr-mid{display:flex;flex-direction:column;align-items:center;gap:8px;min-width:0;}
+  .pr-hint{font:500 clamp(12px,1vw,19px) var(--body);color:var(--ink-2);}
+  .guided-dots{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:center;}
+  .guided-dot{width:8px;height:8px;border-radius:50%;background:var(--line-2);transition:all .25s;}
+  .guided-dot.active{background:var(--red);width:26px;border-radius:5px;}
+
+  /* ---------- narrow screens: natural flow instead of scaled slides ---------- */
+  html.flow .slide{min-height:0;display:block;padding:78px 0 24px;}
+  html.flow .stage{width:auto;max-width:none;padding:0 18px;}
+  html.flow .cols{grid-template-columns:minmax(0,1fr);}
+  html.flow .cols .predict,html.flow .cols .takeaway{grid-column:1;}
+  html.flow .cols .takeaway{margin-top:14px;}
+  html.flow .rules{grid-template-columns:1fr;}
+  html.flow .masthead{padding-top:70px;}
+  html.flow .masthead h1{font-size:60px;}
+  html.flow h2{font-size:40px;} html.flow h1{font-size:46px;}
+  html.flow .ghostnum{font-size:110px;top:-20px;right:6px;}
+  html.flow .floaters{display:none;}
+  html.flow .roadmap{grid-template-columns:repeat(2,1fr);}
+  html.flow .twocol,html.flow .sgrid,html.flow .cmpgrid,html.flow .stage-info{grid-template-columns:minmax(0,1fr);}
+  html.flow .knobs{grid-template-columns:repeat(2,minmax(0,1fr));}
+  html.flow .vs{grid-template-columns:1fr;}
+  html.flow .strip{flex-wrap:wrap;}
+  html.flow .st-btn{flex:1 1 90px;}
+  html.flow .treewrap{max-height:none;}
+  html.flow .cmprow .ex .sent{flex-wrap:wrap;}
+  html.flow .sc-head,html.flow .sc-row{grid-template-columns:68px minmax(60px,1.2fr) 34px 0 minmax(44px,.8fr) 46px;gap:4px;}
+  html.flow .sc-arrow{display:none;}
+  html.flow .sc-row .tile{font-size:12px;padding:1px 7px 1px 6px;}
+  html.flow .bl-tile{width:70px;} html.flow .bl-val{width:46px;} html.flow .bl-x{width:42px;font-size:10px;}
+  html.flow .modebox{top:8px;right:8px;} html.flow .fs span{display:none;}
+  html.flow .takeaway{flex-direction:column;gap:4px;}
+  html.flow .slide .rv{opacity:1;transform:none;}
+  @media (prefers-reduced-motion:reduce){*,*::before{transition-duration:.01ms!important;animation-duration:.01ms!important;}html{scroll-behavior:auto;}}
+
+  /* ---------- 5 · logit processors (frequency penalty, template mask) ---------- */
+  .roadmap{grid-template-columns:repeat(6,1fr);}      /* six entries now; the narrow-screen rule below still wins */
+  .tile[data-i]{cursor:pointer;}
+  .tile.sel{outline:2.5px solid var(--red);outline-offset:2px;}
+  .tile.bad{box-shadow:0 0 0 2px var(--red);text-decoration:line-through;text-decoration-color:var(--red);}
+  .rp-more{font:italic 20px/1 var(--display);color:var(--ink-3);}
+  .bl-row.ok .bl-x{color:var(--green);font-size:13px;} .bl-row.bad .bl-x{color:var(--red);font-size:13px;}
+  .tpl{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:5px;margin-bottom:10px;}
+  .tpl-slot{border:1.5px solid var(--line-2);border-radius:10px;background:#fff;padding:4px 4px 5px;text-align:center;cursor:pointer;min-width:0;transition:all .28s var(--ease);}
+  .tpl-slot small{display:block;font:500 9.5px var(--mono);color:var(--ink-3);}
+  .tpl-slot b{display:block;font:500 12px var(--mono);color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .tpl-slot.free{border-style:dashed;}
+  .tpl-slot.done{border-style:solid;border-color:color-mix(in srgb,var(--green) 50%,var(--line-2));background:var(--green-soft);} .tpl-slot.done b{color:var(--ink);}
+  .tpl-slot.bad{border-style:solid;border-color:var(--red);background:var(--red-soft);} .tpl-slot.bad b{color:var(--red);text-decoration:line-through;}
+  .tpl-slot.lost{opacity:.45;}
+  .tpl-slot.cur{border-style:solid;border-color:var(--red);transform:translateY(-3px);box-shadow:0 12px 20px -14px rgba(127,31,46,.85);}
+  .tpl-ctrl{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;margin-bottom:12px;}
+  .tpl-ctrl .lbl{margin:0;}
+  .tpl-ctrl .segmented{box-shadow:none;}
+  .tpl-stat{margin-left:auto;font:500 12px var(--mono);color:var(--ink-2);} .tpl-stat b{color:var(--red);}
+  .tpl-out{min-height:34px;gap:4px;}
+  html.flow .tpl{grid-template-columns:repeat(5,minmax(0,1fr));} html.flow .tpl-stat{margin-left:0;}
+  .pr-fit .tpl-slot b{font-size:13.5px;} .pr-fit .tpl-slot small{font-size:11px;} .pr-fit .tpl-stat{font-size:13.5px;} .pr-fit .verdict{font-size:21px;}
+
+  /* ---------- Guided = projector ----------
+     (1) Darker secondary ink for everything inside the layer (the grey #8E8A93 is only 3.4:1 on paper).
+     (2) A floor for small type: the card is then scaled ×1.4–2.3, so 13px here is ≥ 18px on a 1080p screen.
+     Kept at the END of the sheet so it wins over component rules of equal specificity. */
+  .present{--ink-2:#3B3741;--ink-3:#625E69;--line-2:#C4B89E;}
+  .pr-fit .lbl,.pr-fit .card-tag{font-size:13px;}
+  .pr-fit .cap,.pr-fit .note,.pr-fit .snote,.pr-fit .legend,.pr-fit .legend2,.pr-fit .legend2.tight{font-size:13.5px;}
+  .pr-fit .kn-name{font-size:13.5px;} .pr-fit .kn-name small{font-size:13px;} .pr-fit .bl-x{font-size:13.5px;}
+  .pr-fit .chip,.pr-fit .seg .chip,.pr-fit .ctx,.pr-fit .segmented.sm button,.pr-fit .btn.sm{font-size:13.5px;} .pr-fit .btn{font-size:14.5px;} .pr-fit .ctx small{font-size:12px;}
+  .pr-fit .formula-box{font-size:16px;}
+  .pr-fit .lp-node{font-size:13.5px;} .pr-fit .lp-node small{font-size:12.5px;} .pr-fit .lp-back{font-size:20px;}
+  .pr-fit .st-btn{font-size:13.5px;} .pr-fit .st-btn span{font-size:12px;}
+  .pr-fit .tpl-slot small{font-size:12.5px;} .pr-fit .tpl-slot b{font-size:14px;}
+  .pr-fit .adv{font-size:14px;} .pr-fit .adv p{font-size:14px!important;} .pr-fit .vs-card .who{font-size:13px;} .pr-fit .vs-card .big small{font-size:13px;}
+  .pr-fit .sc-head{font-size:12.5px;} .pr-fit .sc-sm{font-size:13.5px;} .pr-fit .meter-top,.pr-fit .meter small{font-size:13.5px;}
+  .pr-fit .cmprow .nm{font-size:14px;} .pr-fit .cmprow .nm small,.pr-fit .cmprow .mt,.pr-fit .cmprow .nm .mt{font-size:13px;} .pr-fit .sents .s b{font-size:13.5px;} .pr-fit .winfo{font-size:13.5px;}
+  .pr-fit .bl-x{width:66px;white-space:nowrap;}
+  /* compare card: when one half is hidden, the other takes the full width (and the strategy list goes two-up) */
+  .pr-fit .cmpgrid:has(> .gp-hide){grid-template-columns:minmax(0,1fr);}
+  .pr-fit .cmpgrid:has(> .scwrap.gp-hide) .cmplist{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px;}
+</style>
+</head>
+<body>
+<div class="progress"><i id="progressFill"></i></div>
+<nav class="rail" id="rail" aria-label="Slides"><ol id="railList"></ol></nav>
+<div class="modebox">
+  <div class="segmented" role="group" aria-label="Mode">
+    <button id="modeExplore" aria-pressed="true">Explore</button>
+    <button id="modeGuided" aria-pressed="false">Guided tour</button>
+  </div>
+  <button class="fs" id="fsBtn" aria-label="Toggle fullscreen" title="Fullscreen (F)">
+    <svg id="fsIcon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+    <span id="fsLabel">Fullscreen</span>
+  </button>
+</div>
+
+<main id="deck">
+
+<!-- =============== PAGE TITLE =============== -->
+<header class="masthead" id="masthead"><div class="mh-inner">
+  <div class="floaters" aria-hidden="true">
+    <span class="tile" style="--tc:#E08A2E;right:210px;top:104px;--r:4deg;animation-delay:-2s">cat</span>
+    <span class="tile" style="--tc:#1F4E79;right:96px;top:176px;--r:-5deg;animation-delay:-5s">sat</span>
+    <span class="tile" style="--tc:#2F8F83;right:250px;top:238px;--r:3deg;animation-delay:-7s">on</span>
+    <span class="tile" style="--tc:#C25E1B;right:40px;top:296px;--r:-3deg;animation-delay:-1s">dog</span>
+  </div>
+  <div class="brand"><b>DSAI4207</b> · Lecture 6 · Generation, Decoding &amp; Inference</div>
+  <h1>Decoding <em>Lab</em></h1>
+  <p class="mh-sub">How does an LLM choose its next word?</p>
+  <p class="mh-desc">An interactive companion to the lecture. One toy language model, six ideas — <b>scores, greedy, beam search, sampling, logit controls</b>, and how to choose between them — each with something to drag, step through, or predict. <b>Explore</b> at your own pace by scrolling, or start the <b>Guided tour</b> for a full-screen, one-step-per-page class presentation.</p>
+  <div class="mh-actions">
+    <button class="btn primary big" id="mhTour">▶ Start guided tour</button>
+    <button class="btn big" data-go="ch-hero">Start exploring ↓</button>
+  </div>
+  <ul class="mh-meta"><li>6 ideas</li><li>6 predict &amp; check questions</li><li><span id="mhSteps">25</span> guided steps</li><li>press F for fullscreen</li></ul>
+</div></header>
+
+<!-- =============== 0 · THE QUESTION =============== -->
+<section class="slide" id="ch-hero" data-label="Question" data-num="0"><div class="stage">
+  <div class="cols">
+    <div class="narr">
+      <div class="kicker rv"><span class="num">00</span>The question</div>
+      <h2 class="rv">The model gives <em>scores</em>. Who picks the word?</h2>
+      <p class="sub rv d1">Every candidate below is a perfectly good continuation. Click one to fill in the blank — then ask who should decide which one wins.</p>
+    </div>
+    <div class="work">
+      <div class="card rv d2"><span class="card-tag">Try it</span>
+        <div class="blankline" id="heroSentence"></div>
+        <div id="heroBars"></div>
+        <p class="cap">The rest of this page is about exactly that choice: <b>decoding</b>.</p>
+      </div>
+      <ol class="roadmap rv d3" id="roadmap">
+        <li data-go="ch-scores"><b>Scores → probabilities</b>What the model outputs</li>
+        <li data-go="ch-greedy"><b>Greedy</b>Take the favorite</li>
+        <li data-go="ch-beam"><b>Beam search</b>Keep options open</li>
+        <li data-go="ch-sampling"><b>Sampling</b>T, top-k, top-p</li>
+        <li data-go="ch-logits"><b>Modify logits</b>Penalties and masks</li>
+        <li data-go="ch-compare"><b>Compare</b>Quality vs. variety</li>
+      </ol>
+    </div>
+  </div>
+</div></section>
+
+<!-- =============== 1 · SCORES =============== -->
+<section class="slide" id="ch-scores" data-label="Scores" data-num="1"><div class="stage">
+  <div class="cols">
+    <div class="narr">
+      <div class="ghostnum">1</div>
+      <div class="kicker rv"><span class="num">01</span>From scores to probabilities</div>
+      <h2 class="rv">The model speaks in <em>scores</em>, not probabilities.</h2>
+      <p class="sub rv d1">Each word gets a raw score, a <b>logit</b>. <b>Softmax</b> turns any scores into probabilities that add up to 100%. Drag a handle.</p>
+      <div class="predict rv d2" id="pr1" data-answer="1">
+        <div class="p-head">✎ Pause &amp; predict</div>
+        <p class="p-q">Add +1 to <i>every</i> score. What happens to the probabilities?</p>
+        <div class="p-opts"><button>All go up</button><button>Nothing changes</button><button>All shrink</button></div>
+        <div class="p-ans" hidden><b>Nothing changes.</b> Softmax only sees score <i>differences</i> — try “Shift all +1”. <i>Multiplying</i> the scores does reshape it: that is what temperature does.</div>
+      </div>
+    </div>
+    <div class="work">
+      <div class="card rv d1"><span class="card-tag">Drag the handles</span>
+        <div class="sc-head"><span>word</span><span>score z (logit)</span><span></span><span></span><span>probability p</span><span></span></div>
+        <div id="scRows"></div>
+        <div class="sc-sm"><span>context: <b style="color:var(--ink)">the cat sat on the</b> ___</span><span class="sc-sum" id="scSum"></span></div>
+        <div class="btnrow">
+          <button class="btn" id="scShift">Shift all +1</button>
+          <button class="btn" id="scSharp">Sharpen ×2</button>
+          <button class="btn" id="scFlat">Flatten ÷2</button>
+          <button class="btn" id="scReset">Reset</button>
+        </div>
+        <div class="formula-box"><div id="scFormula"></div></div>
+      </div>
+      <div class="takeaway rv d2"><span class="tk">Takeaway</span><p>Only score <em>differences</em> matter. Softmax = exponentiate, then normalise.</p></div>
+    </div>
+  </div>
+</div></section>
+
+<!-- =============== 2 · GREEDY =============== -->
+<section class="slide" id="ch-greedy" data-label="Greedy" data-num="2"><div class="stage">
+  <div class="cols">
+    <div class="narr">
+      <div class="ghostnum">2</div>
+      <div class="kicker rv"><span class="num">02</span>Greedy decoding</div>
+      <h2 class="rv">Always pick the <em>favorite</em>.</h2>
+      <p class="sub rv d1">The simplest decoder: read the context, get probabilities, take the tallest bar, append it, repeat — until <code>&lt;eos&gt;</code>.</p>
+      <div class="predict rv d2" id="pr2" data-answer="1">
+        <div class="p-head">✎ Pause &amp; predict</div>
+        <p class="p-q">Greedy took the best word at <i>every</i> step. Is the finished sentence the <i>most likely</i> sentence?</p>
+        <div class="p-opts"><button>Yes, always</button><button>Not necessarily</button></div>
+        <div class="p-ans" hidden><b>Not necessarily.</b> Greedy looks only one word ahead. A locally great word can lead into a poor continuation — and it can never go back. Next: keep a few options open.</div>
+      </div>
+    </div>
+    <div class="work">
+      <div class="card rv d1"><span class="card-tag">Step through it</span>
+        <div class="loop" id="gLoop">
+          <div class="lp-node">Context<small>words so far</small></div><span class="lp-arrow">→</span>
+          <div class="lp-node">Model<small>scores</small></div><span class="lp-arrow">→</span>
+          <div class="lp-node">Softmax<small>probabilities</small></div><span class="lp-arrow">→</span>
+          <div class="lp-node">Pick the max<small>argmax</small></div><span class="lp-arrow">→</span>
+          <div class="lp-node">Append<small>to context</small></div>
+          <span class="lp-back">↺ repeat</span>
+        </div>
+        <div class="twocol">
+          <div>
+            <div class="lbl">The sentence so far</div>
+            <div class="sent" id="gSent"></div>
+            <div class="meter">
+              <div class="meter-top"><span>Chance of this exact sentence</span><b id="gChance"></b></div>
+              <div class="meter-bar"><i id="gChanceBar"></i></div>
+              <small id="gLp"></small>
+            </div>
+            <div class="btnrow">
+              <button class="btn primary" id="gStep">Step ▶</button>
+              <button class="btn" id="gAuto">Auto-play</button>
+              <button class="btn" id="gReset">Reset ↺</button>
+            </div>
+          </div>
+          <div>
+            <div class="lbl" id="gCaption"></div>
+            <div id="gBars"></div>
+          </div>
+        </div>
+      </div>
+      <div class="takeaway rv d2"><span class="tk">Takeaway</span><p>Greedy is fast and deterministic, but it <em>can’t undo</em> an early choice.</p></div>
+    </div>
+  </div>
+</div></section>
+
+<!-- =============== 3 · BEAM =============== -->
+<section class="slide" id="ch-beam" data-label="Beam" data-num="3"><div class="stage">
+  <div class="cols">
+    <div class="narr">
+      <div class="ghostnum">3</div>
+      <div class="kicker rv"><span class="num">03</span>Beam search</div>
+      <h2 class="rv">Keep a few <em>options</em> open.</h2>
+      <p class="sub rv d1">Keep the <b>B best partial sentences</b>. Each round: extend every one, rank by total probability, prune the rest.</p>
+      <div class="predict rv d2" id="pr3" data-answer="1">
+        <div class="p-head">✎ Pause &amp; predict</div>
+        <p class="p-q">Greedy starts with “cat”. Does the <i>best complete sentence</i> start with “cat” too?</p>
+        <div class="p-opts"><button>Yes</button><button>No</button></div>
+        <div class="p-ans" hidden><b>No.</b> “cat” is the best <i>first</i> word, but the best <i>whole</i> sentence starts with “dog” — about 8.2% vs. greedy’s 4.8%. Grow the tree to find it.</div>
+      </div>
+    </div>
+    <div class="work">
+      <div class="card rv d1"><span class="card-tag">Grow the tree</span>
+        <div class="beam-ctrl">
+          <span class="lbl" style="margin:0">Beam width B</span>
+          <div class="segmented sm" id="bSeg" role="group" aria-label="Beam width"></div>
+          <button class="btn sm" id="bPrev">← Back</button>
+          <button class="btn sm primary" id="bNext">Next round →</button>
+          <button class="btn sm" id="bAll">Show all</button>
+          <div class="legend"><span style="--c:#1F4E79">kept</span><span style="--c:#0A8F22">finished</span><span style="--c:#A9ADB8">pruned</span></div>
+        </div>
+        <div class="treewrap"><canvas id="bCanvas"></canvas></div>
+        <div class="vs" id="bVs"></div>
+        <p class="verdict" id="bVerdict"></p>
+        <details class="adv"><summary>Advanced: length penalty α &amp; the score formula</summary>
+          <label class="knob" style="max-width:320px"><span class="kn-name">length penalty <small>α</small></span><b data-val="alpha"></b><input type="range" data-param="alpha" min="0" max="2" step="0.1"></label>
+          <p style="margin:4px 0 0;color:var(--ink-3);font-size:12px;">Ranked by <i>Σ log P / length<sup>α</sup></i>. Try B = 4 and slide α from 0 to 1.</p>
+          <div class="formula-box"><div id="bFormula"></div></div>
+        </details>
+      </div>
+      <div class="takeaway rv d2"><span class="tk">Takeaway</span><p>A wider beam searches <em>more</em> — at B× the cost, biased toward short outputs.</p></div>
+    </div>
+  </div>
+</div></section>
+
+<!-- =============== 4 · SAMPLING =============== -->
+<section class="slide" id="ch-sampling" data-label="Sampling" data-num="4"><div class="stage">
+  <div class="cols">
+    <div class="narr">
+      <div class="ghostnum">4</div>
+      <div class="kicker rv"><span class="num">04</span>Sampling</div>
+      <h2 class="rv">Add <em>randomness</em>, then shape it.</h2>
+      <p class="sub rv d1">Instead of always taking the top word, <b>draw</b> from the distribution. Build the pipeline one stage at a time — each stage has exactly one knob.</p>
+    </div>
+    <div class="work">
+      <div class="card rv d1"><span class="card-tag">Build the pipeline</span>
+        <div class="strip-wrap">
+          <button class="circ" id="sPrev" aria-label="Previous stage">‹</button>
+          <div class="strip" id="stageStrip"></div>
+          <button class="circ primary" id="sNext" aria-label="Next stage">›</button>
+        </div>
+        <div class="stage-info">
+          <div class="si-head"><div class="si-num" id="siNum"></div><div><h3 id="siTitle"></h3><p class="an" id="siAn"></p><p class="wh" id="siWh"></p></div></div>
+          <div class="si-ctrl">
+            <div class="blk" data-stage="2" hidden>
+              <label class="knob"><span class="kn-name">temperature <small>T</small></span><b data-val="T"></b><input type="range" data-param="T" min="0.1" max="2" step="0.05"></label>
+              <div class="presets"><button class="chip" data-preset="T:0.3">0.3 · focused</button><button class="chip" data-preset="T:1">1.0 · neutral</button><button class="chip" data-preset="T:1.8">1.8 · wild</button></div>
+            </div>
+            <div class="blk" data-stage="4" hidden>
+              <label class="knob"><span class="kn-name">top-k <small>k</small></span><b data-val="k"></b><input type="range" data-param="k" min="0" max="12" step="1"></label>
+              <div class="presets"><button class="chip" data-preset="k:1">k = 1</button><button class="chip" data-preset="k:3">k = 3</button><button class="chip" data-preset="k:6">k = 6</button><button class="chip" data-preset="k:0">off</button></div>
+            </div>
+            <div class="blk" data-stage="5" hidden>
+              <label class="knob"><span class="kn-name">top-p <small>p</small></span><b data-val="p"></b><input type="range" data-param="p" min="0.1" max="1" step="0.05"></label>
+              <div class="presets"><button class="chip" data-preset="p:0.5">p = 0.5</button><button class="chip" data-preset="p:0.8">p = 0.8</button><button class="chip" data-preset="p:0.95">p = 0.95</button><button class="chip" data-preset="p:1">off</button></div>
+            </div>
+            <div class="blk" data-stage="6" hidden>
+              <div class="btnrow" style="margin:0"><button class="btn primary" id="spin1">Spin the wheel ⟳</button><button class="btn" id="spin50">×50</button><button class="btn" id="spinClear">Clear</button></div>
+            </div>
+            <div class="blk" data-stage="1 3" hidden><p style="margin:0;font-size:12.5px;color:var(--ink-3)">No knob here — press <b style="color:var(--ink-2)">›</b> for the next stage.</p></div>
+          </div>
+        </div>
+        <div class="ctxrow"><span class="lbl">Context</span><span id="ctxChips" style="display:contents"></span></div>
+        <div class="sgrid">
+          <div><div id="sBars"></div><p class="snote" id="sNote"></p></div>
+          <div class="wheelbox"><canvas id="wCanvas"></canvas><div class="winfo" id="wInfo"></div></div>
+        </div>
+        <div class="formula-box"><div id="sFormula"></div></div>
+      </div>
+    </div>
+  </div>
+</div></section>
+
+<section class="slide" id="ch-sentences" data-label="Recipes" data-num="4b"><div class="stage">
+  <div class="cols">
+    <div class="narr">
+      <div class="ghostnum">4b</div>
+      <div class="kicker rv"><span class="num">04</span>Sampling, continued</div>
+      <h2 class="rv">Same recipe, whole <em>sentences</em>.</h2>
+      <p class="sub rv d1">Apply the recipe at every step and you get full sentences — different every roll, but the junk tail stays out.</p>
+      <div class="predict rv d2" id="pr4" data-answer="1">
+        <div class="p-head">✎ Pause &amp; predict</div>
+        <p class="p-q">Top-k keeps a fixed <i>number</i> of words; top-p keeps a fixed <i>probability</i>. When does top-p keep <b>more</b> words?</p>
+        <div class="p-opts"><button>When the model is confident</button><button>When it is unsure</button></div>
+        <div class="p-ans" hidden><b>When it is unsure.</b> A flat distribution needs many words to reach p; a peaked one needs one or two. Try stage ⑤ on “the cat sat on” vs. “the bird”.</div>
+      </div>
+    </div>
+    <div class="work">
+      <div class="card rv d1"><span class="card-tag">Whole sentences</span>
+        <p class="card-title">Five sentences from this recipe</p>
+        <p class="cap" style="margin:0">Uses the current T, top-k and top-p (set them on the previous slide), starting from “the”.</p>
+        <div class="sents" id="sSents"></div>
+        <div class="btnrow"><button class="btn primary" id="sRoll">Roll again ↻</button></div>
+      </div>
+      <div class="takeaway rv d2"><span class="tk">Takeaway</span><p>Temperature reshapes; top-k and top-p <em>cut</em> — then renormalise and draw.</p></div>
+    </div>
+  </div>
+</div></section>
+
+<!-- =============== 5 · MODIFY THE LOGITS (a) repetition penalty =============== -->
+<section class="slide" id="ch-logits" data-label="Logits" data-num="5"><div class="stage">
+  <div class="cols">
+    <div class="narr">
+      <div class="ghostnum">5</div>
+      <div class="kicker rv"><span class="num">05</span>Modify the logits</div>
+      <h2 class="rv">Edit the scores <em>before</em> the choice.</h2>
+      <p class="sub rv d1">Greedy can get stuck: same context, same favorite, forever. A <b>logit processor</b> sits between the model and softmax and rewrites the scores. First rule: every word loses <b>λ</b> points for each time it has already been used. Raise λ.</p>
+      <div class="predict rv d2" id="pr5" data-answer="1">
+        <div class="p-head">✎ Pause &amp; predict</div>
+        <p class="p-q">A penalty breaks the loop. Is a <i>bigger</i> penalty always better?</p>
+        <div class="p-opts"><button>Yes — less repetition</button><button>No — some words must repeat</button></div>
+        <div class="p-ans" hidden><b>No.</b> “the” and “.” have to come back in normal text, and the penalty punishes them too. Push λ past 1 and the article drops out: “and knight sleeps”.</div>
+      </div>
+    </div>
+    <div class="work">
+      <div class="card rv d1"><span class="card-tag">Turn up the penalty</span>
+        <div class="loop" id="rpLoop">
+          <div class="lp-node">Context<small>words so far</small></div><span class="lp-arrow">→</span>
+          <div class="lp-node">Model<small>scores z</small></div><span class="lp-arrow">→</span>
+          <div class="lp-node on">Modify<small>z → z′</small></div><span class="lp-arrow">→</span>
+          <div class="lp-node">Softmax<small>probabilities</small></div><span class="lp-arrow">→</span>
+          <div class="lp-node">Pick<small>max or sample</small></div>
+          <span class="lp-back">↺ repeat</span>
+        </div>
+        <div class="twocol">
+          <div>
+            <div class="lbl">Greedy writes · <span id="rpStepLbl"></span></div>
+            <div class="sent" id="rpSent"></div>
+            <label class="knob" style="margin-top:12px"><span class="kn-name">repetition penalty <small>λ</small></span><b data-val="lam"></b><input type="range" data-param="lam" min="0" max="2" step="0.05"></label>
+            <div class="presets"><button class="chip" data-preset="lam:0">0 · off</button><button class="chip" data-preset="lam:0.15">0.15 · gentle</button><button class="chip" data-preset="lam:0.5">0.5</button><button class="chip" data-preset="lam:0.8">0.8</button><button class="chip" data-preset="lam:1.5">1.5 · harsh</button></div>
+            <div class="btnrow">
+              <button class="btn primary" id="rpStep">Step ▶</button>
+              <button class="btn" id="rpAuto">Auto-play</button>
+              <button class="btn" id="rpReset">Reset ↺</button>
+            </div>
+            <p class="verdict" id="rpVerdict"></p>
+          </div>
+          <div>
+            <div class="lbl" id="rpCaption"></div>
+            <div id="rpBars"></div>
+            <p class="snote" id="rpNote"></p>
+          </div>
+        </div>
+        <div class="formula-box"><div id="rpFormula"></div></div>
+        <p class="cap">This is an additive <i>frequency penalty</i>. Libraries ship variants: Hugging Face’s <code>repetition_penalty</code> divides or multiplies the score instead, and <code>no_repeat_ngram_size</code> bans a repeat outright. Click any word to see how it was chosen.</p>
+      </div>
+      <div class="takeaway rv d2"><span class="tk">Takeaway</span><p>A logit processor rewrites the scores <em>before</em> softmax — here z′ = z − λ × count.</p></div>
+    </div>
+  </div>
+</div></section>
+
+<!-- =============== 5b · MODIFY THE LOGITS (b) template-constrained generation =============== -->
+<section class="slide" id="ch-template" data-label="Template" data-num="5b"><div class="stage">
+  <div class="cols">
+    <div class="narr">
+      <div class="ghostnum">5b</div>
+      <div class="kicker rv"><span class="num">05</span>Modify the logits, continued</div>
+      <h2 class="rv">A template decides what is <em>allowed</em>.</h2>
+      <p class="sub rv d1">Task: return <code>{"name": ‹string›, "age": ‹integer›}</code>. The same box can do more than nudge: give every fragment the template forbids a score of <b>−∞</b> and it can no longer be chosen. You are at the age slot — switch the mask on.</p>
+      <div class="predict rv d2" id="pr6" data-answer="1">
+        <div class="p-head">✎ Pause &amp; predict</div>
+        <p class="p-q">With the mask on, the output is always valid JSON with an integer age. Is the age also <i>correct</i>?</p>
+        <div class="p-opts"><button>Yes — the mask checks it</button><button>No — only the format</button></div>
+        <div class="p-ans" hidden><b>Only the format.</b> 23 is an allowed fragment, not a verified fact. A mask guarantees structure — a grammar, a schema, function arguments — and says nothing about truth.</div>
+      </div>
+    </div>
+    <div class="work">
+      <div class="card rv d1"><span class="card-tag">Switch the mask on</span>
+        <div class="tpl" id="tplSlots"></div>
+        <div class="tpl-ctrl">
+          <span class="lbl">Template mask</span>
+          <div class="segmented sm" id="jMaskSeg"><button data-preset="mask:0">off</button><button data-preset="mask:1">on</button></div>
+          <span class="lbl" style="margin-left:8px">Show</span>
+          <div class="segmented sm" id="jViewSeg"><button data-preset="jview:0">probabilities</button><button data-preset="jview:1">scores</button></div>
+          <span class="tpl-stat" id="jStat"></span>
+        </div>
+        <div class="twocol">
+          <div>
+            <div class="lbl">Output so far · <span id="jStepLbl"></span></div>
+            <div class="sent tpl-out" id="jOut"></div>
+            <p class="verdict" id="jVerdict"></p>
+            <div class="btnrow">
+              <button class="btn primary" id="jStepBtn">Step ▶</button>
+              <button class="btn" id="jReset">Reset ↺</button>
+              <button class="btn" id="jRoll">Sample ↻</button>
+              <button class="btn" id="jGreedy">Greedy</button>
+            </div>
+          </div>
+          <div>
+            <div class="lbl" id="jCaption"></div>
+            <div id="jBars"></div>
+            <p class="snote" id="jNote"></p>
+          </div>
+        </div>
+        <div class="formula-box"><div id="jFormula"></div></div>
+      </div>
+      <div class="takeaway rv d2"><span class="tk">Takeaway</span><p>Allowed fragments depend on the <em>prefix</em>: mask the rest to −∞, renormalise, then decode as usual.</p></div>
+    </div>
+  </div>
+</div></section>
+
+<!-- =============== 6 · COMPARE =============== -->
+<section class="slide" id="ch-compare" data-label="Compare" data-num="6"><div class="stage">
+  <div class="cols">
+    <div class="narr">
+      <div class="ghostnum">6</div>
+      <div class="kicker rv"><span class="num">06</span>Putting it together</div>
+      <h2 class="rv">Quality, variety, and <em>your</em> choice.</h2>
+      <p class="sub rv d1">Same model, same prompt. Move the knobs and watch each strategy slide between <b>safe</b> and <b>varied</b>.</p>
+      <div class="rules rv d2">
+        <div class="rule"><div class="t">Need one right answer?<small>greedy · beam · low T</small></div><p>Facts, code, translation — the most likely output, every time.</p></div>
+        <div class="rule"><div class="t">Want something fresh?<small>top-p ≈ 0.9</small></div><p>Stories, chat, brainstorming — randomness avoids dull repetition.</p></div>
+        <div class="rule"><div class="t">Tail words ruin it?<small>top-k · top-p</small></div><p>Pure sampling can wander into nonsense; cutting the tail drops the junk.</p></div>
+      </div>
+    </div>
+    <div class="work">
+      <div class="card rv d1"><span class="card-tag">Move the knobs</span>
+        <div class="knobs">
+          <label class="knob"><span class="kn-name">temperature <small>T</small></span><b data-val="T"></b><input type="range" data-param="T" min="0.1" max="2" step="0.05"></label>
+          <label class="knob"><span class="kn-name">top-k <small>k</small></span><b data-val="k"></b><input type="range" data-param="k" min="0" max="12" step="1"></label>
+          <label class="knob"><span class="kn-name">top-p <small>p</small></span><b data-val="p"></b><input type="range" data-param="p" min="0.1" max="1" step="0.05"></label>
+          <label class="knob"><span class="kn-name">beam width <small>B</small></span><b data-val="B"></b><input type="range" data-param="B" min="1" max="5" step="1"></label>
+          <button class="btn sm" id="cReroll">Re-roll ↻</button>
+        </div>
+        <div class="cmpgrid">
+          <div class="cmplist" id="cmpList"></div>
+          <div class="scwrap"><canvas id="scCanvas"></canvas><p class="cap" style="margin-top:6px">30 samples per sampling strategy. Greedy and beam are deterministic, so they sit at the far left.</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div></section>
+
+</main>
+
+<div class="present hidden" id="guidedBar" role="dialog" aria-label="Guided tour">
+  <div class="pr-prog" id="prProg"></div>
+  <div class="pr-cap">
+    <div class="pr-meta"><span class="pr-badge">Guided tour</span><span id="prCount"></span></div>
+    <h2 class="pr-title" id="guidedTitle"></h2>
+    <p class="pr-text" id="guidedText"></p>
+  </div>
+  <div class="pr-body" id="prBody"><div class="pr-fit" id="prFit"></div></div>
+  <div class="pr-nav">
+    <button class="pr-btn" id="guidedPrev">‹ Prev</button>
+    <div class="pr-mid"><div class="guided-dots" id="guidedDots"></div><div class="pr-hint">← → or Space to turn pages · F fullscreen · Esc to exit</div></div>
+    <button class="pr-btn primary" id="guidedNext">Next ›</button>
+    <button class="pr-x" id="guidedExit">✕ Exit</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script>
+var Core=(function(){
+  var VOCAB=["the","cat","dog","bird","sat","ran","slept","on","mat","home","away",".","<eos>"];
+  var V=VOCAB.length, EOS=V-1, IDX={};
+  VOCAB.forEach(function(w,i){IDX[w]=i;});
+  function hashStr(s){var h=1779033703;for(var i=0;i<s.length;i++){h=Math.imul(h^s.charCodeAt(i),3432918353);h=(h<<13)|(h>>>19);}return h>>>0;}
+  function mulberry32(seed){var a=seed>>>0;return function(){a=(a+0x6D2B79F5)|0;var t=Math.imul(a^(a>>>15),1|a);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296;};}
+
+  /* Hand-designed toy LM: next-token logits depend on the last one or two tokens. */
+  var TABLE={
+    "the":{cat:2.5,dog:2.3,bird:1.3,mat:0.6,"<eos>":-4},
+    "cat":{sat:2.3,ran:1.5,slept:1.4,".":0.3,"<eos>":-0.5},
+    "dog":{ran:2.9,sat:1.1,slept:1.0,".":0.1,"<eos>":-0.8},
+    "bird":{slept:1.6,ran:1.6,sat:1.5,".":0.4,"<eos>":-0.4},
+    "sat":{on:3.0,".":1.1,"<eos>":0.5},
+    "ran":{home:2.4,away:2.1,on:1.0,".":0.9,"<eos>":0.2},
+    "slept":{on:2.4,".":1.6,"<eos>":1.0},
+    "on":{the:3.2},
+    "on the":{mat:2.4,cat:1.7,dog:1.6,bird:0.9},
+    "mat":{".":3.0,"<eos>":0.8},
+    "home":{".":3.2,"<eos>":0.6},
+    "away":{".":3.2,"<eos>":0.6},
+    ".":{"<eos>":4.5}
+  };
+  var DEFAULT={".":0.5,"<eos>":0.5};
+  function ctxKey(ctx){
+    var n=ctx.length, k1=VOCAB[ctx[n-1]], k2=n>1?VOCAB[ctx[n-2]]+" "+k1:null;
+    if(k2&&TABLE[k2]) return k2;
+    return TABLE[k1]?k1:"";
+  }
+  function nextLogits(ctx){
+    var key=ctxKey(ctx), tab=key?TABLE[key]:DEFAULT, z=new Array(V);
+    for(var i=0;i<V;i++){
+      var w=VOCAB[i];
+      if(ctx[ctx.length-1]===EOS){ z[i]=(i===EOS)?5:-6; continue; }
+      if(tab[w]!==undefined) z[i]=tab[w];
+      else z[i]=-1.8+(mulberry32(hashStr(key+"|"+w))()-0.5)*1.0;
+    }
+    return z;
+  }
+  function softmax(z,T){
+    T=Math.max(T,1e-3);var m=-Infinity,i;
+    for(i=0;i<z.length;i++) if(z[i]/T>m) m=z[i]/T;
+    var e=z.map(function(v){return Math.exp(v/T-m);}),s=0;
+    e.forEach(function(v){s+=v;});
+    return e.map(function(v){return v/s;});
+  }
+  function logsoftmax(z){return softmax(z,1).map(Math.log);}
+  function argmax(a){var b=0;for(var i=1;i<a.length;i++) if(a[i]>a[b]) b=i;return b;}
+
+  /* logits -> /T -> softmax -> top-k -> top-p -> renormalise (sequential, like HF warpers) */
+  function pipeline(z,cfg){
+    var T=cfg.T,k=cfg.k,p=cfg.p;
+    var order=z.map(function(_,i){return i;}).sort(function(a,b){return z[b]-z[a]||a-b;});
+    var rank=new Array(V);order.forEach(function(i,r){rank[i]=r;});
+    var zT=z.map(function(v){return v/Math.max(T,1e-3);});
+    var prob=softmax(z,T);
+    var keepK=z.map(function(_,i){return (k<=0||k>=V)?true:rank[i]<k;});
+    var mass=0;order.forEach(function(i){if(keepK[i]) mass+=prob[i];});
+    var pK=prob.map(function(v,i){return keepK[i]?v/mass:0;});
+    var cum=new Array(V),keepP=new Array(V),run=0;
+    order.forEach(function(i){
+      if(!keepK[i]){cum[i]=null;keepP[i]=false;return;}
+      var before=run;run+=pK[i];cum[i]=run;
+      keepP[i]=(p>=1)||before<p-1e-12;
+    });
+    var m2=0;for(var i=0;i<V;i++) if(keepP[i]) m2+=pK[i];
+    var fin=pK.map(function(v,i){return keepP[i]?v/m2:0;});
+    return {order:order,rank:rank,zT:zT,prob:prob,keepK:keepK,pK:pK,cum:cum,keepP:keepP,fin:fin};
+  }
+  function draw(dist,u){var c=0,i;for(i=0;i<dist.length;i++){c+=dist[i];if(u<c&&dist[i]>0) return i;}
+    for(i=dist.length-1;i>=0;i--) if(dist[i]>0) return i;return 0;}
+
+  /* strategy: {kind:"greedy"} | {kind:"sample",T,k,p} */
+  function generate(prompt,strategy,maxNew,rng){
+    var ctx=prompt.slice(),lp=0,toks=[];
+    for(var t=0;t<maxNew;t++){
+      var z=nextLogits(ctx),id;
+      if(strategy.kind==="greedy") id=argmax(z);
+      else id=draw(pipeline(z,strategy).fin,rng());
+      lp+=logsoftmax(z)[id];toks.push(id);ctx.push(id);
+      if(id===EOS) break;
+    }
+    return {tokens:toks,logp:lp,ended:toks[toks.length-1]===EOS};
+  }
+  function lengthScore(cum,len,alpha){return cum/Math.pow(Math.max(len,1),alpha);}
+
+  function beam(prompt,B,alpha,maxNew){
+    var live=[{id:0,parent:-1,tok:-1,seq:[],cum:0}],nid=1,steps=[],finished=[],early=false;
+    for(var t=0;t<maxNew&&live.length;t++){
+      var cands=[];
+      live.forEach(function(b){
+        var lps=logsoftmax(nextLogits(prompt.concat(b.seq)));
+        for(var i=0;i<V;i++) cands.push({parent:b.id,tok:i,seq:b.seq.concat(i),cum:b.cum+lps[i]});
+      });
+      cands.sort(function(a,b){return b.cum-a.cum;});
+      var top=cands.slice(0,2*B),next=[],kept=0,col=[];
+      top.forEach(function(c){
+        c.id=nid++;c.step=t;
+        if(kept<B){
+          kept++;
+          if(c.tok===EOS){c.status="finished";finished.push({tokens:c.seq,cum:c.cum,score:lengthScore(c.cum,c.seq.length,alpha),id:c.id});}
+          else{c.status="live";next.push(c);}
+        } else c.status="pruned";
+        col.push(c);
+      });
+      steps.push(col);live=next;
+      if(finished.length>=B){early=true;break;}
+    }
+    if(!early) live.forEach(function(b){finished.push({tokens:b.seq,cum:b.cum,score:lengthScore(b.cum,b.seq.length,alpha),id:b.id,unfinished:true});});
+    finished.sort(function(a,b){return b.score-a.score;});
+    return {steps:steps,finished:finished};
+  }
+
+  /* ---------- 5 · logit processors: edit the scores BEFORE softmax ----------
+     Two tiny models make the two failure modes visible. Both reuse softmax / argmax / draw from above.
+     (a) STORY: a bigram model that loops under greedy  →  frequency penalty  z' = z − λ·count
+     (b) JSON : a model that knows JSON only roughly     →  template mask      z' = z if allowed, −∞ otherwise */
+  var STORY=["the","dragon","castle","knight","guards","sleeps","and",".","<eos>"], SV=STORY.length, SEOS=SV-1, SIDX={};
+  STORY.forEach(function(w,i){SIDX[w]=i;});
+  var STORY_TABLE={
+    "the":{dragon:4.2,castle:3.8,knight:3.5},
+    "dragon":{guards:3.6,sleeps:3.25,".":1.0,and:0.8},
+    "castle":{and:2.8,".":2.4},
+    "knight":{sleeps:3.0,guards:2.6,".":1.2},
+    "guards":{the:4.0,".":0.2},
+    "sleeps":{".":2.8,and:2.6},
+    "and":{the:4.0,knight:2.2,dragon:2.0,castle:1.5},
+    ".":{"<eos>":3.5}
+  };
+  function storyLogits(ctx){
+    var last=ctx[ctx.length-1],key=STORY[last],tab=STORY_TABLE[key]||{},z=new Array(SV);
+    for(var i=0;i<SV;i++){
+      var w=STORY[i];
+      if(last===SEOS){z[i]=(i===SEOS)?5:-6;continue;}
+      z[i]=tab[w]!==undefined?tab[w]:-2+(mulberry32(hashStr("story|"+key+"|"+w))()-0.5);
+    }
+    return z;
+  }
+  function countTokens(ctx,n){var c=new Array(n).fill(0);ctx.forEach(function(i){c[i]++;});return c;}
+  function penalise(z,counts,lam){return z.map(function(v,i){return v-lam*counts[i];});}      // frequency penalty
+  /* greedy on the penalised scores; every step keeps what the chart needs */
+  function genPenalty(lam,maxNew){
+    var ctx=[SIDX["the"]],steps=[];
+    for(var t=0;t<maxNew;t++){
+      var z=storyLogits(ctx),counts=countTokens(ctx,SV),zp=penalise(z,counts,lam),pick=argmax(zp);
+      steps.push({ctx:ctx.slice(),z:z,counts:counts,zp:zp,pick:pick,flip:pick!==argmax(z)});
+      ctx.push(pick);if(pick===SEOS) break;
+    }
+    return {steps:steps,tokens:ctx.slice(1),ended:ctx[ctx.length-1]===SEOS};
+  }
+
+  /* JSON fragments (one "token" = one fragment, as on the slide) and the template  {"name": <string>, "age": <integer>}  */
+  var JSONV=["{","\"name\"","\"age\"",":","\"Alice\"","\"Bob\"","\"twenty\"","23","41","7",",","}","hello","<eos>"], JV=JSONV.length, JEOS=JV-1, JIDX={};
+  JSONV.forEach(function(w,i){JIDX[w]=i;});
+  var JTYPE=["brace","key","key","colon","string","string","string","int","int","int","comma","brace","junk","eos"];
+  /* the template as a list of slots: which fragments may come next, and why */
+  var TEMPLATE=[
+    {show:"{",allow:["{"],why:"the object must open with {"},
+    {show:"\"name\"",allow:["\"name\""],why:"the first key must be \"name\""},
+    {show:":",allow:[":"],why:"a colon must follow the key"},
+    {show:"‹string›",allow:["\"Alice\"","\"Bob\"","\"twenty\""],why:"name must be a string",free:true},
+    {show:",",allow:[","],why:"a comma must follow — \"age\" is still missing"},
+    {show:"\"age\"",allow:["\"age\""],why:"the second key must be \"age\""},
+    {show:":",allow:[":"],why:"a colon must follow the key"},
+    {show:"‹integer›",allow:["23","41","7"],why:"age must be an integer",free:true},
+    {show:"}",allow:["}"],why:"the object must close with }"},
+    {show:"<eos>",allow:["<eos>"],why:"nothing may follow the object"}
+  ];
+  TEMPLATE.forEach(function(s){s.ids=s.allow.map(function(w){return JIDX[w];});});
+  /* walk a prefix through the template: {slot: next slot index, bad: index of the first fragment that broke it (or -1)} */
+  function templateState(ctx){
+    for(var i=0;i<ctx.length;i++){ if(i>=TEMPLATE.length||TEMPLATE[i].ids.indexOf(ctx[i])<0) return {slot:-1,bad:i}; }
+    return {slot:ctx.length,bad:-1};
+  }
+  function allowedMask(ctx){
+    var st=templateState(ctx),a=new Array(JV).fill(false);
+    if(st.slot>=0&&st.slot<TEMPLATE.length) TEMPLATE[st.slot].ids.forEach(function(i){a[i]=true;});
+    return a;
+  }
+  /* the toy model: next-fragment probabilities from a rough reading of the prefix (it has never seen the schema) */
+  var JSON_P={
+    start:{"{":.80,hello:.12,"\"name\"":.05},
+    key1:{"\"name\"":.72,"\"age\"":.16,"}":.06,hello:.04},
+    colon:{":":.92,",":.03,hello:.02},
+    valname:{"\"Alice\"":.55,"\"Bob\"":.25,"23":.08,"\"twenty\"":.05,hello:.05},
+    comma:{",":.62,"}":.30,hello:.04},
+    key2:{"\"age\"":.80,"\"name\"":.12,hello:.04},
+    valage:{"\"twenty\"":.35,"23":.30,"}":.15,hello:.10,"41":.06,"7":.04},       // the numbers on the slide
+    close:{"}":.78,",":.14,hello:.05},
+    end:{"<eos>":.93,hello:.04}
+  };
+  function jsonKind(ctx){
+    var n=ctx.length;if(!n) return "start";
+    var last=ctx[n-1],ty=JTYPE[last];
+    if(ty==="eos") return "eos";
+    if(last===JIDX["{"]) return "key1";
+    if(last===JIDX["}"]) return "end";
+    if(ty==="key") return "colon";
+    if(ty==="colon") return (n>1&&ctx[n-2]===JIDX["\"name\""])?"valname":"valage";
+    if(ty==="comma") return "key2";
+    return ctx.indexOf(JIDX["\"age\""])>=0?"close":"comma";                              // after a value
+  }
+  function jsonLogits(ctx){
+    var kind=jsonKind(ctx),z=new Array(JV),i;
+    if(kind==="eos"){for(i=0;i<JV;i++) z[i]=(i===JEOS)?5:-6;return z;}
+    var tab=JSON_P[kind],listed=0,nl=0;
+    for(i=0;i<JV;i++){if(tab[JSONV[i]]!==undefined){listed+=tab[JSONV[i]];nl++;}}
+    var rest=Math.max(1-listed,0)+(JV-nl)*1e-4;                                              // unlisted fragments share what is left
+    for(i=0;i<JV;i++){var p=tab[JSONV[i]]!==undefined?tab[JSONV[i]]:rest/(JV-nl);z[i]=Math.log(p)+6;}        // +6: a common shift softmax ignores, so likely fragments score above 0
+    return z;
+  }
+  function maskLogits(z,allowed){return z.map(function(v,i){return allowed[i]?v:-Infinity;});}
+  /* one generation: mask on/off; rng = null → greedy, otherwise sample. Unconstrained runs may leave the template. */
+  function genTemplate(mask,rng,maxNew){
+    var ctx=[],steps=[];maxNew=maxNew||12;
+    for(var t=0;t<maxNew;t++){
+      var z=jsonLogits(ctx),p=softmax(z,1),st=templateState(ctx),allowed=allowedMask(ctx);
+      var zp=(mask&&st.slot>=0)?maskLogits(z,allowed):z.slice(),pp=softmax(zp,1);
+      var pick=rng?draw(pp,rng()):argmax(pp);
+      steps.push({ctx:ctx.slice(),z:z,p:p,allowed:allowed,zp:zp,pp:pp,pick:pick,slot:st.slot,ok:st.slot>=0&&allowed[pick]});
+      ctx.push(pick);if(pick===JEOS) break;
+    }
+    var fin=templateState(ctx);
+    return {steps:steps,tokens:ctx,valid:fin.bad<0&&fin.slot===TEMPLATE.length,bad:fin.bad>=0?fin.bad:(fin.slot<TEMPLATE.length?ctx.length:-1)};
+  }
+  function validRate(mask,n,seed){
+    var rng=mulberry32(hashStr("json:"+seed)),ok=0;
+    for(var i=0;i<n;i++) if(genTemplate(mask,rng).valid) ok++;
+    return ok;
+  }
+  return {VOCAB:VOCAB,V:V,EOS:EOS,IDX:IDX,hashStr:hashStr,mulberry32:mulberry32,nextLogits:nextLogits,softmax:softmax,logsoftmax:logsoftmax,
+    argmax:argmax,pipeline:pipeline,draw:draw,generate:generate,beam:beam,lengthScore:lengthScore,
+    STORY:STORY,SIDX:SIDX,storyLogits:storyLogits,penalise:penalise,genPenalty:genPenalty,
+    JSONV:JSONV,JIDX:JIDX,JTYPE:JTYPE,TEMPLATE:TEMPLATE,templateState:templateState,allowedMask:allowedMask,jsonLogits:jsonLogits,genTemplate:genTemplate,validRate:validRate};
+})();
+if(typeof module!=="undefined") module.exports=Core;
+
+</script>
+<script>
+
+(function(){
+  "use strict";
+  var C=Core, V=C.V, EOS=C.EOS, PROMPT=[C.IDX["the"]], OTHERS=99;
+  function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
+  function easeOutCubic(t){return 1-Math.pow(1-t,3);}
+  function easeOutQuart(t){return 1-Math.pow(1-t,4);}
+  function $(id){return document.getElementById(id);}
+  function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+  var XV={};                                       // extra vocabularies (chapter 5) register here: id -> {name, col}
+  function tokName(i){return XV[i]?XV[i].name:C.VOCAB[i];}
+  function tokH(i){return esc(tokName(i));}
+  function texTok(i){return "\\mathrm{"+(i===EOS?"EOS":C.VOCAB[i])+"}";}
+  function pct(p){if(p<=0) return "0%"; if(p<0.001) return "<0.1%"; return (p*100).toFixed(1)+"%";}
+  function IDS(words){return words.map(function(w){return C.IDX[w];});}
+
+  /* ---------- word tiles: one fixed colour per word, everywhere ---------- */
+  var TOKCOL={the:"#7C8594",cat:"#E08A2E",dog:"#C25E1B",bird:"#E9B03F",mat:"#A07426",
+    sat:"#1F4E79",ran:"#3F7CB8",slept:"#79A8D6",on:"#2F8F83",home:"#46B3A2",away:"#86CDBF",".":"#5A5F70","<eos>":"#1C2333"};
+  function colOf(id){return id===OTHERS?"#B9BCC8":(XV[id]?XV[id].col:TOKCOL[C.VOCAB[id]]);}
+  function tileHtml(id,cls,label){return '<span class="tile '+(cls||"")+'" style="--tc:'+colOf(id)+'">'+(label||tokH(id))+'</span>';}
+  function tiles(ids,cls){return ids.map(function(i){return tileHtml(i,cls);}).join("");}
+  function sentHtml(ids,cls){return '<span class="sent">'+tiles(ids,cls)+'</span>';}
+
+  /* ---------- state ---------- */
+  var CONTEXTS=[
+    {w:["the"],n:""},{w:["the","cat"],n:""},{w:["the","bird"],n:"unsure"},
+    {w:["the","cat","sat","on"],n:"confident"},{w:["the","cat","sat","on","the"],n:""}];
+  var state={T:0.5,k:3,p:0.7,B:3,alpha:0,maxNew:8,seed:7,
+    ctxIdx:4, sStage:1, drawCounts:null, drawN:0, drawCtr:0, lastU:null, lastTok:-1, spinning:false, wheelRot:0,
+    sentSeed:1, heroSel:-1, scZ:null, scSel:0,
+    g:{toks:[],lp:0,done:false,busy:false,auto:false,active:-1},
+    lam:0, rstep:99, mask:0, jstep:7, jseed:0, jview:0,
+    beamStep:99, mode:"explore", guidedIndex:0};
+  var PARAMS={
+    T:{fmt:function(x){return x.toFixed(2);}},
+    k:{fmt:function(x){return x<=0?"off":String(Math.round(x));}},
+    p:{fmt:function(x){return x>=1?"off":x.toFixed(2);}},
+    B:{fmt:function(x){return String(Math.round(x));}},
+    alpha:{fmt:function(x){return x.toFixed(1);}},
+    lam:{fmt:function(x){return x<=0?"off":x.toFixed(2);}},
+    rstep:{fmt:function(x){return String(Math.round(x));}},mask:{fmt:function(x){return String(Math.round(x));}},
+    jstep:{fmt:function(x){return String(Math.round(x));}},jseed:{fmt:function(x){return String(Math.round(x));}},jview:{fmt:function(x){return String(Math.round(x));}}
+  };
+  function syncSliders(name){
+    document.querySelectorAll('input[data-param="'+name+'"]').forEach(function(sl){
+      sl.value=state[name];
+      var f=(state[name]-sl.min)/(sl.max-sl.min)*100; sl.style.setProperty("--fill",f+"%");
+    });
+    document.querySelectorAll('[data-val="'+name+'"]').forEach(function(b){b.textContent=PARAMS[name].fmt(state[name]);});
+  }
+  function setParam(name,val){
+    state[name]=val; syncSliders(name);
+    if(name==="T"||name==="k"||name==="p") resetDraws();
+    if(name==="B") syncBeamSeg();
+  }
+  function tweenParam(name,target,dur){tweenScalar("param:"+name,function(){return state[name];},function(v){setParam(name,v);},target,dur);}
+  document.querySelectorAll("input[data-param]").forEach(function(sl){
+    var name=sl.getAttribute("data-param");
+    sl.addEventListener("input",function(){removeTween("param:"+name);setParam(name,+sl.value);renderDynamic();});
+  });
+  document.querySelectorAll("[data-preset]").forEach(function(b){
+    b.addEventListener("click",function(){var a=b.getAttribute("data-preset").split(":");removeTween("param:"+a[0]);setParam(a[0],parseFloat(a[1]));renderDynamic();});
+  });
+  Object.keys(PARAMS).forEach(syncSliders);
+
+  /* ---------- animation loop ---------- */
+  var tweens=new Map(), loopRunning=false;
+  function addTween(key,fn){tweens.set(key,fn);ensureLoop();}
+  function removeTween(key){tweens.delete(key);}
+  function ensureLoop(){
+    if(loopRunning) return; loopRunning=true;
+    function frame(now){
+      tweens.forEach(function(fn,key){if(!fn(16,now)) tweens.delete(key);});
+      renderDynamic();
+      if(tweens.size>0) requestAnimationFrame(frame); else loopRunning=false;
+    }
+    requestAnimationFrame(frame);
+  }
+  function tweenScalar(key,getCur,setVal,target,duration,ease){
+    var start=getCur(),t0=performance.now();duration=duration||600;ease=ease||easeOutCubic;
+    addTween(key,function(dt,now){
+      var t=Math.min(1,(now-t0)/duration);
+      setVal(start+(target-start)*ease(t));
+      if(t>=1){setVal(target);return false;}
+      return true;
+    });
+  }
+
+  /* ---------- formulas ---------- */
+  function renderFormula(el,tex,plain){
+    if(typeof window.katex!=="undefined"){try{window.katex.render(tex,el,{throwOnError:false,displayMode:true});return;}catch(e){}}
+    el.innerHTML='<div class="plain-formula">'+plain+'</div>';
+  }
+  var lastContent={},lastTime={},pendingTimer={};
+  function fm(key,el,tex,plain){
+    if(lastContent[key]===tex) return;
+    var now=performance.now();
+    if(lastTime[key]!=null&&now-lastTime[key]<90){
+      clearTimeout(pendingTimer[key]);
+      pendingTimer[key]=setTimeout(function(){if(lastContent[key]!==tex){lastTime[key]=performance.now();lastContent[key]=tex;renderFormula(el,tex,plain);}},100);
+      return;
+    }
+    clearTimeout(pendingTimer[key]);
+    lastTime[key]=now;lastContent[key]=tex;renderFormula(el,tex,plain);
+  }
+  var sigs={};
+  function changed(key,sig){if(sigs[key]===sig) return false;sigs[key]=sig;return true;}
+
+  /* ---------- canvas helper ---------- */
+  function GF(f){return state.mode==="guided"?f.replace(/([\d.]+)px/,function(_,n){return (n*1.18).toFixed(1)+"px";}):f;}   // canvas text: ×1.18 in Guided
+  function GC3(){return state.mode==="guided"?"#625E69":"#8E8A93";}                                                // …and darker greys
+  function GC2(){return state.mode==="guided"?"#3B3741":"#5A5660";}
+  var STAGE_S=1;
+  function setupCanvas(canvas,w,h){
+    var dpr=(window.devicePixelRatio||1)*STAGE_S;
+    canvas.width=Math.max(1,Math.round(w*dpr));canvas.height=Math.max(1,Math.round(h*dpr));
+    var ctx=canvas.getContext("2d");ctx.setTransform(dpr,0,0,dpr,0,0);return ctx;
+  }
+  function rr(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();}
+  var MONO="'DM Mono',ui-monospace,Menlo,monospace", SANS="'Hanken Grotesk',system-ui,sans-serif";
+
+  /* ======================================================
+     BarList: persistent rows that slide and resize (CSS transitions)
+     ====================================================== */
+  function BarList(el,ids,rowH,onClick){
+    this.el=el;this.rowH=rowH;this.rows={};this.count=ids.length;this.limit=0;
+    el.classList.add("bl");el.style.height=(ids.length*rowH)+"px";
+    var self=this;
+    ids.forEach(function(id,i){
+      var r=document.createElement("div");
+      r.className="bl-row"+(onClick&&id!==OTHERS?" click":"");r.style.height=rowH+"px";r.style.transform="translateY("+(i*rowH)+"px)";r.setAttribute("data-id",id);
+      r.innerHTML='<span class="bl-tile">'+tileHtml(id,"",id===OTHERS?"others":null)+'</span><div class="bl-track"><i class="bl-zero"></i><i class="bl-ghost"></i><i class="bl-bar" style="background:'+colOf(id)+'"></i></div><span class="bl-val"></span><span class="bl-x"></span>';
+      el.appendChild(r);
+      self.rows[id]={el:r,ghost:r.querySelector(".bl-ghost"),bar:r.querySelector(".bl-bar"),zero:r.querySelector(".bl-zero"),val:r.querySelector(".bl-val"),x:r.querySelector(".bl-x")};
+    });
+    if(onClick) el.addEventListener("click",function(e){var r=e.target.closest(".bl-row");if(r&&r.getAttribute("data-id")!=="99") onClick(+r.getAttribute("data-id"));});
+  }
+  /* spec[id]={rank,l,w,gl,gw,ghost,zero,cls,val,x} — l/w in % of the track */
+  BarList.prototype.setLimit=function(n){this.limit=n||0;this.el.style.height=((this.limit||this.count)*this.rowH)+"px";};
+  BarList.prototype.update=function(spec){
+    for(var id in spec){
+      var s=spec[id],R=this.rows[id];if(!R) continue;
+      R.el.style.transform="translateY("+(s.rank*this.rowH)+"px)";R.el.style.display=(this.limit&&s.rank>=this.limit)?"none":"";
+      R.el.className="bl-row"+(R.el.className.indexOf("click")>=0?" click":"")+(s.cls?" "+s.cls:"");
+      R.bar.style.left=s.l+"%";R.bar.style.width=s.w+"%";
+      R.ghost.style.left=(s.gl||0)+"%";R.ghost.style.width=(s.gw||0)+"%";R.ghost.classList.toggle("on",!!s.ghost);
+      if(s.zero!=null){R.zero.style.left=s.zero+"%";R.zero.style.opacity=1;}else R.zero.style.opacity=0;
+      R.val.textContent=s.val==null?"":s.val;R.x.textContent=s.x||"";
+    }
+  };
+  function absPct(p,ref){return p>0?Math.max(p/ref*88,0.9):0;}
+
+  /* ======================================================
+     Intro: fill in the blank
+     ====================================================== */
+  var HERO_CTX=IDS(["the","cat","sat","on","the"]);
+  var heroTop=IDS(["mat","cat","dog","bird"]);
+  var heroBL=new BarList($("heroBars"),heroTop.concat([OTHERS]),36,function(id){state.heroSel=id;renderHero(true);});
+  function heroDist(){
+    var pr=C.softmax(C.nextLogits(HERO_CTX),1),rest=1;
+    heroTop.forEach(function(id){rest-=pr[id];});
+    return {pr:pr,rest:rest};
+  }
+  function renderHero(pop){
+    var d=heroDist(),spec={};
+    heroTop.forEach(function(id,i){spec[id]={rank:i,l:0,w:absPct(d.pr[id],0.5),val:pct(d.pr[id]),cls:state.heroSel===id?"pick":""};});
+    spec[OTHERS]={rank:4,l:0,w:absPct(d.rest,0.5),val:pct(d.rest),x:"9 words"};
+    heroBL.update(spec);
+    var html=tiles(HERO_CTX,"lg");
+    html+=state.heroSel<0?'<span class="tile lg blank">?</span>':tileHtml(state.heroSel,"lg"+(pop?" pop":""));
+    $("heroSentence").innerHTML=html;
+  }
+
+  /* ======================================================
+     1 · Scores → probabilities (draggable logits)
+     ====================================================== */
+  var SC_CTX=HERO_CTX, SC_IDS=heroTop, SC_BASE=C.nextLogits(SC_CTX), SC_R=8;
+  state.scZ=SC_BASE.slice();state.scSel=SC_IDS[0];state.scSel=SC_IDS[0];
+  function buildScores(){
+    var html="";
+    SC_IDS.forEach(function(id){
+      html+='<div class="sc-row" data-id="'+id+'"><span>'+tileHtml(id)+'</span><div class="sc-track" data-id="'+id+'" style="--tc:'+colOf(id)+'"><i class="sc-zero"></i><i class="sc-fill" style="background:'+colOf(id)+'"></i><b class="sc-handle"></b></div><span class="sc-z"></span><span class="sc-arrow">→</span><div class="sc-ptrack"><i class="sc-pbar" style="background:'+colOf(id)+'"></i></div><span class="sc-p"></span></div>';
+    });
+    html+='<div class="sc-row off" data-id="'+OTHERS+'"><span>'+tileHtml(OTHERS,"","others")+'</span><div class="sc-track"><i class="sc-zero"></i></div><span class="sc-z note" style="grid-column:3/5">9 words</span><div class="sc-ptrack"><i class="sc-pbar" style="background:#B9BCC8"></i></div><span class="sc-p"></span></div>';
+    $("scRows").innerHTML=html;
+  }
+  buildScores();
+  var scDrag=null;
+  function scSet(id,clientX,track){
+    var r=track.getBoundingClientRect(),f=clamp((clientX-r.left)/r.width,0,1);
+    state.scZ[id]=Math.round((f*2-1)*SC_R*10)/10;state.scSel=id;renderScores();
+  }
+  $("scRows").addEventListener("pointerdown",function(e){
+    var t=e.target.closest(".sc-track");if(!t||!t.getAttribute("data-id")||t.parentNode.classList.contains("off")) return;
+    scDrag=t;t.classList.add("drag");t.setPointerCapture(e.pointerId);scSet(+t.getAttribute("data-id"),e.clientX,t);
+  });
+  $("scRows").addEventListener("pointermove",function(e){if(scDrag) scSet(+scDrag.getAttribute("data-id"),e.clientX,scDrag);});
+  function scUp(){if(scDrag){scDrag.classList.remove("drag");scDrag=null;}}
+  $("scRows").addEventListener("pointerup",scUp);$("scRows").addEventListener("pointercancel",scUp);
+  $("scRows").addEventListener("pointerenter",function(){},true);
+  $("scRows").addEventListener("click",function(e){var r=e.target.closest(".sc-row");if(r&&r.getAttribute("data-id")!=="99"){state.scSel=+r.getAttribute("data-id");renderScores();}});
+  function scApply(fn){state.scZ=state.scZ.map(function(v){return clamp(Math.round(fn(v)*100)/100,-SC_R,SC_R);});renderScores();}
+  $("scShift").addEventListener("click",function(){scApply(function(v){return v+1;});});
+  $("scSharp").addEventListener("click",function(){scApply(function(v){return v*2;});});
+  $("scFlat").addEventListener("click",function(){scApply(function(v){return v/2;});});
+  $("scReset").addEventListener("click",function(){state.scZ=SC_BASE.slice();renderScores();});
+  function renderScores(){
+    var z=state.scZ,pr=C.softmax(z,1),sumE=0,i;
+    for(i=0;i<V;i++) sumE+=Math.exp(z[i]);
+    var restP=1;
+    SC_IDS.forEach(function(id){
+      var row=document.querySelector('#scRows .sc-row[data-id="'+id+'"]'),hp=(z[id]+SC_R)/(2*SC_R)*100;
+      row.classList.toggle("sel",state.scSel===id);
+      var fill=row.querySelector(".sc-fill");fill.style.left=Math.min(50,hp)+"%";fill.style.width=Math.abs(hp-50)+"%";
+      row.querySelector(".sc-handle").style.left=hp+"%";
+      row.querySelector(".sc-z").textContent=z[id].toFixed(1);
+      row.querySelector(".sc-pbar").style.width=(pr[id]*100)+"%";
+      row.querySelector(".sc-p").textContent=pct(pr[id]);restP-=pr[id];
+    });
+    var orow=document.querySelector('#scRows .sc-row[data-id="99"]');
+    orow.querySelector(".sc-pbar").style.width=(Math.max(restP,0)*100)+"%";orow.querySelector(".sc-p").textContent=pct(Math.max(restP,0));
+    $("scSum").innerHTML="Σ probabilities = <b style='color:var(--green)'>100%</b>";
+    var s=state.scSel;
+    var tex="p_{"+texTok(s)+"}=\\dfrac{e^{"+z[s].toFixed(1)+"}}{\\sum_j e^{z_j}}=\\dfrac{"+Math.exp(z[s]).toFixed(2)+"}{"+sumE.toFixed(2)+"}="+(pr[s]*100).toFixed(1)+"\\%";
+    fm("sc",$("scFormula"),tex,"p("+tokH(s)+") = e^"+z[s].toFixed(1)+" / sum_j e^z_j = "+Math.exp(z[s]).toFixed(2)+" / "+sumE.toFixed(2)+" = "+(pr[s]*100).toFixed(1)+"%");
+  }
+
+  /* ======================================================
+     2 · Greedy
+     ====================================================== */
+  var gBL=new BarList($("gBars"),IDS(C.VOCAB),25);
+  var G_NODES=Array.prototype.slice.call(document.querySelectorAll("#gLoop .lp-node"));
+  function greedyCtx(){var g=state.g;return PROMPT.concat(g.done?g.toks.slice(0,-1):g.toks);}
+  function greedyCommit(){
+    var g=state.g;if(g.done) return;
+    var z=C.nextLogits(PROMPT.concat(g.toks)),id=C.argmax(z);
+    g.lp+=C.logsoftmax(z)[id];g.toks.push(id);
+    if(id===EOS||g.toks.length>=state.maxNew) g.done=true;
+  }
+  var gTimers=[];
+  function gClear(){gTimers.forEach(clearTimeout);gTimers=[];state.g.busy=false;state.g.active=-1;state.g.auto=false;$("gAuto").textContent="Auto-play";}
+  function greedyReset(){gClear();state.g={toks:[],lp:0,done:false,busy:false,auto:false,active:-1};}
+  function gStepAnimated(after){
+    var g=state.g;if(g.busy||g.done) return;
+    g.busy=true;
+    [[0,0],[1,320],[2,640],[3,980]].forEach(function(s){gTimers.push(setTimeout(function(){g.active=s[0];renderDynamic();},s[1]));});
+    gTimers.push(setTimeout(function(){g.active=4;greedyCommit();renderDynamic();},1480));
+    gTimers.push(setTimeout(function(){g.active=-1;g.busy=false;renderDynamic();if(after) after();},1880));
+  }
+  function gNext(){ gStepAnimated(function(){ if(state.g.auto&&!state.g.done) gNext(); else {state.g.auto=false;$("gAuto").textContent="Auto-play";renderDynamic();} }); }
+  $("gStep").addEventListener("click",function(){state.g.auto=false;gStepAnimated();});
+  $("gAuto").addEventListener("click",function(){
+    var g=state.g;
+    if(g.auto){g.auto=false;$("gAuto").textContent="Auto-play";return;}
+    if(g.done) return;
+    g.auto=true;$("gAuto").textContent="Pause";if(!g.busy) gNext();
+  });
+  $("gReset").addEventListener("click",function(){greedyReset();renderDynamic();});
+  function renderGreedy(){
+    var g=state.g,ctx=greedyCtx(),z=C.nextLogits(ctx),prob=C.softmax(z,1),best=C.argmax(z);
+    var order=prob.map(function(_,i){return i;}).sort(function(a,b){return prob[b]-prob[a]||a-b;}),spec={};
+    order.forEach(function(id,rank){spec[id]={rank:rank,l:0,w:absPct(prob[id],1.0),val:pct(prob[id]),cls:id===best?("pick"+(g.active===3?" flash":"")):""};});
+    gBL.update(spec);
+    G_NODES.forEach(function(n,i){n.classList.toggle("on",g.active===i);});
+    var html=tiles(PROMPT,"lg prompt");
+    g.toks.forEach(function(id,i){html+='<span class="arr">→</span>'+tileHtml(id,"lg"+(i===g.toks.length-1&&!g.busy?" pop":""));});
+    if(!g.done) html+='<span class="arr">→</span><span class="tile lg blank">?</span>';
+    if(changed("gSent",html)) $("gSent").innerHTML=html;
+    $("gCaption").innerHTML="Next-word probabilities after “"+ctx.map(tokH).join(" ")+"”"+(gBL.limit?" <span style='text-transform:none;letter-spacing:0'>· top "+gBL.limit+" of 13</span>":"");
+    var chance=Math.exp(g.lp);
+    $("gChance").textContent=g.toks.length?(chance>=0.001?(chance*100).toFixed(1)+"%":"<0.1%"):"100%";
+    $("gChanceBar").style.width=(Math.max(chance,0.004)*100)+"%";
+    $("gLp").textContent=g.toks.length?("Multiply the picked probabilities: Σ log P = "+g.lp.toFixed(2)+" over "+g.toks.length+" words"+(g.done?" · stopped":"")):"Nothing generated yet — press Step.";
+    $("gStep").disabled=g.busy||g.done; $("gAuto").disabled=g.done&&!g.auto;
+  }
+
+  /* ======================================================
+     3 · Beam search (tree canvas)
+     ====================================================== */
+  var beamCache={sig:"",res:null};
+  function getBeam(){
+    var sig=[state.B,state.alpha,state.maxNew].join("|");
+    if(beamCache.sig!==sig) beamCache={sig:sig,res:C.beam(PROMPT,state.B,state.alpha,state.maxNew)};
+    return beamCache.res;
+  }
+  (function(){var s=$("bSeg"),h="";for(var b=1;b<=5;b++) h+='<button data-b="'+b+'" aria-pressed="'+(b===state.B)+'">'+b+'</button>';s.innerHTML=h;
+    s.addEventListener("click",function(e){var t=e.target.closest("button");if(!t) return;removeTween("beamStep");setParam("B",+t.getAttribute("data-b"));state.beamStep=99;renderDynamic();});})();
+  function syncBeamSeg(){document.querySelectorAll("#bSeg button").forEach(function(b){b.setAttribute("aria-pressed",+b.getAttribute("data-b")===Math.round(state.B)?"true":"false");});}
+  var COLW=120,NODEW=108,NODEH=28,ROWH=34;
+  function renderBeam(){
+    var res=getBeam(),nS=res.steps.length,shown=clamp(Math.floor(state.beamStep+1e-9),0,nS);
+    var cw=$("bCanvas").parentNode.clientWidth||780;COLW=clamp(Math.floor((cw-24)/Math.max(4,nS+1)),96,132);NODEW=COLW-12;
+    var rowsMax=2*state.B,W=Math.max(4,nS+1)*COLW+24,H=rowsMax*ROWH+40;
+    var cv=$("bCanvas");cv.style.width=W+"px";cv.style.height=H+"px";
+    var ctx=setupCanvas(cv,W,H);ctx.clearRect(0,0,W,H);ctx.textBaseline="middle";
+    var pos={};pos[0]={x:14,y:34+(rowsMax*ROWH)/2-NODEH/2};
+    function node(x,y,id,label,kind){
+      var col=kind==="finished"?"#0A8F22":kind==="pruned"?"#A9ADB8":kind==="root"?"#7C8594":"#1F4E79";
+      rr(ctx,x,y,NODEW,NODEH,8);ctx.fillStyle=kind==="pruned"?"#F6F6F8":kind==="finished"?"#E6F4E9":"#FFFFFF";ctx.fill();
+      ctx.setLineDash(kind==="pruned"?[3,3]:[]);ctx.strokeStyle=col;ctx.lineWidth=1.6;ctx.stroke();ctx.setLineDash([]);
+      ctx.save();rr(ctx,x,y,NODEW,NODEH,8);ctx.clip();ctx.fillStyle=colOf(id);ctx.globalAlpha=kind==="pruned"?.35:1;ctx.fillRect(x,y,6,NODEH);ctx.restore();
+      ctx.textAlign="left";ctx.font=GF("500 12.5px "+MONO);ctx.fillStyle=kind==="pruned"?"#A9ADB8":"#211E24";ctx.fillText(label[0],x+13,y+NODEH/2);
+      if(label[1]){ctx.textAlign="right";ctx.font=GF("500 11.5px "+MONO);ctx.fillStyle=kind==="pruned"?"#B9BCC8":GC2();ctx.fillText(label[1],x+NODEW-8,y+NODEH/2);}
+    }
+    ctx.fillStyle=GC3();ctx.font=GF("600 11px "+SANS);ctx.textAlign="left";
+    ctx.fillText("PROMPT",14,12);
+    for(var s=0;s<shown;s++) ctx.fillText("ROUND "+(s+1),14+(s+1)*COLW,12);
+    var best=res.finished.length?res.finished[0].id:-1,onBest={},byId={};
+    res.steps.forEach(function(col){col.forEach(function(c){byId[c.id]=c;});});
+    var cur=best;while(cur>0&&byId[cur]){onBest[cur]=true;cur=byId[cur].parent;}
+    var fully=(shown>=nS);
+    for(s=0;s<shown;s++){
+      res.steps[s].forEach(function(c,r){
+        var x=14+(s+1)*COLW,y=34+r*ROWH;pos[c.id]={x:x,y:y};
+        var pp=pos[c.parent];if(!pp) return;
+        var hot=fully&&onBest[c.id];
+        ctx.strokeStyle=hot?"#0A8F22":(c.status==="pruned"?"rgba(169,173,184,.55)":"rgba(31,78,121,.4)");ctx.lineWidth=hot?3:1.3;
+        ctx.setLineDash(c.status==="pruned"?[3,3]:[]);
+        ctx.beginPath();ctx.moveTo(pp.x+NODEW,pp.y+NODEH/2);ctx.bezierCurveTo(pp.x+NODEW+18,pp.y+NODEH/2,x-18,y+NODEH/2,x,y+NODEH/2);ctx.stroke();ctx.setLineDash([]);
+      });
+    }
+    node(pos[0].x,pos[0].y,PROMPT[0],["the",""],"root");
+    for(s=0;s<shown;s++) res.steps[s].forEach(function(c){var p=pos[c.id];node(p.x,p.y,c.tok,[tokName(c.tok),pct(Math.exp(c.cum))],c.status);});
+    $("bPrev").disabled=(shown<=0);$("bNext").disabled=(shown>=nS);
+
+    var greedy=C.generate(PROMPT,{kind:"greedy"},state.maxNew),gp=Math.exp(greedy.logp);
+    var b0=res.finished[0],bp=b0?Math.exp(b0.cum):0;
+    var win=b0&&bp>gp+1e-9;
+    $("bVs").innerHTML=
+      '<div class="vs-card"><div class="who">Greedy</div><div class="big">'+pct(gp)+'<small>chance of the whole sentence</small></div>'+sentHtml(greedy.tokens,"sm")+'</div>'+
+      '<div class="vs-card'+(win?" win":"")+'"><div class="who">Beam search · B = '+state.B+'</div><div class="big">'+(b0?pct(bp):"–")+'<small>chance of the whole sentence</small></div>'+(b0?sentHtml(b0.tokens,"sm"):"")+'</div>';
+    var v;
+    if(!b0) v="";
+    else if(Math.abs(bp-gp)<1e-9) v="With B = "+state.B+", beam and greedy end up in the <em>same</em> place.";
+    else if(win) v="Beam found a sentence that is <em>"+(bp/gp).toFixed(1)+"× more likely</em> than greedy’s.";
+    else v="Under this length penalty, greedy’s sentence is actually the <em>more likely</em> one — α changed the ranking.";
+    $("bVerdict").innerHTML=v;
+    if(b0){
+      var L=b0.tokens.length;
+      var tex="\\mathrm{score}=\\dfrac{1}{|Y|^{\\alpha}}\\sum_t\\log P(y_t\\mid y_{<t})=\\dfrac{"+b0.cum.toFixed(2)+"}{"+L+"^{"+state.alpha.toFixed(1)+"}}="+b0.score.toFixed(3);
+      fm("b",$("bFormula"),tex,"score = sum log P / |Y|^alpha = "+b0.cum.toFixed(2)+" / "+L+"^"+state.alpha.toFixed(1)+" = "+b0.score.toFixed(3));
+    }
+  }
+  $("bNext").addEventListener("click",function(){removeTween("beamStep");state.beamStep=Math.floor(Math.min(state.beamStep,99)+1e-9)+1;renderDynamic();});
+  $("bPrev").addEventListener("click",function(){removeTween("beamStep");state.beamStep=Math.max(0,Math.floor(Math.min(state.beamStep,getBeam().steps.length)+1e-9)-1);renderDynamic();});
+  $("bAll").addEventListener("click",function(){removeTween("beamStep");state.beamStep=99;renderDynamic();});
+
+  /* ======================================================
+     4 · Sampling pipeline
+     ====================================================== */
+  var STAGES=[
+    {n:"Logits",an:"Raw scores for every word.",wh:"Higher means “fits better here”. They can be negative and don’t add up to anything — yet."},
+    {n:"Temperature",an:"A confidence dial.",wh:"Divide every score by T. Low T exaggerates the gaps (the model sounds sure); high T shrinks them (adventurous)."},
+    {n:"Softmax",an:"Turn scores into a pie.",wh:"Exponentiate and normalise: every word gets a slice, and the slices add up to 100%."},
+    {n:"Top-k",an:"Only the k favorites stay.",wh:"Keep the k most probable words and throw the rest away — no matter how the probability is spread."},
+    {n:"Top-p",an:"Keep adding words until the pie is p full.",wh:"Walk down the sorted list until the running total reaches p. The cut-off adapts: few words when the model is sure, many when it isn’t."},
+    {n:"Draw",an:"Spin the wheel.",wh:"Rescale the survivors to 100% and draw one at random — each word wins in proportion to its slice."}
+  ];
+  var STAGE_ICON=["①","②","③","④","⑤","⑥"];
+  (function(){
+    var h="";STAGES.forEach(function(s,i){h+='<button class="st-btn" data-i="'+(i+1)+'"><span>stage '+(i+1)+'</span>'+s.n+'</button>';});
+    $("stageStrip").innerHTML=h;
+    $("stageStrip").addEventListener("click",function(e){var b=e.target.closest(".st-btn");if(!b) return;state.sStage=+b.getAttribute("data-i");renderDynamic();});
+    var c="";CONTEXTS.forEach(function(x,i){c+='<button class="ctx" data-i="'+i+'" aria-pressed="'+(i===state.ctxIdx)+'">'+x.w.join(" ")+(x.n?'<small>'+x.n+'</small>':'')+'</button>';});
+    $("ctxChips").innerHTML=c;
+    $("ctxChips").addEventListener("click",function(e){var b=e.target.closest(".ctx");if(!b) return;setCtx(+b.getAttribute("data-i"));renderDynamic();});
+  })();
+  function setCtx(i){state.ctxIdx=i;resetDraws();document.querySelectorAll("#ctxChips .ctx").forEach(function(b){b.setAttribute("aria-pressed",+b.getAttribute("data-i")===i?"true":"false");});}
+  function ctxIds(){return IDS(CONTEXTS[state.ctxIdx].w);}
+  function cfgNow(){return {T:state.T,k:state.k,p:state.p};}
+  function resetDraws(){state.drawCounts=new Array(V).fill(0);state.drawN=0;state.lastU=null;state.lastTok=-1;state.lastKind=null;state.spinning=false;removeTween("spin");}
+  resetDraws();
+  var sBL=new BarList($("sBars"),IDS(C.VOCAB),24);
+  $("sPrev").addEventListener("click",function(){state.sStage=Math.max(1,state.sStage-1);renderDynamic();});
+  $("sNext").addEventListener("click",function(){state.sStage=Math.min(6,state.sStage+1);renderDynamic();});
+
+  function sStageSpec(st,z,pl){
+    var spec={},zT=pl.zT,i;
+    var ref=Math.max(.3,Math.max.apply(null,pl.prob),Math.max.apply(null,pl.pK),Math.max.apply(null,pl.fin));
+    var zr=1;for(i=0;i<V;i++){zr=Math.max(zr,Math.abs(z[i]),st>=2?Math.abs(zT[i]):0);}
+    var ZERO=42;
+    function lg(v){if(v>=0) return {l:ZERO,w:v/zr*54};var w=-v/zr*38;return {l:ZERO-w,w:w};}
+    pl.order.forEach(function(id,rank){
+      var s={rank:rank,cls:"",x:"",zero:null,ghost:false,gl:0,gw:0},b;
+      if(st<=2){
+        var v=st===1?z[id]:zT[id];b=lg(v);s.l=b.l;s.w=b.w;s.zero=ZERO;s.val=v.toFixed(2);
+        if(st===2){var g=lg(z[id]);s.gl=g.l;s.gw=g.w;s.ghost=true;}
+      }else{
+        var base;
+        if(st===3){base=pl.prob[id];s.val=pct(base);}
+        else if(st===4){base=pl.prob[id];if(pl.keepK[id]) s.val=pct(base);else{s.val="cut";s.cls="cut";}}
+        else if(st===5){
+          if(!pl.keepK[id]){base=pl.prob[id];s.val="cut";s.cls="cut";}
+          else{base=pl.pK[id];if(pl.keepP[id]) s.val=pct(base);else{s.val="cut";s.cls="cut";}s.x="Σ "+Math.round(pl.cum[id]*100)+"%";}
+          s.ghost=true;s.gl=0;s.gw=absPct(pl.prob[id],ref);
+        }else{
+          if(pl.keepP[id]){base=pl.fin[id];s.val=pct(base);}
+          else{base=pl.keepK[id]?pl.pK[id]:pl.prob[id];s.val="cut";s.cls="cut";}
+          if(state.drawCounts[id]>0) s.x="×"+state.drawCounts[id];
+          if(id===state.lastTok&&!state.spinning) s.cls=(s.cls?s.cls+" ":"")+"pick";
+          if(pl.keepP[id]){s.ghost=true;s.gw=absPct(pl.pK[id],ref);}
+        }
+        b={l:0,w:absPct(base,ref)};s.l=b.l;s.w=b.w;
+      }
+      spec[id]=s;
+    });
+    return spec;
+  }
+  var wheel={vals:new Array(V).fill(0),target:new Array(V).fill(0),stage:0};
+  function wheelTarget(st,pl){return st<3?new Array(V).fill(0):(st===3?pl.prob:(st===4?pl.pK:pl.fin));}
+  function renderSampling(){
+    var st=state.sStage,z=C.nextLogits(ctxIds()),pl=C.pipeline(z,cfgNow());
+    // strip + info
+    document.querySelectorAll("#stageStrip .st-btn").forEach(function(b){var i=+b.getAttribute("data-i");b.classList.toggle("cur",i===st);b.classList.toggle("done",i<st);});
+    $("siNum").textContent=st;$("siTitle").textContent=STAGES[st-1].n;$("siAn").textContent=STAGES[st-1].an;$("siWh").textContent=STAGES[st-1].wh;
+    document.querySelectorAll(".si-ctrl .blk").forEach(function(b){b.hidden=(b.getAttribute("data-stage").split(" ").indexOf(String(st))<0);});
+    $("sPrev").disabled=(st<=1);$("sNext").disabled=(st>=6);
+    sBL.update(sStageSpec(st,z,pl));
+    // note
+    var kept=0,mass=0,i;for(i=0;i<V;i++) if(pl.keepP[i]){kept++;mass+=pl.prob[i];}
+    var note="";
+    if(st===1) note="13 words, 13 raw scores. Sorted from best to worst.";
+    else if(st===2) note="The dashed outline is the original score. T = <b>"+state.T.toFixed(2)+"</b> "+(state.T<1?"stretches":(state.T>1?"squeezes":"leaves unchanged"))+" the scores.";
+    else if(st===3) note="Probabilities add up to 100%. Top word: <b>“"+tokH(pl.order[0])+"”</b> with <b>"+pct(pl.prob[pl.order[0]])+"</b>.";
+    else if(st===4){var kk=0;for(i=0;i<V;i++) if(pl.keepK[i]) kk++;note=(state.k<=0||state.k>=V)?"top-k is <b>off</b> — nothing is cut.":"Kept <b>"+kk+"</b> of 13 words; the rest are greyed out.";}
+    else if(st===5){note=(state.p>=1)?"top-p is <b>off</b> — nothing extra is cut.":"The <b>nucleus</b> has <b>"+kept+"</b> word"+(kept>1?"s":"")+", which together hold <b>"+Math.round(mass*100)+"%</b> of the probability. Σ shows the running total.";}
+    else note="<b>"+kept+"</b> word"+(kept>1?"s":"")+" can win. "+(state.drawN?("Drawn so far: <b>"+state.drawN+"</b> time"+(state.drawN>1?"s":"")+" — frequencies approach the bars."):"Spin the wheel!");
+    $("sNote").innerHTML=note+(sBL.limit?" <span style='color:var(--ink-3)'>(top "+sBL.limit+" of 13 words shown)</span>":"");
+    // wheel morph
+    var tgt=wheelTarget(st,pl);
+    if(changed("wtarget",tgt.map(function(v){return v.toFixed(4);}).join(","))){
+      wheel.target=tgt.slice();
+      if(!state.spinning) addTween("wheelmorph",function(){
+        var moving=false;for(var j=0;j<V;j++){var d=wheel.target[j]-wheel.vals[j];if(Math.abs(d)>0.0006){wheel.vals[j]+=d*0.22;moving=true;}else wheel.vals[j]=wheel.target[j];}
+        return moving;
+      });
+    }
+    drawWheel(pl);
+    // formula
+    var ord=pl.order,t0=ord[0],nm=texTok(t0),tex,plain,m2;
+    if(st===1){tex="z_{"+nm+"}="+z[t0].toFixed(2);plain="z["+tokH(t0)+"] = "+z[t0].toFixed(2);}
+    else if(st===2){tex="\\dfrac{z_{"+nm+"}}{T}=\\dfrac{"+z[t0].toFixed(2)+"}{"+state.T.toFixed(2)+"}="+pl.zT[t0].toFixed(2);plain="z/T = "+z[t0].toFixed(2)+" / "+state.T.toFixed(2)+" = "+pl.zT[t0].toFixed(2);}
+    else if(st===3){tex="p_{"+nm+"}=\\dfrac{e^{"+pl.zT[t0].toFixed(2)+"}}{\\sum_j e^{z_j/T}}="+pct(pl.prob[t0]).replace("%","\\%");plain="p = e^"+pl.zT[t0].toFixed(2)+" / sum_j e^(z_j/T) = "+pct(pl.prob[t0]);}
+    else if(st===4){m2=0;for(i=0;i<V;i++) if(pl.keepK[i]) m2+=pl.prob[i];
+      tex=(state.k<=0||state.k>=V)?"k=\\text{off}\\;\\Rightarrow\\;\\text{all 13 words stay}":"\\text{keep the top }"+state.k+"\\text{ words: }\\textstyle\\sum p="+(m2*100).toFixed(1)+"\\%";
+      plain=(state.k<=0||state.k>=V)?"k off: all words stay":"keep top "+state.k+": sum p = "+(m2*100).toFixed(1)+"%";}
+    else if(st===5){var nmz=ord.filter(function(id){return pl.keepP[id];});
+      tex=(state.p>=1)?"p=\\text{off}\\;\\Rightarrow\\;\\text{nothing extra is cut}":"\\text{nucleus at }p="+state.p.toFixed(2)+":\\;\\{"+nmz.map(texTok).join(",\\,")+"\\}";
+      plain=(state.p>=1)?"p off":"nucleus at p="+state.p.toFixed(2)+": "+nmz.map(tokH).join(", ");}
+    else{m2=0;for(i=0;i<V;i++) if(pl.keepP[i]) m2+=pl.pK[i];
+      tex="p'_{"+nm+"}=\\dfrac{p_{"+nm+"}}{\\sum_{j\\in S}p_j}=\\dfrac{"+pl.pK[t0].toFixed(3)+"}{"+m2.toFixed(3)+"}="+pct(pl.fin[t0]).replace("%","\\%")+((state.lastTok>=0&&state.lastKind==="spin")?"\\quad u="+state.lastU.toFixed(3)+"\\Rightarrow "+texTok(state.lastTok):"");
+      plain="p' = p / sum_S p = "+pl.pK[t0].toFixed(3)+" / "+m2.toFixed(3)+" = "+pct(pl.fin[t0])+((state.lastTok>=0&&state.lastKind==="spin")?"   u = "+state.lastU.toFixed(3)+" -> "+tokH(state.lastTok):"");}
+    fm("s"+st,$("sFormula"),tex,plain);
+    renderSentences();
+  }
+  function drawWheel(pl){
+    var cv=$("wCanvas"),W=cv.clientWidth||300,H=cv.clientHeight||300,ctx=setupCanvas(cv,W,H);ctx.clearRect(0,0,W,H);
+    var cx=W/2,cy=H/2+8,R=Math.min(W,H)/2-22,r0=R*0.34;
+    var sum=0,i;for(i=0;i<V;i++) sum+=wheel.vals[i];
+    if(sum<0.001){
+      ctx.setLineDash([5,5]);ctx.strokeStyle="#D6CCB6";ctx.lineWidth=2;ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
+      ctx.fillStyle=GC3();ctx.font=GF("500 13px "+SANS);ctx.textAlign="center";ctx.fillText("The wheel appears once",cx,cy-4);ctx.fillText("we have probabilities (stage 3)",cx,cy+14);return;
+    }
+    var a=-Math.PI/2+state.wheelRot;
+    for(i=0;i<V;i++){
+      var v=wheel.vals[i]/sum;if(v<=0.0004) continue;
+      var a1=a+v*Math.PI*2,mid=(a+a1)/2,pop=0,hi=(!state.spinning&&state.sStage===6&&state.lastKind==="spin"&&i===state.lastTok);
+      var ox=Math.cos(mid)*pop,oy=Math.sin(mid)*pop;
+      ctx.beginPath();ctx.moveTo(cx+ox+Math.cos(a)*r0,cy+oy+Math.sin(a)*r0);ctx.arc(cx+ox,cy+oy,R,a,a1);ctx.arc(cx+ox,cy+oy,r0,a1,a,true);ctx.closePath();
+      ctx.fillStyle=colOf(i);ctx.fill();ctx.strokeStyle=hi?"#211E24":"#FFFEFB";ctx.lineWidth=hi?4:2.5;ctx.stroke();
+      if(v>0.045){
+        ctx.save();ctx.translate(cx+ox+Math.cos(mid)*(R+r0)/2,cy+oy+Math.sin(mid)*(R+r0)/2);
+        ctx.fillStyle="#fff";ctx.font=GF("500 "+(v>0.12?13:11)+"px "+MONO);ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(tokName(i),0,0);ctx.restore();
+      }
+      a=a1;
+    }
+    // hub + pointer
+    ctx.beginPath();ctx.arc(cx,cy,r0-3,0,Math.PI*2);ctx.fillStyle="#FFFEFB";ctx.fill();
+    ctx.fillStyle=GC3();ctx.font=GF("italic 20px 'Instrument Serif',Georgia,serif");ctx.textAlign="center";ctx.textBaseline="middle";
+    ctx.fillText(state.sStage>=6?"p′":"p",cx,cy+1);
+    ctx.fillStyle="#A63446";ctx.beginPath();ctx.moveTo(cx,cy-R+16);ctx.lineTo(cx-11,cy-R-8);ctx.lineTo(cx+11,cy-R-8);ctx.closePath();ctx.fill();
+    ctx.strokeStyle="#fff";ctx.lineWidth=2;ctx.stroke();
+    var info="";
+    if(state.sStage===6&&state.lastTok>=0) info=state.lastKind==="spin"?"u = "+state.lastU.toFixed(3)+"  →  “"+tokName(state.lastTok)+"”":state.drawN+" draws so far · bars show the counts";
+    $("wInfo").textContent=(state.spinning&&state.sStage===6)?"spinning…":info;
+  }
+  function spinOnce(){
+    if(state.sStage!==6||state.spinning) return;
+    var pl=C.pipeline(C.nextLogits(ctxIds()),cfgNow());
+    state.drawCtr++;
+    var u=C.mulberry32(C.hashStr(state.seed+":"+state.drawCtr))();
+    var id=C.draw(pl.fin,u);
+    removeTween("wheelmorph");wheel.vals=pl.fin.slice();wheel.target=pl.fin.slice();
+    var base=-u*Math.PI*2,d=(base-state.wheelRot)%(Math.PI*2);if(d>0) d-=Math.PI*2;
+    var target=state.wheelRot+d-Math.PI*2*4;
+    state.spinning=true;
+    tweenScalar("spin",function(){return state.wheelRot;},function(v){state.wheelRot=v;},target,2800,easeOutQuart);
+    addTween("spinend",(function(){var t0=performance.now();return function(dt,now){
+      if(!state.spinning) return false;
+      if(now-t0>=2850){state.spinning=false;state.drawCounts[id]++;state.drawN++;state.lastU=u;state.lastTok=id;state.lastKind="spin";return false;}
+      return true;};})());
+  }
+  function drawMany(n){
+    var pl=C.pipeline(C.nextLogits(ctxIds()),cfgNow());
+    for(var i=0;i<n;i++){
+      state.drawCtr++;var u=C.mulberry32(C.hashStr(state.seed+":"+state.drawCtr))(),id=C.draw(pl.fin,u);
+      state.drawCounts[id]++;state.drawN++;state.lastU=u;state.lastTok=id;state.lastKind="batch";
+    }
+  }
+  $("spin1").addEventListener("click",function(){spinOnce();});
+  $("spin50").addEventListener("click",function(){if(state.spinning) return;drawMany(50);renderDynamic();});
+  $("spinClear").addEventListener("click",function(){resetDraws();renderDynamic();});
+
+  function sampleMany(cfg,n,seed){
+    var rng=C.mulberry32(C.hashStr("s:"+seed)),out=[],uniq={},lp=0;
+    for(var i=0;i<n;i++){
+      var r=C.generate(PROMPT,{kind:"sample",T:cfg.T,k:cfg.k,p:cfg.p},state.maxNew,rng);
+      out.push(r);uniq[r.tokens.join(",")]=1;lp+=r.logp/r.tokens.length;
+    }
+    return {list:out,distinct:Object.keys(uniq).length,meanLp:lp/n};
+  }
+  function renderSentences(){
+    var sig=[state.T,state.k,state.p,state.sentSeed,state.seed].join("|");
+    if(!changed("sents",sig)) return;
+    var res=sampleMany(cfgNow(),5,state.seed+"-"+state.sentSeed);
+    $("sSents").innerHTML=res.list.map(function(r){
+      return '<div class="s">'+sentHtml(r.tokens,"sm")+'<b>chance '+pct(Math.exp(r.logp))+'</b></div>';
+    }).join("");
+  }
+  $("sRoll").addEventListener("click",function(){state.sentSeed++;renderDynamic();});
+
+  /* ======================================================
+     5 · Logit processors: a frequency penalty and a template mask
+     ====================================================== */
+  /* the two extra vocabularies live at ids 100+ (story) and 200+ (JSON fragments), so tiles and BarList work unchanged */
+  var S_ID=100,J_ID=200;
+  var STORY_COL={the:"#7C8594",dragon:"#C25E1B",castle:"#A07426",knight:"#E9B03F",guards:"#1F4E79",sleeps:"#79A8D6",and:"#2F8F83",".":"#5A5F70","<eos>":"#1C2333"};
+  var JTYPE_COL={brace:"#5A5F70",colon:"#5A5F70",comma:"#5A5F70",key:"#2F8F83",string:"#E08A2E",int:"#1F4E79",junk:"#9A8FB0",eos:"#1C2333"};   // JSON fragments: colour = type
+  C.STORY.forEach(function(w,i){XV[S_ID+i]={name:w,col:STORY_COL[w]};});
+  C.JSONV.forEach(function(w,i){XV[J_ID+i]={name:w,col:JTYPE_COL[C.JTYPE[i]]};});
+  function xTile(id,i,cls){return '<span class="tile sm'+(cls?" "+cls:"")+'" data-i="'+i+'" style="--tc:'+colOf(id)+'">'+tokH(id)+'</span>';}   // a clickable tile: data-i = step
+  function sTex(i){var w=C.STORY[i];return w==="<eos>"?"\\mathrm{EOS}":(w==="."?"\\text{“.”}":"\\mathrm{"+w+"}");}
+  function jTex(i){var w=C.JSONV[i];return w==="<eos>"?"\\mathrm{EOS}":"\\texttt{"+w.replace(/([{}])/g,"\\$1")+"}";}
+  function tail(names,n,sep){return (names.length>n?"… ":"")+names.slice(-n).join(sep);}
+
+  /* steppers: Step ▶ / Auto-play / Reset share one step parameter (also set by clicking a tile, a deep link or a Guided scene) */
+  function S(k){return Math.floor(state[k]+1e-6);}
+  var autos={};
+  function stopAuto(key){if(autos[key]){clearTimeout(autos[key].t);autos[key].btn.textContent="Auto-play";delete autos[key];}}
+  function setupStepper(key,ids,maxFn,ms){
+    $(ids.step).addEventListener("click",function(){stopAuto(key);removeTween("param:"+key);setParam(key,S(key)>=maxFn()?0:S(key)+1);renderDynamic();});
+    $(ids.reset).addEventListener("click",function(){stopAuto(key);removeTween("param:"+key);setParam(key,0);renderDynamic();});
+    if(ids.auto) $(ids.auto).addEventListener("click",function(){
+      if(autos[key]){stopAuto(key);return;}
+      removeTween("param:"+key);if(S(key)>=maxFn()) setParam(key,0);
+      var btn=$(ids.auto);btn.textContent="Pause";renderDynamic();
+      (function tick(){autos[key]={btn:btn,t:setTimeout(function(){if(S(key)>=maxFn()){stopAuto(key);return;}setParam(key,S(key)+1);renderDynamic();tick();},ms)};})();
+    });
+  }
+  function syncSeg(id,name){document.querySelectorAll("#"+id+" button").forEach(function(b){b.setAttribute("aria-pressed",+b.getAttribute("data-preset").split(":")[1]===Math.round(state[name])?"true":"false");});}
+
+  /* ---- (a) repetition: z' = z − λ·count ---- */
+  var rpBL=new BarList($("rpBars"),C.STORY.map(function(_,i){return S_ID+i;}),26);
+  var penCache={};
+  function lamNow(){return Math.round(clamp(state.lam,0,2)*100)/100;}
+  function getPen(){var l=lamNow();return penCache[l]||(penCache[l]=C.genPenalty(l,16));}
+  setupStepper("rstep",{step:"rpStep",auto:"rpAuto",reset:"rpReset"},function(){return getPen().tokens.length;},650);
+  $("rpSent").addEventListener("click",function(e){var t=e.target.closest("[data-i]");if(!t) return;stopAuto("rstep");removeTween("param:rstep");setParam("rstep",+t.getAttribute("data-i"));renderDynamic();});
+  function renderPenalty(){
+    var R=getPen(),n=R.tokens.length,lam=lamNow(),shown=Math.min(S("rstep"),n),all=shown>=n,i;
+    /* which decision do the bars show? while stepping: the next one. Once everything is written: the first one the penalty changed. */
+    var sel=shown;
+    if(all){sel=-1;for(i=0;i<n;i++) if(R.steps[i].flip){sel=i;break;} if(sel<0) sel=Math.min(3,n-1);}
+    var st=R.steps[sel],fav=C.argmax(st.z),pick=st.pick,the=S_ID+C.SIDX["the"];
+    if(changed("rpSent",lam+"|"+shown+"|"+sel)){
+      var h=tileHtml(the,"sm");
+      for(i=0;i<shown;i++) h+=xTile(S_ID+R.tokens[i],i,i===sel?"sel":"");
+      h+=all?(R.ended?"":'<span class="rp-more">…</span>'):'<span class="tile sm blank">?</span>';
+      $("rpSent").innerHTML=h;
+      $("rpStepLbl").textContent=all?(n+" words"):("word "+(shown+1)+" of "+n);
+      var dr=0;R.tokens.forEach(function(t,k){if(t===C.SIDX["dragon"]&&R.tokens[k+1]===C.SIDX["guards"]) dr++;});     // how many times the loop "dragon guards" ran
+      $("rpStep").textContent=all?"Replay ▶":"Step ▶";
+      var dropped=R.tokens.some(function(t,k){return k>0&&R.tokens[k-1]===C.SIDX["and"]&&t!==C.SIDX["the"];});
+      $("rpVerdict").innerHTML=!all?(st.flip?"Here the penalty <em>changes the winner</em>: “"+esc(C.STORY[pick])+"”, not “"+esc(C.STORY[fav])+"”.":"Next word: <em>“"+esc(C.STORY[pick])+"”</em> — "+(lam>0?"still the favorite.":"the favorite, as always.")):
+        !R.ended?"Stuck: <em>the same three words, forever</em>. It never reaches the end.":
+        dropped?"Loop broken — but <em>too hard</em>: even “the” is punished, and the article is gone.":
+        dr>1?"The loop runs "+dr+" times, then <em>the penalty catches up</em> and the sentence ends.":
+        "The loop breaks <em>at once</em>, and the sentence ends.";
+    }
+    /* bars: scores around zero, sorted by z'; dashed outline = the score before the penalty */
+    var zr=1,spec={},ZERO=46;for(i=0;i<C.STORY.length;i++) zr=Math.max(zr,Math.abs(st.z[i]),Math.abs(st.zp[i]));
+    function lg(v){if(v>=0) return {l:ZERO,w:v/zr*50};var w=-v/zr*42;return {l:ZERO-w,w:w};}
+    st.zp.map(function(_,k){return k;}).sort(function(a,b){return st.zp[b]-st.zp[a]||a-b;}).forEach(function(id,rank){
+      var b=lg(st.zp[id]),g=lg(st.z[id]),c=st.counts[id];
+      spec[S_ID+id]={rank:rank,l:b.l,w:b.w,zero:ZERO,gl:g.l,gw:g.w,ghost:lam>0&&c>0,val:st.zp[id].toFixed(2),x:c>0?"×"+c:"",cls:id===pick?"pick":""};
+    });
+    rpBL.update(spec);
+    var ctxN=st.ctx.map(function(t){return C.STORY[t];});
+    $("rpCaption").textContent="Choosing word "+(sel+1)+" · after “"+tail(ctxN,5," ")+"” · ×n = used n times";
+    var c=st.counts[fav],fN="“"+esc(C.STORY[fav])+"”",pN="“"+esc(C.STORY[pick])+"”",note;
+    if(lam<=0) note="Penalty off: z′ = z. The favorite "+fN+" wins — and it will win again every time this context comes back.";
+    else if(st.flip) note=fN+" was used <b>"+c+"×</b>: "+st.z[fav].toFixed(2)+" − "+lam.toFixed(2)+" × "+c+" = <b>"+st.zp[fav].toFixed(2)+"</b>. Now "+pN+" ("+st.zp[pick].toFixed(2)+") is ahead.";
+    else if(c>0) note=fN+" was used <b>"+c+"×</b> and loses "+(lam*c).toFixed(2)+" points — but at <b>"+st.zp[fav].toFixed(2)+"</b> it is still the favorite.";
+    else note="The favorite "+fN+" has not been used yet, so the penalty does not touch it here.";
+    if(changed("rpNote",note)) $("rpNote").innerHTML=note;
+    var tex="z'_{"+sTex(fav)+"}=z_{"+sTex(fav)+"}-\\lambda\\cdot c_{"+sTex(fav)+"}="+st.z[fav].toFixed(2)+"-"+lam.toFixed(2)+"\\times"+c+"="+st.zp[fav].toFixed(2)+
+      (st.flip?"\\;<\\;z'_{"+sTex(pick)+"}="+st.zp[pick].toFixed(2):"");
+    fm("rp",$("rpFormula"),tex,"z'["+C.STORY[fav]+"] = z − λ·count = "+st.z[fav].toFixed(2)+" − "+lam.toFixed(2)+" × "+c+" = "+st.zp[fav].toFixed(2)+(st.flip?"  <  z'["+C.STORY[pick]+"] = "+st.zp[pick].toFixed(2):""));
+  }
+
+  /* ---- (b) template: z' = z if the fragment is allowed after this prefix, −∞ otherwise ---- */
+  var jBL=new BarList($("jBars"),C.JSONV.map(function(_,i){return J_ID+i;}),26);jBL.setLimit(8);     // the 8 most likely fragments; the other 6 are below 0.1% everywhere
+  var jCache={},jRate={};
+  function maskOn(){return Math.round(state.mask)===1;}
+  function getJ(){
+    var sd=Math.max(0,Math.round(state.jseed)),k=(maskOn()?1:0)+"|"+sd;
+    return jCache[k]||(jCache[k]=C.genTemplate(maskOn(),sd>0?C.mulberry32(C.hashStr("jrun:"+sd)):null));       // jseed 0 = greedy, otherwise one sampled output
+  }
+  function getRate(on){var k=on?1:0;return jRate[k]!=null?jRate[k]:(jRate[k]=C.validRate(on,200,1));}
+  setupStepper("jstep",{step:"jStepBtn",reset:"jReset"},function(){return getJ().tokens.length;},600);
+  $("jRoll").addEventListener("click",function(){stopAuto("jstep");setParam("jseed",Math.max(0,Math.round(state.jseed))+1);setParam("jstep",99);renderDynamic();});
+  $("jGreedy").addEventListener("click",function(){stopAuto("jstep");setParam("jseed",0);setParam("jstep",99);renderDynamic();});
+  function jJump(e){var t=e.target.closest("[data-i]");if(!t) return;stopAuto("jstep");removeTween("param:jstep");setParam("jstep",Math.min(+t.getAttribute("data-i"),getJ().tokens.length));renderDynamic();}
+  $("jOut").addEventListener("click",jJump);$("tplSlots").addEventListener("click",jJump);
+  function renderTemplate(){
+    var R=getJ(),n=R.tokens.length,on=maskOn(),view=Math.round(state.jview),shown=Math.min(S("jstep"),n),all=shown>=n,T=C.TEMPLATE,i;
+    syncSeg("jMaskSeg","mask");syncSeg("jViewSeg","jview");
+    /* bars: while stepping, the next decision. Once everything is written: the fragment that broke the template, else the age slot. */
+    var sel=all?((R.bad>=0&&R.bad<n)?R.bad:Math.min(7,n-1)):shown;
+    var st=R.steps[sel],onT=st.slot>=0,pick=st.pick,fav=C.argmax(st.p);
+    if(changed("jOut",[on,state.jseed,shown,sel].join("|"))){
+      var h="",s="";
+      for(i=0;i<shown;i++) h+=xTile(J_ID+R.tokens[i],i,(i===sel?"sel":"")+(i===R.bad?" bad":""));       // only the fragment that broke the template is struck
+      if(!all) h+='<span class="tile sm blank">?</span>';
+      $("jOut").innerHTML=h;$("jStepLbl").textContent=all?(n+" fragments"):("fragment "+(shown+1));
+      $("jStepBtn").textContent=all?"Replay ▶":"Step ▶";
+      for(i=0;i<T.length;i++){
+        var cls="tpl-slot"+(T[i].free?" free":""),txt=T[i].show;
+        if(i<shown&&i<n){if(R.bad>=0&&i>R.bad) cls+=" lost";else if(R.steps[i].ok){cls+=" done";txt=C.JSONV[R.tokens[i]];}else{cls+=" bad";txt=C.JSONV[R.tokens[i]];}}
+        if(i===sel) cls+=" cur";
+        s+='<div class="'+cls+'" data-i="'+i+'"><small>'+(T[i].free?"free":"fixed")+'</small><b>'+esc(txt)+'</b></div>';
+      }
+      $("tplSlots").innerHTML=s;
+      var out=esc(R.tokens.filter(function(t){return t!==C.JIDX["<eos>"];}).map(function(t){return C.JSONV[t];}).join("")),v;
+      if(!all) v=(!on&&onT&&!st.allowed[fav])?"Next, the model’s favorite is <em>"+esc(C.JSONV[fav])+"</em> — "+esc(T[st.slot].why)+".":
+        (on&&onT?"The mask leaves <em>"+T[st.slot].ids.length+" fragment"+(T[st.slot].ids.length>1?"s":"")+"</em> to choose from.":"Press Step to write the next fragment.");
+      else v=R.valid?"✓ Fits the template: <em>"+out+"</em>":"✕ Breaks the template at fragment "+(R.bad+1)+": <em>"+esc(R.bad<T.length?T[R.bad].why:"too long")+"</em>.";
+      $("jVerdict").innerHTML=v;
+    }
+    var rate=getRate(on),stat="200 sampled outputs: <b>"+rate+"</b> fit the template"+(on?"":" · switch the mask on");
+    if(changed("jStat",stat)) $("jStat").innerHTML=stat;
+    /* rows stay in the model's own order, so nothing jumps when the mask is switched */
+    var spec={},ref=.3,zr=1,ZERO=40,masked=on&&onT;
+    for(i=0;i<C.JSONV.length;i++){ref=Math.max(ref,st.p[i],st.pp[i]);zr=Math.max(zr,Math.abs(st.z[i]));}
+    function lg(v){if(v>=0) return {l:ZERO,w:v/zr*56};var w=-v/zr*36;return {l:ZERO-w,w:w};}
+    st.p.map(function(_,k){return k;}).sort(function(a,b){return st.p[b]-st.p[a]||a-b;}).forEach(function(id,rank){
+      var ok=onT&&st.allowed[id],cut=masked&&!ok,sp={rank:rank,zero:null,ghost:false,gl:0,gw:0,x:onT?(ok?"✓":"✕"):"",cls:(cut?"cut ":"")+(id===pick?"pick ":"")+(onT?(ok?"ok":"bad"):"")};
+      if(view===1){var b=lg(st.z[id]);sp.zero=ZERO;sp.l=cut?ZERO:b.l;sp.w=cut?0:b.w;sp.val=cut?"−∞":st.z[id].toFixed(2);if(cut){sp.ghost=true;sp.gl=b.l;sp.gw=b.w;}}
+      else{sp.l=0;sp.w=absPct(cut?0:st.pp[id],ref);sp.val=cut?"0%":pct(st.pp[id]);if(masked){sp.ghost=true;sp.gw=absPct(st.p[id],ref);}}
+      spec[J_ID+id]=sp;
+    });
+    jBL.update(spec);
+    $("jCaption").textContent=(onT?"Slot "+(st.slot+1)+" of "+T.length+" · "+(T[st.slot].free?T[st.slot].show:"fixed"):"Off the template")+" · top 8 of "+C.JSONV.length+" fragments · ✓ allowed  ✕ forbidden";
+    var note,k=onT?T[st.slot].ids.length:0;
+    if(!onT) note="The output has already left the template — no continuation can repair it. A mask has to act <b>before</b> the mistake.";
+    else if(!on) note=st.allowed[fav]?"The model’s favorite <b>"+esc(C.JSONV[fav])+"</b> ("+pct(st.p[fav])+") happens to be allowed here. No mask: nothing is enforced.":
+      "The model’s favorite is <b>"+esc(C.JSONV[fav])+"</b> ("+pct(st.p[fav])+") — forbidden: "+esc(T[st.slot].why)+". Without a mask it is chosen anyway.";
+    else if(k===1) note="The template fixes this fragment: only <b>"+esc(C.JSONV[T[st.slot].ids[0]])+"</b> survives, so it gets 100%. The model has no say here.";
+    else note="<b>"+k+"</b> fragments survive the mask. Their probabilities are rescaled to add up to 100% — the dashed outline is the value before the mask.";
+    if(changed("jNote",note)) $("jNote").innerHTML=note;
+    var mass=0;for(i=0;i<C.JSONV.length;i++) if(onT&&st.allowed[i]) mass+=st.p[i];
+    var tex,plain,pk=jTex(pick);
+    if(masked&&k>1){tex="p'("+pk+")=\\dfrac{p("+pk+")}{\\sum_{i\\in\\mathcal A}p(i)}=\\dfrac{"+st.p[pick].toFixed(3)+"}{"+mass.toFixed(3)+"}="+pct(st.pp[pick]).replace("%","\\%");
+      plain="p'("+C.JSONV[pick]+") = p / sum over allowed = "+st.p[pick].toFixed(3)+" / "+mass.toFixed(3)+" = "+pct(st.pp[pick]);}
+    else if(masked){tex="\\mathcal A=\\{"+pk+"\\}\\;\\Rightarrow\\;z'_i=-\\infty\\text{ for every other fragment},\\quad p'("+pk+")=100\\%";plain="allowed = { "+C.JSONV[pick]+" }  =>  every other fragment gets -inf, p' = 100%";}
+    else{tex="z'=z\\;\\text{(no mask)}\\qquad p("+jTex(fav)+")="+pct(st.p[fav]).replace("%","\\%")+((onT&&!st.allowed[fav])?",\\quad "+jTex(fav)+"\\notin\\mathcal A":"");
+      plain="z' = z (no mask)   p("+C.JSONV[fav]+") = "+pct(st.p[fav])+((onT&&!st.allowed[fav])?"   — not allowed":"");}
+    fm("j",$("jFormula"),tex,plain);
+  }
+
+  /* ======================================================
+     6 · Compare
+     ====================================================== */
+  var STRATS=[
+    {key:"greedy",name:"Greedy",col:"#1F4E79"},
+    {key:"beam",name:"Beam search",col:"#2F8F83"},
+    {key:"pure",name:"Pure sampling",col:"#5A5F70"},
+    {key:"temp",name:"Temperature",col:"#E08A2E"},
+    {key:"topk",name:"Top-k",col:"#7A4FA3"},
+    {key:"topp",name:"Top-p",col:"#A63446"}
+  ];
+  var dots={},cmpData=null,cmpRoll=1;
+  function computeCompare(){
+    var out={},g=C.generate(PROMPT,{kind:"greedy"},state.maxNew);
+    out.greedy={set:"argmax each step",ex:g.tokens,dist:1,lp:g.logp/g.tokens.length};
+    var bm=getBeam().finished[0];
+    out.beam={set:"B = "+state.B,ex:bm.tokens,dist:1,lp:bm.cum/bm.tokens.length};
+    var defs={pure:{T:1,k:0,p:1,set:"T = 1"},temp:{T:state.T,k:0,p:1,set:"T = "+state.T.toFixed(2)},
+      topk:{T:1,k:state.k,p:1,set:"k = "+(state.k<=0?"off":state.k)},topp:{T:1,k:0,p:state.p,set:"p = "+(state.p>=1?"off":state.p.toFixed(2))}};
+    Object.keys(defs).forEach(function(key){
+      var d=defs[key],r=sampleMany(d,30,state.seed+"-c"+cmpRoll);
+      out[key]={set:d.set,ex:r.list[0].tokens,dist:r.distinct,lp:r.meanLp};
+    });
+    return out;
+  }
+  var cmpBuilt=false;
+  function renderCompare(){
+    var sig=[state.T,state.k,state.p,state.B,state.alpha,state.maxNew,state.seed,cmpRoll].join("|");
+    if(changed("cmp",sig)){
+      cmpData=computeCompare();
+      if(!cmpBuilt){
+        $("cmpList").innerHTML=STRATS.map(function(s){return '<div class="cmprow" data-k="'+s.key+'" style="--dc:'+s.col+'"><span class="d"></span><div><div class="nm">'+s.name+'<small></small></div><div class="ex"></div><div class="mt"></div></div></div>';}).join("");
+        cmpBuilt=true;
+        $("cmpList").addEventListener("mouseover",function(e){var r=e.target.closest(".cmprow");state.hl=r?r.getAttribute("data-k"):null;drawScatter();});
+        $("cmpList").addEventListener("mouseleave",function(){state.hl=null;drawScatter();});
+      }
+      STRATS.forEach(function(s){
+        var d=cmpData[s.key],row=document.querySelector('.cmprow[data-k="'+s.key+'"]');
+        row.querySelector(".nm small").textContent=d.set;
+        row.querySelector(".ex").innerHTML=sentHtml(d.ex,"sm");
+        row.querySelector(".mt").textContent=(d.dist===1&&(s.key==="greedy"||s.key==="beam")?"deterministic":d.dist+" distinct / 30")+" · avg log P "+d.lp.toFixed(2)+" per word";
+        if(!dots[s.key]) dots[s.key]={x:d.dist,y:d.lp,tx:d.dist,ty:d.lp};
+        dots[s.key].tx=d.dist;dots[s.key].ty=d.lp;
+      });
+      addTween("dots",function(){
+        var moving=false;
+        STRATS.forEach(function(s){var o=dots[s.key],dx=o.tx-o.x,dy=o.ty-o.y;
+          if(Math.abs(dx)>0.01||Math.abs(dy)>0.002){o.x+=dx*0.18;o.y+=dy*0.18;moving=true;}else{o.x=o.tx;o.y=o.ty;}});
+        return moving;
+      });
+    }
+    drawScatter();
+  }
+  function drawScatter(){
+    if(!cmpData) return;
+    var cv=$("scCanvas"),W=cv.clientWidth||520,H=cv.clientHeight||380,ctx=setupCanvas(cv,W,H);ctx.clearRect(0,0,W,H);
+    var L=72,Rm=26,Tm=22,Bm=52,pw=W-L-Rm,ph=H-Tm-Bm,ys=STRATS.map(function(s){return dots[s.key]?dots[s.key].ty:-1;});
+    var ymin=Math.min(-1.6,Math.min.apply(null,ys)-0.12),ymax=Math.max(-0.2,Math.max.apply(null,ys)+0.12),xmin=0,xmax=32;
+    function X(v){return L+(v-xmin)/(xmax-xmin)*pw;} function Y(v){return Tm+(ymax-v)/(ymax-ymin)*ph;}
+    ctx.strokeStyle="#EEE7D8";ctx.lineWidth=1;ctx.font=GF("500 11px "+MONO);ctx.fillStyle=GC3();
+    ctx.textAlign="right";ctx.textBaseline="middle";
+    var step=0.4;for(var yv=Math.ceil(ymin/step)*step;yv<=ymax;yv+=step){ctx.beginPath();ctx.moveTo(L,Y(yv));ctx.lineTo(L+pw,Y(yv));ctx.stroke();ctx.fillText(yv.toFixed(1),L-8,Y(yv));}
+    ctx.textAlign="center";ctx.textBaseline="top";
+    [1,10,20,30].forEach(function(xv){ctx.beginPath();ctx.moveTo(X(xv),Tm);ctx.lineTo(X(xv),Tm+ph);ctx.stroke();ctx.fillText(xv,X(xv),Tm+ph+8);});
+    ctx.strokeStyle="#D6CCB6";ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(L,Tm);ctx.lineTo(L,Tm+ph);ctx.lineTo(L+pw,Tm+ph);ctx.stroke();
+    ctx.fillStyle=GC2();ctx.font=GF("600 11.5px "+SANS);ctx.textAlign="center";
+    ctx.fillText("variety  →  more distinct sentences (out of 30)",L+pw/2,H-22);
+    ctx.save();ctx.translate(14,Tm+ph/2);ctx.rotate(-Math.PI/2);ctx.fillText("safer  ←  avg log P per word  →",0,0);ctx.restore();
+    // soft zones
+    ctx.font=GF("italic 16px 'Instrument Serif',Georgia,serif");ctx.fillStyle="rgba(166,52,70,.55)";ctx.textAlign="left";ctx.fillText("safe but repetitive",L+10,Tm+8);
+    ctx.textAlign="right";ctx.fillText("varied but risky",L+pw-8,Tm+ph-24);
+    var px={},placed=[];
+    STRATS.forEach(function(s){var o=dots[s.key];if(o) px[s.key]={x:X(o.x),y:Y(o.y)};});
+    STRATS.forEach(function(s){
+      var q=px[s.key];if(!q) return;var hl=state.hl===s.key;
+      ctx.beginPath();ctx.arc(q.x,q.y,hl?12:9,0,Math.PI*2);ctx.fillStyle=s.col;ctx.fill();ctx.lineWidth=3;ctx.strokeStyle="#fff";ctx.stroke();
+    });
+    ctx.font=GF("600 12px "+SANS);ctx.textBaseline="middle";ctx.textAlign="left";
+    STRATS.forEach(function(s){
+      var q=px[s.key];if(!q) return;
+      var w=ctx.measureText(s.name).width,h=14,x=q.x,y=q.y;
+      var cands=[[x+15,y-h/2],[x-15-w,y-h/2],[x-w/2,y-27],[x-w/2,y+13],[x+15,y-h/2-17],[x+15,y-h/2+17],[x-15-w,y-h/2-17],[x-15-w,y-h/2+17]];
+      var pick=cands[0];
+      for(var ci=0;ci<cands.length;ci++){
+        var c=cands[ci],ok=c[0]>=L-4&&c[0]+w<=W-4&&c[1]>=Tm-4&&c[1]+h<=Tm+ph+4;
+        if(ok) placed.forEach(function(r){if(c[0]<r.x+r.w+4&&c[0]+w+4>r.x&&c[1]<r.y+r.h+2&&c[1]+h+2>r.y) ok=false;});
+        if(ok) STRATS.forEach(function(s2){var q2=px[s2.key];if(!q2||s2===s) return;if(q2.x>c[0]-11&&q2.x<c[0]+w+11&&q2.y>c[1]-11&&q2.y<c[1]+h+11) ok=false;});
+        if(ok){pick=c;break;}
+      }
+      placed.push({x:pick[0],y:pick[1],w:w,h:h});
+      ctx.lineWidth=4;ctx.strokeStyle="rgba(255,255,255,.95)";ctx.strokeText(s.name,pick[0],pick[1]+h/2);
+      ctx.fillStyle=s.col;ctx.fillText(s.name,pick[0],pick[1]+h/2);
+    });
+  }
+  $("cReroll").addEventListener("click",function(){cmpRoll++;renderDynamic();});
+
+  /* ======================================================
+     Predict cards
+     ====================================================== */
+  document.querySelectorAll(".predict").forEach(function(p){
+    var ans=+p.getAttribute("data-answer"),btns=p.querySelectorAll(".p-opts button");
+    btns.forEach(function(b,i){b.addEventListener("click",function(){
+      btns.forEach(function(x,j){x.classList.toggle("right",j===ans);x.classList.toggle("wrong",j===i&&i!==ans);x.disabled=true;});
+      p.querySelector(".p-ans").hidden=false;});});
+  });
+  function resetPredicts(){document.querySelectorAll(".predict").forEach(function(p){p.querySelectorAll(".p-opts button").forEach(function(x){x.classList.remove("right","wrong");x.disabled=false;});p.querySelector(".p-ans").hidden=true;});}
+
+  /* ======================================================
+     Rail, progress, reveal
+     ====================================================== */
+  var chapters=Array.prototype.slice.call(document.querySelectorAll(".slide"));
+  (function(){
+    var h='<span class="fill" id="railFill"></span>';
+    chapters.forEach(function(c,i){h+='<li><a data-go="'+c.id+'"><span class="dot">'+c.getAttribute("data-num")+'</span><span class="lb">'+c.getAttribute("data-label")+'</span></a></li>';});
+    $("railList").innerHTML=h;
+  })();
+  function goto(id){var t=$(id);if(t) t.scrollIntoView({behavior:"smooth",block:"start"});}
+  document.addEventListener("click",function(e){var a=e.target.closest("[data-go]");if(a) goto(a.getAttribute("data-go"));});
+  function onScroll(){
+    var y=window.scrollY,vh=window.innerHeight,doc=document.documentElement.scrollHeight-vh;
+    $("progressFill").style.width=(doc>0?y/doc*100:0)+"%";
+    var cur=0;chapters.forEach(function(c,i){if(c.getBoundingClientRect().top<vh*0.5) cur=i;});state.cur=cur;
+    var items=document.querySelectorAll(".rail a");
+    items.forEach(function(a,i){a.classList.toggle("on",i===cur);a.classList.toggle("done",i<cur);});
+    var f=$("railFill");if(f&&items[cur]){var ol=$("railList"),it=items[cur].getBoundingClientRect(),o=ol.getBoundingClientRect();f.style.height=Math.max(0,it.top+it.height/2-o.top-14)+"px";}
+  }
+  window.addEventListener("scroll",onScroll,{passive:true});
+  chapters[0].classList.add("seen");
+  if("IntersectionObserver" in window){
+    var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting) e.target.classList.add("seen");});},{threshold:0.2});
+    chapters.forEach(function(c){io.observe(c);});
+  } else chapters.forEach(function(c){c.classList.add("seen");});
+
+  /* ======================================================
+     Layout, fullscreen, keyboard
+     ====================================================== */
+  function fit(){
+    var de=document.documentElement,vw=window.innerWidth;
+    de.classList.toggle("flow",vw<900);
+    de.style.setProperty("--railpad",(vw>=1260)?"110px":"0px");
+  }
+  function relayout(){fit();sigs={};renderStatic();renderDynamic();if(state.mode==="guided") fitPresent();onScroll();}
+  var fsBtn=$("fsBtn");
+  function fsOK(){return !!(document.fullscreenEnabled||document.webkitFullscreenEnabled);}
+  function isFs(){return !!(document.fullscreenElement||document.webkitFullscreenElement);}
+  function enterFs(){var el=document.documentElement,f=el.requestFullscreen||el.webkitRequestFullscreen;if(!f) return null;var p=f.call(el);if(p&&p.catch) p.catch(function(){state.fsByGuided=false;});return p;}
+  function leaveFs(){var f=document.exitFullscreen||document.webkitExitFullscreen;if(f&&isFs()) f.call(document);}
+  function toggleFs(){if(isFs()){state.fsByGuided=false;leaveFs();}else{if(state.mode==="guided") state.fsByGuided=true;enterFs();}}
+  /* A tour opened from a link cannot go full-screen by itself (browsers want a user gesture first): the first click or key press does it. */
+  var fsArmed=false;
+  function fsOnGesture(e){
+    if(!fsArmed||state.mode!=="guided") return;
+    if(e.type==="keydown"&&(e.key==="Escape"||e.key==="f"||e.key==="F"||e.metaKey||e.ctrlKey||e.altKey)) return;
+    if(e.target&&e.target.closest&&e.target.closest("#guidedExit")) return;
+    fsArmed=false;if(!isFs()&&fsOK()){state.fsByGuided=true;enterFs();}
+  }
+  document.addEventListener("click",fsOnGesture,true);document.addEventListener("keydown",fsOnGesture,true);
+  if(!fsOK()) fsBtn.hidden=true;
+  fsBtn.addEventListener("click",toggleFs);
+  function syncFs(){
+    var on=isFs();
+    $("fsLabel").textContent=on?"Exit":"Fullscreen";
+    $("fsIcon").innerHTML=on?'<path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>':'<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>';
+    if(!on&&state.mode==="guided"&&state.fsByGuided){state.fsByGuided=false;exitGuided();return;}
+    setTimeout(relayout,120);
+  }
+  document.addEventListener("fullscreenchange",syncFs);document.addEventListener("webkitfullscreenchange",syncFs);
+  document.addEventListener("keydown",function(e){
+    if(e.metaKey||e.ctrlKey||e.altKey) return;
+    var k=e.key,tag=(e.target&&e.target.tagName)||"";
+    if(state.mode==="guided"){
+      var onBtn=(tag==="BUTTON");
+      if(k==="ArrowRight"||k==="ArrowDown"||k==="PageDown"||((k===" "||k==="Enter")&&!onBtn)){$("guidedNext").click();e.preventDefault();}
+      else if(k==="ArrowLeft"||k==="ArrowUp"||k==="PageUp"||k==="Backspace"){$("guidedPrev").click();e.preventDefault();}
+      else if(k==="Home"){runScene(0);e.preventDefault();}
+      else if(k==="End"){runScene(SCENES.length-1);e.preventDefault();}
+      else if(k==="Escape"){exitGuided();e.preventDefault();}
+      else if(k==="f"||k==="F"){toggleFs();e.preventDefault();}
+      return;
+    }
+    if(/INPUT|SELECT|TEXTAREA/.test(tag)) return;
+    if(k==="f"||k==="F"){toggleFs();e.preventDefault();}
+  });
+
+  /* ======================================================
+     render all
+     ====================================================== */
+  function renderDynamic(){renderGreedy();renderBeam();renderSampling();renderPenalty();renderTemplate();renderCompare();}
+  function renderStatic(){renderHero(false);renderScores();}
+
+  /* ======================================================
+     Guided tour
+     ====================================================== */
+  function quiet(){["param:T","param:k","param:p","param:B","param:alpha","param:lam","param:rstep","param:jstep","beamStep"].forEach(removeTween);stopAuto("rstep");stopAuto("jstep");}
+  function CARD(id){return "#"+id+" .work .card";}
+  var BARE=[".strip-wrap",".ctxrow",".formula-box",".si-head"];
+  function stageScene(n,title,text,run,hide,id){
+    var h=(hide||BARE).slice();if(n===1||n===3) h.push(".stage-info");
+    return {id:id,title:title,text:text,target:CARD("ch-sampling"),w:1000,hide:h,limit:8,run:function(){state.sStage=n;if(run) run();}};
+  }
+  var SCENES=[
+    {id:"hero",title:"How does an LLM *choose* its next word?",text:"The model only produces a score for every possible next word. Picking one of them is *a separate step: decoding*.",target:CARD("ch-hero"),w:980,
+      run:function(){quiet();state.heroSel=-1;resetPredicts();greedyReset();state.scZ=SC_BASE.slice();state.scSel=SC_IDS[0];}},
+    {title:"Who decides which word *wins*?",text:"Four words look plausible. The scores alone do not pick one — *a decoding strategy* has to.",target:CARD("ch-hero"),w:980,
+      run:function(){state.heroSel=C.IDX["mat"];renderHero(true);}},
+    {id:"scores",title:"*Scores*, not probabilities",text:"Every word gets a raw score, a logit. Drag a handle: the probabilities *always rebalance to 100%*.",target:CARD("ch-scores"),w:1000,
+      run:function(){state.scZ=SC_BASE.slice();state.scSel=SC_IDS[0];}},
+    {title:"Pause & *predict*",text:"Add +1 to every score. What happens to the probabilities? Pick an answer.",target:"#pr1",w:820,run:function(){resetPredicts();}},
+    {title:"Only *differences* matter",text:"Every score was shifted by +1 — and the probabilities *did not move at all*.",target:CARD("ch-scores"),w:1000,hide:[".btnrow"],
+      run:function(){state.scZ=SC_BASE.map(function(v){return v+1;});state.scSel=SC_IDS[0];}},
+    {title:"Multiply, and the *shape* changes",text:"Sharpen ×2: the gaps grow and the favorite takes over. This is exactly *what temperature does*.",target:CARD("ch-scores"),w:1000,hide:[".btnrow"],
+      run:function(){state.scZ=SC_BASE.map(function(v){return clamp(v*2,-8,8);});state.scSel=SC_IDS[0];}},
+    {id:"greedy",title:"Greedy: always take the *tallest bar*",text:"Read the context, get probabilities, *pick the maximum*, append, repeat. Press Step to watch one round.",target:CARD("ch-greedy"),w:1060,limit:8,
+      run:function(){greedyReset();}},
+    {title:"Run it *to the end*",text:"One sentence, no randomness — with *only about a 5% chance* of being this exact sentence. Can we do better?",target:CARD("ch-greedy"),w:1060,limit:8,
+      run:function(){greedyReset();var n=0;while(!state.g.done&&n++<50) greedyCommit();}},
+    {title:"Pause & *predict*",text:"Greedy took the best word at every step. Is the finished sentence the most likely sentence?",target:"#pr2",w:820,run:function(){resetPredicts();}},
+    {title:"Pause & *predict*",text:"Greedy starts with “cat”. Does the best complete sentence start with “cat” too?",target:"#pr3",w:820,run:function(){resetPredicts();}},
+    {id:"beam",title:"Beam search: keep *B options* open",text:"B = 3 partial sentences survive each round. Watch candidates being *kept, finished, or pruned*.",target:CARD("ch-beam"),w:1060,hide:[".vs",".verdict",".adv"],
+      run:function(){setParam("B",3);setParam("alpha",0);state.beamStep=0;tweenScalar("beamStep",function(){return state.beamStep;},function(v){state.beamStep=v;},getBeam().steps.length,3600,function(t){return t;});}},
+    {title:"Beam *beats* greedy",text:"The best sentence starts with “dog”, not the favorite “cat” — *about 8% vs. 5%*. Greedy committed too early to ever find it.",target:CARD("ch-beam"),w:900,hide:[".treewrap",".beam-ctrl",".adv"],
+      run:function(){setParam("B",3);setParam("alpha",0);removeTween("beamStep");state.beamStep=99;}},
+    {id:"beam-length",title:"Change the score, change the *winner*",text:"The raw score adds one log-probability per word, so every extra word costs. Divide by length — slide α from 0 to 1 — and *a longer sentence wins*.",target:CARD("ch-beam"),w:900,hide:[".treewrap",".beam-ctrl"],
+      run:function(){quiet();setParam("B",4);setParam("alpha",0);state.beamStep=99;$("bFormula").closest("details").open=true;}},
+    stageScene(1,"Sampling ①  *Logits*","Now a different idea: *draw at random*. Stage ① is the raw scores again, sorted from best to worst.",function(){setCtx(4);setParam("T",1);setParam("k",3);setParam("p",0.9);}),
+    stageScene(2,"Sampling ②  *Temperature*","*Divide every score by T*. At T = 0.5 the scores stretch (dashed outline = before): the model sounds more certain.",function(){quiet();setCtx(4);setParam("T",1);tweenParam("T",0.5,1500);},null,"temperature"),
+    stageScene(3,"Sampling ③  *Softmax*","Scores become a pie. The wheel appears: *a bigger slice means a more likely word*.",function(){}),
+    stageScene(4,"Sampling ④  *Top-k*","*Keep only the k best words*. Slide k down to 2 and every other word is greyed out.",function(){tweenParam("T",1,700);tweenParam("k",2,1500);}),
+    stageScene(4,"Top-k when the model is *unsure*","After “the bird” three verbs are almost tied. k = 2 keeps two and *throws a perfectly good third away*.",function(){quiet();setParam("T",1);setParam("k",2);setCtx(2);},[".strip-wrap",".formula-box",".si-head"],"topk-contexts"),
+    stageScene(4,"Top-k when the model is *confident*","After “the cat sat on” one word holds 92%. k = 2 *still keeps a second word* with under 1% — the count never adapts.",function(){quiet();setParam("T",1);setParam("k",2);setCtx(3);},[".strip-wrap",".formula-box",".si-head"]),
+    stageScene(5,"Sampling ⑤  *Top-p*","Instead of a fixed count, keep words *until their probability adds up to p*. The nucleus adapts to the context.",function(){setCtx(4);setParam("k",0);tweenParam("p",0.8,1300);}),
+    stageScene(5,"Top-p when the model is *confident*","After “the cat sat on”, one word dominates — the nucleus *shrinks to a single word*.",function(){quiet();setParam("T",1);setParam("k",0);setParam("p",0.9);setCtx(3);},[".strip-wrap",".formula-box",".si-head"],"topp-contexts"),
+    stageScene(5,"Top-p when the model is *unsure*","After “the bird”, probability is spread out — the nucleus *keeps many more words*. Top-k could never adapt like this.",function(){setCtx(2);},[".strip-wrap",".formula-box",".si-head"]),
+    stageScene(6,"Sampling ⑥  *Spin the wheel*","Survivors are rescaled and one is drawn at random. Spin it many times: *the counts follow the bars*.",function(){quiet();setCtx(4);setParam("T",1);setParam("k",0);setParam("p",0.8);resetDraws();drawMany(50);},null,"sample-draw"),
+    {title:"Same recipe, whole *sentences*",text:"The recipe is applied at every step to write full sentences. They differ on every roll — but *the junk tail stays out*.",target:CARD("ch-sentences"),w:1000,
+      run:function(){setParam("T",0.8);setParam("k",0);setParam("p",0.9);state.sentSeed++;}},
+    {title:"Pause & *predict*",text:"Top-k keeps a fixed number of words; top-p keeps a fixed amount of probability. When does top-p keep more words?",target:"#pr4",w:820,run:function(){resetPredicts();}},
+    {id:"loop",title:"Stuck in a *loop*",text:"Same context, same favorite, forever: greedy writes “the dragon guards” again and again and *never reaches the end*.",target:CARD("ch-logits"),w:1040,hide:[".cap",".formula-box",".btnrow"],
+      run:function(){quiet();setParam("lam",0);setParam("rstep",99);}},
+    {title:"A new box: *modify the scores*",text:"Before softmax, every word *loses λ points for each earlier use*. The dashed outline is the score before the penalty.",target:CARD("ch-logits"),w:1040,hide:[".cap",".btnrow"],
+      run:function(){quiet();setParam("lam",0);setParam("rstep",3);tweenParam("lam",0.5,1800);}},
+    {title:"The loop *breaks*",text:"At λ = 0.8 a word that comes back is *no longer the favorite* — and the sentence finally ends.",target:CARD("ch-logits"),w:1040,hide:[".cap",".formula-box",".btnrow"],
+      run:function(){quiet();setParam("rstep",99);setParam("lam",0.5);tweenParam("lam",0.8,900);}},
+    {title:"Pause & *predict*",text:"A penalty breaks the loop. Is a bigger penalty always better?",target:"#pr5",w:820,run:function(){quiet();resetPredicts();}},
+    {title:"Too strong: even “the” is *punished*",text:"At λ = 1.5 the article has lost three points by its third use and drops out. *Some words simply have to repeat*.",target:CARD("ch-logits"),w:1040,hide:[".cap",".formula-box",".btnrow"],
+      run:function(){quiet();setParam("rstep",99);setParam("lam",1.5);}},
+    {id:"template",title:"Sometimes “likely” is *not enough*",text:"The task asks for a name and an integer age. At the age slot the model’s favorite is \"twenty\" — *valid JSON, wrong type*.",target:CARD("ch-template"),w:1060,hide:[".formula-box"],
+      run:function(){quiet();setParam("jseed",0);setParam("jview",0);setParam("mask",0);setParam("jstep",7);}},
+    {id:"mask",title:"Mask what the template *forbids*",text:"Forbidden fragments get a score of −∞ and drop to 0%. The survivors are rescaled: *23 goes from 30% to 75%*.",target:CARD("ch-template"),w:1060,hide:[],
+      run:function(){quiet();setParam("jseed",0);setParam("jview",0);setParam("jstep",7);setParam("mask",1);}},
+    {title:"Every sample *fits the template*",text:"Sample as often as you like: the two free slots vary, the structure never does — *200 of 200 outputs are valid*.",target:CARD("ch-template"),w:1060,hide:[".formula-box"],
+      run:function(){quiet();setParam("mask",1);setParam("jview",0);setParam("jseed",5);setParam("jstep",99);}},
+    {title:"Pause & *predict*",text:"With the mask on, the output is always valid JSON with an integer age. Is the age also correct?",target:"#pr6",w:820,run:function(){quiet();resetPredicts();}},
+    {id:"compare",title:"The trade-off: *safe* vs. *varied*",text:"Greedy and beam sit top-left: safe, one answer. *Sampling slides toward variety*. Drag the knobs and watch the dots move.",target:CARD("ch-compare"),w:900,hide:[".cmplist",".scwrap .cap"],
+      run:function(){setParam("B",3);setParam("alpha",0);setParam("T",0.5);setParam("k",3);setParam("p",0.7);}},
+    {title:"The sentences behind the *dots*",text:"Each dot summarises *30 samples*. Hover the strategies to compare what they actually write.",target:CARD("ch-compare"),w:1000,hide:[".scwrap",".knobs"],run:function(){}},
+    {title:"Which one should I *use*?",text:"Match the *strategy* to the *task*.",target:"#ch-compare .rules",w:960,run:function(){}}
+  ];
+
+  /* ---- presentation layer: the real interactive card is moved in, hidden parts are removed, and the rest is scaled to fill the screen ---- */
+  var moved=null,KMAX=2.6;
+  function restoreMoved(){
+    if(!moved) return;
+    var m=moved;moved=null;
+    if(m.ro) m.ro.disconnect();
+    m.hidden.forEach(function(h){h.classList.remove("gp-hide");});
+    m.el.style.width=m.w0;
+    if(m.limit){gBL.setLimit(0);sBL.setLimit(0);}
+    if(m.ph.parentNode){m.ph.parentNode.insertBefore(m.el,m.ph);m.ph.parentNode.removeChild(m.ph);}
+  }
+  function fitPresent(){
+    if(state.mode!=="guided"||!moved) return;
+    var body=$("prBody"),fitEl=$("prFit");
+    fitEl.style.transform="none";
+    var bw=body.clientWidth-body.clientWidth*0.04,bh=body.clientHeight-12,w=fitEl.offsetWidth,h=fitEl.offsetHeight;
+    if(!w||!h) return;
+    var k=Math.min(bw/w,bh/h,KMAX);
+    fitEl.style.transform="scale("+k.toFixed(4)+")";
+    if(Math.abs(k-STAGE_S)>0.01){STAGE_S=k;renderDynamic();}
+  }
+  function showTarget(sc){
+    restoreMoved();
+    var el=sc.target?document.querySelector(sc.target):null;
+    if(!el) return;
+    var ph=document.createComment("pr");el.parentNode.insertBefore(ph,el);
+    $("prFit").appendChild(el);
+    var w0=el.style.width;el.style.width=(sc.w||980)+"px";
+    var hidden=[];(sc.hide||[]).forEach(function(q){el.querySelectorAll(q).forEach(function(h){h.classList.add("gp-hide");hidden.push(h);});});
+    moved={el:el,ph:ph,w0:w0,hidden:hidden,limit:!!sc.limit};
+    if(sc.limit){gBL.setLimit(sc.limit);sBL.setLimit(sc.limit);}
+    if("ResizeObserver" in window){moved.ro=new ResizeObserver(function(){requestAnimationFrame(fitPresent);});moved.ro.observe(el);}
+  }
+  function renderDots(){
+    $("guidedDots").innerHTML="";
+    SCENES.forEach(function(_,i){var d=document.createElement("span");d.className="guided-dot"+(i===state.guidedIndex?" active":"");$("guidedDots").appendChild(d);});
+  }
+  function sceneText(s){return esc(s).replace(/\*([^*]+)\*/g,"<em>$1</em>");}                 // *key phrase* → accent
+  function runScene(idx,preset){
+    idx=clamp(idx,0,SCENES.length-1);state.guidedIndex=idx;
+    var sc=SCENES[idx];
+    $("guidedTitle").innerHTML=sceneText(sc.title);$("guidedText").innerHTML=sceneText(sc.text);renderDots();
+    $("prCount").textContent="Step "+(idx+1)+" / "+SCENES.length;
+    $("prProg").style.width=((idx+1)/SCENES.length*100)+"%";
+    if(sc.run) sc.run();
+    if(preset) preset();                                                       // a deep link's parameters win over the scene's own
+    showTarget(sc);renderStatic();renderDynamic();fitPresent();
+    $("guidedPrev").disabled=(idx===0);
+    $("guidedNext").textContent=(idx===SCENES.length-1)?"Finish":"Next ›";
+  }
+  function enterGuided(idx,preset,fromLink){
+    state.mode="guided";$("modeExplore").setAttribute("aria-pressed","false");$("modeGuided").setAttribute("aria-pressed","true");
+    document.documentElement.classList.add("presenting");$("guidedBar").classList.remove("hidden");
+    fsArmed=false;if(fsOK()&&!isFs()){if(fromLink) fsArmed=true;else{state.fsByGuided=true;enterFs();}}
+    runScene(typeof idx==="number"?idx:0,preset);
+    setTimeout(function(){if(state.mode==="guided") relayout();},250);
+  }
+  function exitGuided(){
+    state.mode="explore";$("modeExplore").setAttribute("aria-pressed","true");$("modeGuided").setAttribute("aria-pressed","false");
+    restoreMoved();STAGE_S=1;
+    document.documentElement.classList.remove("presenting");$("guidedBar").classList.add("hidden");
+    if(state.fsByGuided&&isFs()){state.fsByGuided=false;leaveFs();}else state.fsByGuided=false;
+    fsArmed=false;fit();sigs={};renderStatic();renderDynamic();
+    var ch=$(SCENES[state.guidedIndex].ch);if(ch){ch.classList.add("seen");ch.scrollIntoView({behavior:"instant",block:"start"});}   // leave the tour where you are
+    onScroll();
+  }
+  $("modeExplore").addEventListener("click",function(){if(state.mode==="guided") exitGuided();});
+  $("modeGuided").addEventListener("click",function(){if(state.mode==="explore") enterGuided();});
+  $("guidedNext").addEventListener("click",function(){if(state.guidedIndex>=SCENES.length-1){exitGuided();return;}runScene(state.guidedIndex+1);});
+  $("guidedPrev").addEventListener("click",function(){runScene(state.guidedIndex-1);});
+  $("guidedExit").addEventListener("click",exitGuided);
+  $("mhTour").addEventListener("click",function(){if(state.mode==='explore') enterGuided();});
+  $("mhSteps").textContent=SCENES.length;
+
+  var rt=null;window.addEventListener("resize",function(){clearTimeout(rt);rt=setTimeout(relayout,150);});
+  if(document.fonts&&document.fonts.ready) document.fonts.ready.then(function(){sigs={};renderDynamic();});
+  /* ---- deep links ----
+     page.html#chapter-id?key=value&key=value&open=adv      Explore: scroll to the chapter with these parameters preset
+     page.html#chapter-id?tour=<scene id>&key=value          Guided tour: open that page full-window (first click / key → full-screen);
+                                                             the link's parameters are applied after the scene's own. tour=1 = the chapter's first page.
+     page.html#tour                                          Guided tour from page 1
+     key = any name in PARAMS, or a domain special in LINK_SPECIAL. A slide button should use the tour form. */
+  var LINK_SPECIAL={};
+  LINK_SPECIAL.stage=function(v){state.sStage=clamp(parseInt(v,10)||1,1,6);};                       // sampling pipeline stage
+  LINK_SPECIAL.ctx=function(v){setCtx(clamp(parseInt(v,10)||0,0,CONTEXTS.length-1));};               // context chip
+  function hashParts(){
+    var h=location.hash.replace(/^#/,""),parts=h.split("?"),q={};
+    (parts[1]||"").split("&").forEach(function(kv){var a=kv.split("=");if(a[0]) q[a[0]]=decodeURIComponent(a[1]||"");});
+    return {id:parts[0],q:q};
+  }
+  function rescrollHash(instant){
+    var h=hashParts(),el=h.id?$(h.id):null;if(!el||!el.classList.contains("slide")||state.mode==="guided") return;
+    el.classList.add("seen");
+    setTimeout(function(){el.scrollIntoView({behavior:instant?"auto":"smooth",block:"start"});},instant?30:0);
+  }
+  function applyParams(h,el){
+    Object.keys(h.q).forEach(function(k){
+      if(k==="open"||k==="tour") return;
+      removeTween("param:"+k);
+      if(LINK_SPECIAL[k]) LINK_SPECIAL[k](h.q[k]);
+      else if(PARAMS[k]) setParam(k,parseFloat(h.q[k]));
+    });
+    if(h.q.open==="adv"&&el) el.querySelectorAll("details.adv").forEach(function(d){d.open=true;});
+  }
+  SCENES.forEach(function(s){var e=s.target?document.querySelector(s.target):null,c=e&&e.closest(".slide,.part");s.ch=c?c.id:"";});   // which chapter each tour page belongs to
+  function tourIndex(h){
+    var i,key=h.q.tour;
+    for(i=0;i<SCENES.length;i++) if(key&&(SCENES[i].id===key||SCENES[i].target==="#"+key)) return i;      // tour=<scene id>  (or a predict card's id)
+    for(i=0;i<SCENES.length;i++) if(h.id&&SCENES[i].ch===h.id) return i;                                     // otherwise the first tour page of that chapter
+    return 0;
+  }
+  function applyHash(instant){
+    var h=hashParts(),el=h.id?$(h.id):null;
+    if(h.q.tour!==undefined||h.id==="tour"){                       // …?tour=…  → the Guided tour, on that page, with the link's parameters
+      var preset=function(){applyParams(h,el);};
+      if(state.mode==="guided") runScene(tourIndex(h),preset); else enterGuided(tourIndex(h),preset,true);
+      return;
+    }
+    if(state.mode==="guided") return;
+    if(!el||!el.classList.contains("slide")) return;
+    applyParams(h,el);
+    sigs={};renderStatic();renderDynamic();rescrollHash(instant);
+  }
+  window.addEventListener("hashchange",function(){applyHash(false);});
+  if(document.fonts&&document.fonts.ready) document.fonts.ready.then(function(){if(state.mode==="guided") relayout();});
+
+  window.__demo={state:state,Core:C,enterGuided:enterGuided,exitGuided:exitGuided,runScene:runScene,SCENES:SCENES,wheel:wheel,fit:fit,toggleFs:toggleFs,stageScale:function(){return STAGE_S;},fitPresent:fitPresent};
+
+  fit();setCtx(4);renderStatic();renderDynamic();onScroll();
+  applyHash(true);if(document.fonts&&document.fonts.ready) document.fonts.ready.then(function(){rescrollHash(true);});
+})();
+
+</script>
+</body>
+</html>

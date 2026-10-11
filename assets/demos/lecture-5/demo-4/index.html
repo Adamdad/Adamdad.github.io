@@ -1,0 +1,2469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Transformer Encoder–Decoder · Visual Story V3</title>
+<!-- KaTeX (CDN). If it fails to load, every formula degrades to a plain-text fallback. -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css" onerror="window.__katexFail=true">
+<style>
+  /* =====================================================================
+     DESIGN TOKENS  — one palette for the whole page
+       Encoder = blue · Decoder = coral · Cross-Attention/memory = violet
+       Q / K / V = amber / teal / green (same on every panel)
+     ===================================================================== */
+  :root{
+    --paper:#F7F6F1; --paper-line:rgba(28,35,51,.055);
+    --ink:#1C2333; --ink-soft:#5B6478;
+    --panel:#FFFFFF; --line:#E1DFD6;
+    --accent:#2F6FED; --accent-soft:#E3EBFC;
+    --enc:#2F6FED; --enc-soft:#E3EBFC;
+    --dec:#E2725B; --dec-soft:#FCE9E4;
+    --cross:#7C5CE0; --cross-soft:#ECE7FB;
+    --q:#D99A00; --k:#12A59A; --v:#6BA82E;
+    --ok:#1F9D72; --bad:#D64545;
+    --mono:'IBM Plex Mono','JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --serif:'Iowan Old Style','Palatino Linotype',Georgia,'Noto Serif','Songti SC','Noto Serif CJK SC',serif;
+    --sans:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans CJK SC',Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0; background-color:var(--paper);
+    background-image:linear-gradient(var(--paper-line) 1px,transparent 1px),linear-gradient(90deg,var(--paper-line) 1px,transparent 1px);
+    background-size:28px 28px; color:var(--ink); font-family:var(--sans); line-height:1.6;
+  }
+  .wrap{max-width:1240px;margin:0 auto;padding:36px 24px 170px;}
+
+  /* ---------- header + nav ---------- */
+  header{display:flex;flex-wrap:wrap;gap:20px;justify-content:space-between;align-items:flex-end;}
+  header h1{font-family:var(--serif);font-size:clamp(26px,4vw,38px);margin:0 0 4px;letter-spacing:-.01em;}
+  header p{font-size:14px;color:var(--ink-soft);max-width:72ch;margin:0 0 6px;}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:8px;font-size:12px;color:var(--ink-soft);}
+  .legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px;}
+  .topnav{position:sticky;top:10px;z-index:30;display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:rgba(255,255,255,.95);backdrop-filter:blur(6px);border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin:18px 0 6px;}
+  .topnav a{font-size:12.5px;color:var(--ink-soft);text-decoration:none;padding:5px 11px;border-radius:999px;border:1px solid transparent;}
+  .topnav a:hover{border-color:var(--line);}
+  .topnav a.active{background:var(--ink);color:#fff;}
+  .topnav a b{font-family:var(--mono);margin-right:5px;opacity:.6;}
+
+  .segmented{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff;}
+  .segmented button{border:none;background:#fff;padding:7px 13px;font-size:12.5px;cursor:pointer;color:var(--ink-soft);border-right:1px solid var(--line);font-family:inherit;}
+  .segmented button:last-child{border-right:none;}
+  .segmented button[aria-pressed="true"]{background:var(--accent);color:#fff;font-weight:600;}
+
+  /* ---------- sections ---------- */
+  section.block{margin:46px 0;transition:opacity .4s ease,filter .4s ease;scroll-margin-top:84px;}
+  .spotlightable.dim{opacity:.32;filter:saturate(.55);}
+  .sec-head{display:flex;gap:16px;align-items:flex-start;margin-bottom:12px;}
+  .sec-head .num{font-family:var(--serif);font-size:44px;line-height:1;color:var(--accent);opacity:.9;}
+  h2{font-family:var(--serif);font-size:23px;margin:0 0 2px;}
+  .lead{color:var(--ink-soft);font-size:13.5px;max-width:78ch;margin:0;}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px 20px 20px;}
+  .stagebar{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px;}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;}
+  .chip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:5px 13px;font-size:12.5px;cursor:pointer;color:var(--ink-soft);font-family:inherit;}
+  .chip:hover{border-color:var(--accent);color:var(--accent);}
+  .chip[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff;font-weight:600;}
+  .chip .n{font-family:var(--mono);opacity:.6;margin-right:6px;}
+  .stagectl{display:flex;gap:6px;}
+  .btn{border:1px solid var(--line);background:#fff;color:var(--ink);padding:6px 13px;border-radius:7px;font-size:12.5px;cursor:pointer;font-family:inherit;}
+  .btn:hover{border-color:var(--accent);color:var(--accent);}
+  .btn:disabled{opacity:.4;cursor:default;}
+  .btn-primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;}
+  .btn-primary:hover{color:#fff;filter:brightness(1.08);}
+  .ctlrow{display:flex;flex-wrap:wrap;gap:22px;align-items:flex-end;margin:0 0 12px;}
+  .ctlrow.two{justify-content:space-between;}
+  .ctl-label{font-size:12px;color:var(--ink-soft);margin-right:8px;}
+  .hint{font-size:12.5px;color:var(--ink-soft);margin:0 0 10px;}
+  .slider-group{display:flex;flex-direction:column;gap:4px;min-width:200px;}
+  .slider-group label{font-size:12px;color:var(--ink-soft);display:flex;justify-content:space-between;gap:8px;}
+  .slider-group label b{color:var(--ink);font-family:var(--mono);}
+  input[type=range]{width:100%;accent-color:var(--accent);}
+
+  .diagram{background:#fff;border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+  .diagram svg{width:100%;height:auto;display:block;}
+  svg text{font-family:var(--sans);pointer-events:none;user-select:none;}
+  svg text.mono{font-family:var(--mono);}
+  .clickable{cursor:pointer;}
+
+  /* ---------- interactive components: highlight + tooltip target ---------- */
+  .comp{cursor:help;}
+  .comp .body{transition:stroke-width .2s;}
+  .comp:hover .body,.comp.on .body{stroke-width:2.8;}
+  .comp:hover{filter:drop-shadow(0 0 6px var(--glow));}
+  .comp.on{animation:pulse 1.5s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{filter:drop-shadow(0 0 3px var(--glow));}50%{filter:drop-shadow(0 0 11px var(--glow));}}
+
+  .tip{position:absolute;z-index:100;width:292px;background:#1C2333;color:#fff;border-radius:9px;padding:10px 13px 11px;font-size:12.5px;line-height:1.6;box-shadow:0 10px 26px rgba(28,35,51,.3);pointer-events:none;opacity:0;transform:translateY(4px);transition:opacity .15s,transform .15s;left:0;top:0;}
+  .tip.show{opacity:1;transform:none;}
+  .tip.pinned{outline:2px solid rgba(255,255,255,.38);}
+  .tip-h{font-weight:700;font-size:13px;margin-bottom:3px;display:flex;align-items:center;gap:7px;}
+  .tip-h i{width:10px;height:10px;border-radius:3px;display:inline-block;flex:none;}
+  .tip-m{font-family:var(--mono);font-size:11px;color:#AAB2C5;margin-top:6px;}
+
+  /* ---------- caption (Chinese explanation) ---------- */
+  .caption{margin-top:12px;padding:12px 16px 13px;border-radius:8px;background:var(--paper);border:1px solid var(--line);border-left:4px solid var(--accent);}
+  .cap-title{font-weight:700;font-size:14.5px;margin-bottom:2px;}
+  .cap-text{font-size:14px;line-height:1.8;color:#2A3247;}
+  .cap-text b{color:var(--ink);}
+  .tq{color:var(--q);font-weight:700;} .tk{color:var(--k);font-weight:700;} .tv{color:var(--v);font-weight:700;}
+  .te{color:var(--enc);font-weight:700;} .td{color:var(--dec);font-weight:700;} .tc{color:var(--cross);font-weight:700;}
+  .tbad{color:var(--bad);font-weight:700;} .tok{color:var(--ok);font-weight:700;}
+
+  .formula-box{border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:8px;padding:10px 16px;margin-top:12px;background:var(--accent-soft);}
+  .formula-box .katex-display{margin:2px 0;overflow-x:auto;overflow-y:hidden;}
+  .formula-live{margin-top:6px;padding-top:6px;border-top:1px dashed rgba(28,35,51,.18);}
+  .plain-formula{font-family:var(--mono);font-size:13px;line-height:1.8;}
+
+  /* ---------- guided tour bar ---------- */
+  .guided-bar{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 10px 28px rgba(28,35,51,.18);padding:13px 20px;max-width:760px;width:calc(100% - 36px);z-index:60;display:flex;flex-direction:column;gap:7px;}
+  .guided-bar.hidden{display:none;}
+  .guided-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;}
+  .guided-title{font-weight:700;font-size:14px;}
+  .guided-title small{font-family:var(--mono);font-weight:400;color:var(--ink-soft);margin-right:8px;}
+  .guided-close{background:none;border:none;color:var(--ink-soft);font-size:16px;cursor:pointer;line-height:1;padding:2px 4px;}
+  .guided-text{font-size:13.5px;color:#2A3247;min-height:42px;line-height:1.7;}
+  .guided-nav{display:flex;justify-content:space-between;align-items:center;gap:12px;}
+  .guided-dots{display:flex;gap:4px;align-items:center;flex-wrap:wrap;}
+  .guided-dot{width:6px;height:6px;border-radius:50%;background:var(--line);transition:all .25s;}
+  .guided-dot.sec-start{margin-left:5px;}
+  .guided-dot.active{background:var(--accent);width:15px;border-radius:4px;}
+  .guided-btns{display:flex;gap:8px;flex:none;}
+  footer{margin-top:60px;font-size:12px;color:var(--ink-soft);border-top:1px solid var(--line);padding-top:16px;max-width:80ch;}
+
+  @media (prefers-reduced-motion: reduce){ *{transition-duration:.01ms !important;animation-duration:.01ms !important;} html{scroll-behavior:auto;} }
+
+
+  /* =====================================================================
+     V2 CLASSROOM / PRESENTER MODE
+     One visual idea per screen. The page supports the lecturer rather than
+     competing with the spoken explanation.
+     ===================================================================== */
+  @keyframes classroomSceneIn{
+    from{opacity:0;transform:translateY(12px) scale(.992)}
+    to{opacity:1;transform:none}
+  }
+  @keyframes classroomGlow{
+    0%,100%{filter:drop-shadow(0 0 4px var(--glow));}
+    50%{filter:drop-shadow(0 0 18px var(--glow));}
+  }
+  @keyframes guideIn{
+    from{opacity:.55;transform:translateY(8px)}
+    to{opacity:1;transform:none}
+  }
+
+  body.classroom{background:#F4F3EE;overflow-x:hidden;}
+  body.classroom .wrap{max-width:1600px;padding:14px 28px 190px;}
+  body.classroom header,
+  body.classroom .topnav,
+  body.classroom footer{display:none!important;}
+
+  body.classroom section.block{margin:0;min-height:calc(100vh - 188px);scroll-margin-top:0;}
+  body.classroom .spotlightable.dim{display:none!important;}
+  body.classroom .spotlightable:not(.dim){display:block;animation:classroomSceneIn .42s ease both;}
+  body.classroom .sec-head,
+  body.classroom .stagebar,
+  body.classroom .hint,
+  body.classroom .caption,
+  body.classroom .formula-box,
+  body.classroom .ctlrow{display:none!important;}
+
+  body.classroom .panel{border:0;background:transparent;padding:0;box-shadow:none;}
+  body.classroom .diagram{
+    border:0;border-radius:18px;background:#fff;
+    box-shadow:0 18px 55px rgba(28,35,51,.10);
+    max-width:1540px;margin:0 auto;
+    min-height:calc(100vh - 218px);
+    display:flex;align-items:center;justify-content:center;
+  }
+  body.classroom .diagram svg{
+    width:100%;height:auto;max-height:calc(100vh - 225px);
+  }
+
+  /* Stronger stage focus that survives projectors / video compression. */
+  body.classroom .comp.on{animation:classroomGlow 1.35s ease-in-out infinite;}
+  body.classroom .comp.on .body{stroke-width:4.2!important;}
+
+  /* Tooltip remains available on hover, but at classroom-readable scale. */
+  body.classroom .tip{width:380px;font-size:17px;line-height:1.45;padding:14px 17px 15px;border-radius:12px;}
+  body.classroom .tip-h{font-size:18px;margin-bottom:5px;}
+  body.classroom .tip-m{font-size:14px;margin-top:8px;}
+
+  body.classroom .guided-bar{
+    left:50%;bottom:14px;max-width:1500px;width:calc(100% - 48px);
+    padding:15px 22px 16px;border-radius:18px;
+    border:1px solid rgba(28,35,51,.10);
+    box-shadow:0 18px 48px rgba(28,35,51,.19);
+    gap:9px;background:rgba(255,255,255,.97);
+    backdrop-filter:blur(14px);
+  }
+  body.classroom .guided-top{align-items:center;}
+  body.classroom .guided-title{font-size:23px;line-height:1.2;letter-spacing:-.01em;}
+  body.classroom .guided-title small{
+    display:inline-flex;align-items:center;justify-content:center;
+    min-width:50px;height:28px;margin-right:10px;padding:0 8px;
+    border-radius:999px;background:var(--ink);color:#fff;
+    font-family:var(--mono);font-size:12px;font-weight:700;vertical-align:2px;
+  }
+  body.classroom .guided-text{
+    min-height:30px;font-size:20px;line-height:1.38;color:#30384B;font-weight:500;
+    animation:guideIn .28s ease both;
+  }
+  body.classroom .guided-nav{margin-top:1px;}
+  body.classroom .guided-dots{gap:6px;}
+  body.classroom .guided-dot{width:7px;height:7px;background:#D8D9DE;}
+  body.classroom .guided-dot.sec-start{margin-left:4px;}
+  body.classroom .guided-dot.active{width:24px;background:var(--accent);}
+  body.classroom .guided-btns{gap:8px;}
+  body.classroom .guided-btns .btn{font-size:16px;padding:8px 15px;border-radius:9px;}
+  body.classroom .guided-close{font-size:19px;padding:6px 8px;}
+  .presenter-tool{min-width:42px;font-weight:700;}
+
+  /* Formula is an optional overlay in classroom mode, never permanent clutter. */
+  body.classroom.show-formula section.block:not(.dim) .formula-box{
+    display:block!important;position:fixed;left:50%;bottom:160px;transform:translateX(-50%);
+    z-index:58;width:min(1180px,calc(100% - 70px));margin:0;
+    padding:12px 20px;border-radius:14px;background:rgba(245,248,255,.98);
+    box-shadow:0 14px 40px rgba(28,35,51,.18);font-size:18px;
+  }
+  body.classroom.show-formula section.block:not(.dim) .formula-box .katex{font-size:1.18em;}
+  body.classroom.show-formula section.block:not(.dim) .formula-live{font-size:16px;}
+
+  @media (max-width:1000px){
+    body.classroom .wrap{padding-left:12px;padding-right:12px;}
+    body.classroom .guided-bar{width:calc(100% - 20px);padding:12px 14px;}
+    body.classroom .guided-title{font-size:19px;}
+    body.classroom .guided-text{font-size:17px;}
+    body.classroom .guided-dots{display:none;}
+    body.classroom .diagram{min-height:calc(100vh - 205px);border-radius:12px;}
+  }
+
+
+
+  /* =====================================================================
+     V4.2 STORY MODE — same visual language as Explore / Classroom
+     A compact visual narrative: known input -> growing output -> three
+     attention geometries -> cross-attention -> Q/K/V -> architecture.
+     Layout is a flex column (header / progress / stage / caption bar), so the
+     caption bar can never cover the diagram on short or narrow screens.
+     ===================================================================== */
+  #storyShell{display:none;}
+  body.story{margin:0;background:var(--paper);overflow:hidden;color:var(--ink);}
+  body.story .wrap, body.story #guidedBar, body.story .tip{display:none!important;}
+  body.story #storyShell{
+    position:fixed;inset:0;z-index:200;display:flex;flex-direction:column;gap:10px;
+    padding:16px 26px;overflow:hidden;
+    background-color:var(--paper);
+    background-image:linear-gradient(var(--paper-line) 1px,transparent 1px),linear-gradient(90deg,var(--paper-line) 1px,transparent 1px);
+    background-size:28px 28px;font-family:var(--sans);
+  }
+  .story-top{flex:none;display:flex;align-items:center;justify-content:space-between;gap:22px;min-height:54px;padding:0 4px;}
+  .story-brand{display:flex;align-items:center;gap:13px;min-width:0;}
+  .story-heading{display:flex;flex-direction:column;min-width:0;gap:1px;}
+  .story-act{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--cross);text-transform:uppercase;}
+  .story-count{
+    font-family:var(--mono);font-size:12.5px;font-weight:700;letter-spacing:.06em;
+    color:#fff;background:var(--ink);border-radius:999px;padding:7px 11px;white-space:nowrap;
+  }
+  .story-scene-title{display:block;font-family:var(--serif);font-size:25px;font-weight:700;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink);}
+  .story-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end;}
+  .story-btn{
+    appearance:none;border:1px solid var(--line);background:#fff;color:var(--ink);
+    border-radius:9px;padding:8px 13px;font:600 13.5px var(--sans);cursor:pointer;
+    box-shadow:0 2px 8px rgba(28,35,51,.04);
+  }
+  .story-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .story-btn.primary{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .story-btn.primary:hover{color:#fff;filter:brightness(1.08);}
+  .story-btn:focus-visible,.story-seg button:focus-visible{outline:3px solid rgba(47,111,237,.45);outline-offset:2px;}
+  /* mode switch: identical look to the header's Explore / Classroom / Story control */
+  .story-seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:#fff;box-shadow:0 2px 8px rgba(28,35,51,.04);}
+  .story-seg button{appearance:none;border:0;border-right:1px solid var(--line);background:#fff;color:var(--ink-soft);padding:8px 14px;font:600 13.5px var(--sans);cursor:pointer;}
+  .story-seg button:last-child{border-right:0;}
+  .story-seg button:hover{color:var(--accent);}
+  .story-seg button[aria-pressed="true"]{background:var(--accent);color:#fff;cursor:default;}
+  .story-progress{flex:none;height:4px;margin:0 4px;background:#E7E6DF;border-radius:5px;overflow:hidden;}
+  .story-progress > i{display:block;height:100%;width:12.5%;background:linear-gradient(90deg,var(--enc),var(--cross));border-radius:5px;transition:width .45s ease;}
+  .story-stage{
+    position:relative;flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center;
+    border:1px solid var(--line);border-radius:18px;background:#fff;box-shadow:0 18px 55px rgba(28,35,51,.09);overflow:hidden;
+  }
+  .story-stage svg{width:100%;height:100%;display:block;}
+  .story-bottom{
+    flex:none;min-height:150px;
+    display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:28px;
+    padding:14px 18px 14px 22px;border:1px solid var(--line);border-radius:16px;
+    background:rgba(255,255,255,.97);box-shadow:0 14px 40px rgba(28,35,51,.12);
+  }
+  .story-question{font-family:var(--serif);font-size:27px;font-weight:700;line-height:1.16;letter-spacing:-.015em;color:var(--ink);}
+  .story-insight{margin-top:7px;font-size:19px;line-height:1.35;color:var(--ink-soft);}
+  .story-insight strong{color:var(--ink);font-weight:700;}
+  .story-nav{display:flex;align-items:center;gap:8px;}
+  .story-nav .story-btn{font-size:16px;padding:9px 14px;}
+  .story-nav .story-btn:disabled{opacity:.3;cursor:default;}
+  .story-help{font-family:var(--mono);font-size:12px;color:#6B7385;margin-left:7px;white-space:nowrap;}
+
+  /* Story SVG vocabulary mirrors Explore/Classroom.
+     NOTE: no `fill` here on purpose. A CSS `fill` on these classes silently beats the
+     `fill` attribute set from JS, which used to flatten every accent colour to grey.
+     Text colour is now applied in JS (see ST()). */
+  .sv-label{font-family:var(--sans);font-size:17px;}
+  .sv-small{font-family:var(--sans);font-size:14px;}
+  .sv-title{font-family:var(--serif);font-weight:700;font-size:27px;}
+  .sv-big{font-family:var(--serif);font-weight:700;font-size:34px;}
+  .sv-mono{font-family:var(--mono);font-size:14px;letter-spacing:.04em;}
+  .story-token{filter:drop-shadow(0 5px 10px rgba(28,35,51,.08));}
+  .story-glow-violet{filter:drop-shadow(0 0 10px rgba(124,92,224,.42));}
+  @media(max-width:1100px){
+    .story-question{font-size:23px}.story-insight{font-size:16px}.story-bottom{min-height:128px}.story-help{display:none}
+  }
+  @media(max-height:760px){
+    body.story #storyShell{gap:8px;padding:10px 18px}
+    .story-scene-title{font-size:21px}.story-question{font-size:22px}.story-insight{font-size:16px}.story-bottom{min-height:112px;padding:10px 16px}
+  }
+  @media(max-width:760px){
+    body.story #storyShell{padding:10px 12px}
+    .story-top{flex-wrap:wrap;gap:8px}.story-tools{width:100%;justify-content:space-between}#storyFull{display:none}
+    .story-scene-title{white-space:normal;font-size:19px;line-height:1.15;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+    .story-bottom{grid-template-columns:1fr;gap:10px;min-height:0}.story-nav{justify-content:flex-end}
+  }
+
+</style>
+</head>
+<body>
+<!-- shared arrow markers used by every SVG diagram -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="mk-ink" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto"><path d="M0 0L10 5L0 10z" fill="#5B6478"/></marker>
+  <marker id="mk-enc" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="10" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto"><path d="M0 0L10 5L0 10z" fill="#2F6FED"/></marker>
+  <marker id="mk-dec" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="10" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto"><path d="M0 0L10 5L0 10z" fill="#E2725B"/></marker>
+  <marker id="mk-cross" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="11" markerHeight="11" markerUnits="userSpaceOnUse" orient="auto"><path d="M0 0L10 5L0 10z" fill="#7C5CE0"/></marker>
+  <!-- Story arrowheads: sized in stroke widths, so they stay proportional on thick story connectors -->
+  <marker id="mk-story-enc" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="3.2" markerHeight="3.2" orient="auto"><path d="M0 0L10 5L0 10z" fill="#2F6FED"/></marker>
+  <marker id="mk-story-dec" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="3.2" markerHeight="3.2" orient="auto"><path d="M0 0L10 5L0 10z" fill="#E2725B"/></marker>
+  <marker id="mk-story-cross" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="3.2" markerHeight="3.2" orient="auto"><path d="M0 0L10 5L0 10z" fill="#7C5CE0"/></marker>
+</defs></svg>
+<div class="tip" id="tip" role="tooltip"></div>
+<div class="wrap">
+
+  <header>
+    <div>
+      <h1>The Transformer, piece by piece</h1>
+      <p><b>Explore</b> exposes every technical detail. <b>Classroom</b> gives a concise presenter-led walkthrough. <b>Story</b> builds the intuition as one visual narrative.</p>
+      <p><b>Running example:</b> “I love deep learning” → 我 · 爱 · 深度学习</p>
+      <div class="legend">
+        <span><i style="background:#2F6FED"></i>Encoder</span>
+        <span><i style="background:#E2725B"></i>Decoder</span>
+        <span><i style="background:#7C5CE0"></i>Cross-Attention / memory</span>
+        <span><i style="background:#D99A00"></i>Q</span>
+        <span><i style="background:#12A59A"></i>K</span>
+        <span><i style="background:#6BA82E"></i>V</span>
+      </div>
+    </div>
+    <div class="segmented" role="group" aria-label="Mode">
+      <button id="modeExplore" aria-pressed="false">Explore</button>
+      <button id="modeGuided" aria-pressed="false">Classroom</button>
+      <button id="modeStory" aria-pressed="true">Story</button>
+    </div>
+  </header>
+  <nav class="topnav" id="topnav" aria-label="Sections"><a href="#sec-s1" data-nav="s1"><b>1</b>Encoder</a><a href="#sec-s2" data-nav="s2"><b>2</b>Decoder</a><a href="#sec-s3" data-nav="s3"><b>3</b>Combine</a><a href="#sec-s4" data-nav="s4"><b>4</b>Cross-Attention</a><a href="#sec-s5" data-nav="s5"><b>5</b>Masks</a><a href="#sec-s6" data-nav="s6"><b>6</b>Directions</a></nav>
+
+  <section class="block spotlightable" id="sec-s1">
+    <div class="sec-head"><span class="num">1</span><div><h2>Encoder</h2><p class="lead">Self-Attention + FFN, bidirectional attention, contextual output H.</p></div></div>
+    <div class="panel">
+      <div class="stagebar">
+        <div class="chips" id="s1Chips"></div>
+        <div class="stagectl">
+          <button class="btn" id="s1Prev">← Prev</button>
+          <button class="btn btn-primary" id="s1Play">▶ Play</button>
+          <button class="btn" id="s1Next">Next →</button>
+        </div>
+      </div>
+      <p class="hint">Tip: click a token (bottom of the stack) or a row of the matrix to change the <b>query</b> token.</p>
+      <div class="diagram" id="s1Host"></div>
+      <div class="caption"><div class="cap-title" id="s1CapT"></div><div class="cap-text" id="s1CapB"></div></div>
+      <div class="formula-box"><div id="s1Formula"></div><div class="formula-live" id="s1FormulaLive"></div></div>
+    </div>
+  </section>
+
+  <section class="block spotlightable" id="sec-s2">
+    <div class="sec-head"><span class="num">2</span><div><h2>Decoder</h2><p class="lead">Masked Self-Attention + Cross-Attention + FFN, generating one token at a time.</p></div></div>
+    <div class="panel">
+      <div class="stagebar">
+        <div class="chips" id="s2Chips"></div>
+        <div class="stagectl">
+          <button class="btn" id="s2Prev">← Prev</button>
+          <button class="btn btn-primary" id="s2Play">▶ Play</button>
+          <button class="btn" id="s2Next">Next →</button>
+        </div>
+      </div>
+      <div class="ctlrow"><div class="slider-group"><label for="s2T">Decoding step t <b id="s2TVal">3</b></label>
+        <input type="range" id="s2T" min="1" max="4" step="1" value="3"></div>
+        <button class="btn" id="s2Run">▶ Run decoding</button></div>
+      <div class="diagram" id="s2Host"></div>
+      <div class="caption"><div class="cap-title" id="s2CapT"></div><div class="cap-text" id="s2CapB"></div></div>
+      <div class="formula-box"><div id="s2Formula"></div><div class="formula-live" id="s2FormulaLive"></div></div>
+    </div>
+  </section>
+
+  <section class="block spotlightable" id="sec-s3">
+    <div class="sec-head"><span class="num">3</span><div><h2>Encoder + Decoder = Transformer</h2><p class="lead">Two stacks, one bridge: the Encoder output H is wired into every Decoder layer.</p></div></div>
+    <div class="panel">
+      <div class="stagebar">
+        <div class="chips" id="s3Chips"></div>
+        <div class="stagectl">
+          <button class="btn" id="s3Prev">← Prev</button>
+          <button class="btn btn-primary" id="s3Play">▶ Play</button>
+          <button class="btn" id="s3Next">Next →</button>
+        </div>
+      </div>
+      
+      <div class="diagram" id="s3Host"></div>
+      <div class="caption"><div class="cap-title" id="s3CapT"></div><div class="cap-text" id="s3CapB"></div></div>
+    </div>
+  </section>
+
+  <section class="block spotlightable" id="sec-s4">
+    <div class="sec-head"><span class="num">4</span><div><h2>Information flow: Cross-Attention</h2><p class="lead">How the Encoder output is injected into the Decoder — Q from the Decoder, K/V from the Encoder.</p></div></div>
+    <div class="panel">
+      <div class="stagebar">
+        <div class="chips" id="s4Chips"></div>
+        <div class="stagectl">
+          <button class="btn" id="s4Prev">← Prev</button>
+          <button class="btn btn-primary" id="s4Play">▶ Play</button>
+          <button class="btn" id="s4Next">Next →</button>
+        </div>
+      </div>
+      <p class="hint">Tip: click a Decoder token (right) or a row of the matrix to change which token is doing the querying.</p>
+      <div class="diagram" id="s4Host"></div>
+      <div class="caption"><div class="cap-title" id="s4CapT"></div><div class="cap-text" id="s4CapB"></div></div>
+      <div class="formula-box"><div id="s4Formula"></div><div class="formula-live" id="s4FormulaLive"></div></div>
+    </div>
+  </section>
+
+  <section class="block spotlightable" id="sec-s5">
+    <div class="sec-head"><span class="num">5</span><div><h2>Attention Masks</h2><p class="lead">Padding mask vs. look-ahead mask — where they apply and how their shapes differ.</p></div></div>
+    <div class="panel">
+      <div class="stagebar">
+        <div class="chips" id="s5Chips"></div>
+        <div class="stagectl">
+          <button class="btn" id="s5Prev">← Prev</button>
+          <button class="btn btn-primary" id="s5Play">▶ Play</button>
+          <button class="btn" id="s5Next">Next →</button>
+        </div>
+      </div>
+      <div class="ctlrow"><div><span class="ctl-label">Where is the mask applied?</span>
+        <div class="segmented" role="group" aria-label="Mask location">
+          <button id="s5W0" aria-pressed="true">Encoder Self-Attn</button>
+          <button id="s5W1" aria-pressed="false">Decoder Masked Self-Attn</button>
+          <button id="s5W2" aria-pressed="false">Cross-Attn</button></div></div></div>
+      <div class="diagram" id="s5Host"></div>
+      <div class="caption"><div class="cap-title" id="s5CapT"></div><div class="cap-text" id="s5CapB"></div></div>
+      <div class="formula-box"><div id="s5Formula"></div><div class="formula-live" id="s5FormulaLive"></div></div>
+    </div>
+  </section>
+
+  <section class="block spotlightable" id="sec-s6">
+    <div class="sec-head"><span class="num">6</span><div><h2>Why these attention directions?</h2><p class="lead">Bidirectional in the Encoder, causal in the Decoder — and what breaks if you swap them.</p></div></div>
+    <div class="panel">
+      <div class="stagebar">
+        <div class="chips" id="s6Chips"></div>
+        <div class="stagectl">
+          <button class="btn" id="s6Prev">← Prev</button>
+          <button class="btn btn-primary" id="s6Play">▶ Play</button>
+          <button class="btn" id="s6Next">Next →</button>
+        </div>
+      </div>
+      <div class="ctlrow two">
+        <div><span class="ctl-label">Encoder attention</span><div class="segmented" role="group" aria-label="Encoder attention">
+          <button id="s6E1" aria-pressed="true">Bidirectional</button><button id="s6E0" aria-pressed="false">Left-to-right only</button></div></div>
+        <div><span class="ctl-label">Decoder self-attention</span><div class="segmented" role="group" aria-label="Decoder attention">
+          <button id="s6D1" aria-pressed="false">Bidirectional</button><button id="s6D0" aria-pressed="true">Causal mask</button></div></div></div>
+      <div class="diagram" id="s6Host"></div>
+      <div class="caption"><div class="cap-title" id="s6CapT"></div><div class="cap-text" id="s6CapB"></div></div>
+    </div>
+  </section>
+
+  <footer>Illustrative numbers: attention weights, probabilities and vectors are hand-authored / seeded toy values chosen
+  to make the mechanism visible — they are not outputs of a trained model. Diagrams follow “Attention Is All You Need” (Vaswani et al., 2017).</footer>
+</div>
+
+
+<div id="storyShell" role="region" aria-label="Transformer visual story">
+  <div class="story-top">
+    <div class="story-brand">
+      <span class="story-count" id="storyCount">01 / 08</span>
+      <div class="story-heading"><span class="story-act" id="storyAct">ACT I · WHY TWO ROLES?</span><span class="story-scene-title" id="storySceneTitle">One sequence is read; one is written</span></div>
+    </div>
+    <div class="story-tools">
+      <button class="story-btn" id="storyReplay" title="Replay this scene (Space)">↻ Replay</button>
+      <button class="story-btn" id="storyFull" title="Fullscreen">⛶ Fullscreen</button>
+      <div class="story-seg" role="group" aria-label="Mode">
+        <button id="storyExplore" aria-pressed="false" title="Open the full technical explainer">Explore</button>
+        <button id="storyClassroom" aria-pressed="false" title="Open the presenter walkthrough">Classroom</button>
+        <button id="storyModeNow" aria-pressed="true" aria-current="true" tabindex="-1">Story</button>
+      </div>
+    </div>
+  </div>
+  <div class="story-progress" role="progressbar" aria-label="Story progress"><i id="storyProgress"></i></div>
+  <div class="story-stage" id="storyStage"></div>
+  <div class="story-bottom">
+    <div aria-live="polite">
+      <div class="story-question" id="storyQuestion"></div>
+      <div class="story-insight" id="storyInsight"></div>
+    </div>
+    <div class="story-nav">
+      <button class="story-btn" id="storyPrev" aria-label="Previous scene">←</button>
+      <button class="story-btn primary" id="storyNext">Next →</button>
+      <span class="story-help">← → navigate · Space replay</span>
+    </div>
+  </div>
+</div>
+
+<div class="guided-bar hidden" id="guidedBar" role="dialog" aria-label="Guided tour">
+  <div class="guided-top">
+    <span class="guided-title" id="guidedTitle">Title</span>
+    <button class="guided-close" id="guidedExit" aria-label="Exit tour">✕</button>
+  </div>
+  <div class="guided-text" id="guidedText">Text</div>
+  <div class="guided-nav">
+    <div class="guided-dots" id="guidedDots"></div>
+    <div class="guided-btns">
+      <button class="btn presenter-tool" id="guidedFormula" title="Show / hide equation (F)">ƒx</button>
+      <button class="btn presenter-tool" id="guidedFull" title="Fullscreen">⛶</button>
+      <button class="btn" id="guidedStory" title="Open Story mode">Story</button>
+      <button class="btn" id="guidedPrev">← Prev</button>
+      <button class="btn btn-primary" id="guidedNext">Next →</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js" onerror="window.__katexFail=true"></script>
+<script>
+(function(){
+"use strict";
+
+/* =====================================================================
+   0. UTILITIES
+   ===================================================================== */
+const NS="http://www.w3.org/2000/svg";
+/* colour roles — must mirror the CSS custom properties */
+const C={enc:"#2F6FED",encS:"#E3EBFC",dec:"#E2725B",decS:"#FCE9E4",cross:"#7C5CE0",crossS:"#ECE7FB",
+         q:"#D99A00",k:"#12A59A",v:"#6BA82E",ink:"#1C2333",soft:"#5B6478",line:"#E1DFD6",
+         pad:"#9AA1B2",grayS:"#EEF0F4",ok:"#1F9D72",okS:"#E3F4EC",bad:"#D64545"};
+
+function $(id){return document.getElementById(id);}
+function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
+function lerp(a,b,t){return a+(b-a)*t;}
+function easeOutCubic(t){return 1-Math.pow(1-t,3);}
+function easeInOut(t){return t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;}
+function hexToRgb(h){                      // accepts "#RRGGBB" or the "rgb(r,g,b)" strings that mix()/heat() return
+  if(h.charAt(0)!=="#"){const m=h.match(/\d+/g);return [+m[0],+m[1],+m[2]];}
+  const n=parseInt(h.slice(1),16);return [(n>>16)&255,(n>>8)&255,n&255];
+}
+function mix(a,b,t){                       // a, b: "#RRGGBB"
+  const A=hexToRgb(a),B=hexToRgb(b);t=clamp(t,0,1);
+  return "rgb("+Math.round(A[0]+(B[0]-A[0])*t)+","+Math.round(A[1]+(B[1]-A[1])*t)+","+Math.round(A[2]+(B[2]-A[2])*t)+")";
+}
+/* deterministic "random" numbers: same label -> same vector, always */
+function hashStr(s){let h=1779033703;for(let i=0;i<s.length;i++){h=Math.imul(h^s.charCodeAt(i),3432918353);h=(h<<13)|(h>>>19);}return h>>>0;}
+function mulberry32(seed){let a=seed>>>0;return function(){a=(a+0x6D2B79F5)|0;let t=Math.imul(a^(a>>>15),1|a);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296;};}
+const DIM=5;                                 // toy vector dimension
+function seedVec(label){const r=mulberry32(hashStr(label));const v=[];for(let i=0;i<DIM;i++)v.push(+(r()*2-1).toFixed(3));return v;}
+function weightedSum(row,vs){const o=[];for(let d=0;d<DIM;d++){let s=0;for(let j=0;j<vs.length;j++)s+=row[j]*vs[j][d];o.push(s);}return o;}
+function f2(x){return x.toFixed(2);}
+
+/* =====================================================================
+   1. SVG HELPERS
+   ===================================================================== */
+function svgEl(tag,attrs,parent){
+  const e=document.createElementNS(NS,tag);
+  if(attrs){for(const k in attrs)e.setAttribute(k,attrs[k]);}
+  if(parent)parent.appendChild(e);
+  return e;
+}
+/* setA writes only attributes whose value changed — redrawing every frame stays cheap */
+function setA(e,attrs){
+  const c=e.__c||(e.__c={});
+  for(const k in attrs){const v=attrs[k];if(c[k]!==v){c[k]=v;e.setAttribute(k,v);}}
+}
+function T(parent,x,y,str,o){                 // text helper
+  o=o||{};
+  const t=svgEl("text",{x:x,y:y,"text-anchor":o.a||"middle","font-size":o.s||12,"font-weight":o.w||400,fill:o.f||C.ink,dy:".35em"},parent);
+  if(o.mono)t.setAttribute("class","mono");
+  t.textContent=str;
+  return t;
+}
+function setT(t,str){if(t.__s!==str){t.__s=str;t.textContent=str;}}
+function mkSvg(hostId,w,h){
+  const s=svgEl("svg",{viewBox:"0 0 "+w+" "+h,preserveAspectRatio:"xMidYMid meet",role:"img"});
+  $(hostId).appendChild(s);
+  return s;
+}
+
+/* ---- tooltip texts: title (English) + description (Chinese) ---- */
+const TIPS={
+  emb:{t:"Token Embedding + Positional Encoding",c:C.enc,d:"Looks each discrete token up as a vector, then adds a positional encoding so the model knows the word order.",m:"shape: (S × d_model)"},
+  selfattn:{t:"Multi-Head Self-Attention (bidirectional)",c:C.enc,d:"Every token measures its relevance to all tokens in the sentence at once (left and right), then gathers information according to those weights."},
+  q:{t:"Q · Query",c:C.q,d:"“What am I looking for?” The query vector a token sends out: Q = X·W_Q.",m:"score = Q · Kᵀ / √d_k"},
+  k:{t:"K · Key",c:C.k,d:"“What can I offer?” Each token's index vector. Its dot product with Q gives the relevance score: K = X·W_K."},
+  v:{t:"V · Value",c:C.v,d:"“What content do I carry?” The information that actually gets summed: output = Σ weight × V."},
+  softmax:{t:"Attention weights",c:C.enc,d:"The result of softmax(QKᵀ/√d_k): how each query splits its attention over the keys. Every row sums to 1."},
+  attnw:{t:"Attention matrix A",c:C.enc,d:"Rows = queries, columns = keys. All 4×4 cells are visible here: there is no mask, so attention is bidirectional.",m:"shape: (S × S)"},
+  addnorm:{t:"Add & Norm",c:C.pad,d:"A residual connection (x + Sublayer(x)) followed by LayerNorm. It keeps deep networks stable and easier to train."},
+  residual:{t:"Residual connection",c:C.pad,d:"Adds a sub-layer's input straight onto its output, so gradients can take a shortcut on the way back."},
+  ffn:{t:"Feed-Forward Network",c:C.enc,d:"A two-layer MLP applied to every position independently (expand, activate, project back). It gives each token extra non-linear capacity.",m:"d_model → d_ff → d_model"},
+  encout:{t:"Encoder output H",c:C.enc,d:"The output of the last Encoder layer: one vector per source token, already mixed with the context of the whole sentence. It is handed to the Decoder as memory.",m:"shape: (S × d_model)"},
+  maskedattn:{t:"Masked Self-Attention (causal)",c:C.dec,d:"Each position may see only itself and the tokens to its left. Future positions are masked out, which is the prerequisite for autoregressive generation."},
+  crossattn:{t:"Cross-Attention",c:C.cross,d:"Q comes from the Decoder, K and V come from the Encoder output H. This is how the Decoder “consults” the source sentence.",m:"Q: (T × d) · K,V: (S × d)"},
+  linsoft:{t:"Linear + Softmax",c:C.dec,d:"Maps the Decoder's top-layer vector to vocabulary size; softmax then gives the probability distribution of the next token.",m:"shape: (T × |V|)"},
+  memory:{t:"Memory = Encoder output",c:C.cross,d:"The Encoder's final output H, fed into the Cross-Attention of every Decoder layer as K and V. This single “bridge” is the only link between Encoder and Decoder."},
+  encoderBox:{t:"Encoder",c:C.enc,d:"Reads the source sequence: N layers of [Self-Attention + FFN], processing the whole sentence in parallel and outputting H."},
+  decoderBox:{t:"Decoder",c:C.dec,d:"Generates the target sequence word by word: N layers of [Masked Self-Attn + Cross-Attn + FFN], topped by Linear + Softmax."},
+  outtok:{t:"Predicted next tokens",c:C.dec,d:"Each Decoder position outputs a probability distribution for the “next token” (all positions in parallel during training, step by step at inference)."},
+  proj:{t:"Learned projections W_Q, W_K, W_V",c:C.soft,d:"Three learned matrices that project the same vector into three different “roles”: Q, K and V."},
+  scores:{t:"Scores → alignment weights",c:C.cross,d:"Q·Kᵀ/√d_k passed through softmax gives the alignment weights of the current Decoder token over every source token (thicker line = more relevant)."},
+  crossw:{t:"Cross-attention matrix",c:C.cross,d:"Rows = Decoder tokens, columns = source tokens. Each row sums to 1 and the shape is (T × S). No mask is needed when the source has no padding.",m:"shape: (T × S)"},
+  context:{t:"Context vector c",c:C.cross,d:"A weighted sum of the V vectors. It condenses “the part of the source most relevant to the current word” into a single vector.",m:"c = Σ_j a_j · v_j"},
+  inject:{t:"Add & Norm → information injected",c:C.cross,d:"The context is added to the Decoder state and normalized. This is how source information gets injected into the Decoder's representation."},
+  padmask:{t:"Padding Mask",c:C.pad,d:"Short sentences are padded with &lt;pad&gt; inside a batch. This mask is a 1×S vector (real word = 1, pad = 0) broadcast along the rows, so whole columns are hidden and attention never lands on meaningless padding.",m:"(B,1,1,S) → broadcast to (T × S)"},
+  lookahead:{t:"Look-ahead (Causal) Mask",c:C.ink,d:"A lower-triangular matrix: position i may see j ≤ i, and the entire upper triangle is masked, forbidding any peek at the future. Used only in Decoder self-attention.",m:"shape: (T × T)"},
+  combined:{t:"Final mask = padding ∧ look-ahead",c:C.ok,d:"The two masks are combined with AND: a cell is kept only if it is neither padding nor in the future. The Encoder and Cross-Attention need only the padding mask."},
+  scoresM:{t:"Raw scores QKᵀ/√d_k",c:C.soft,d:"Unmasked relevance scores: every query has one number for every key."},
+  softmaxM:{t:"Masked softmax",c:C.ok,d:"Masked positions get −∞ added, so their weight after softmax is exactly 0. The remaining positions renormalize and each row sums to 1."},
+  bidir:{t:"Bidirectional attention",c:C.enc,d:"Every token can see the whole sentence, including its right side. Understanding tasks need the full context: “bank” only becomes a river bank once it sees “muddy” to its right."},
+  leak:{t:"Information leak",c:C.bad,d:"In training, the whole target sentence is fed in at once. With bidirectional attention, position i could see the answer (word i+1) directly, so the model would just copy it, yet at inference there is no answer to copy."},
+  causal:{t:"Causal (masked) attention",c:C.dec,d:"Weights on future positions are always 0: what is visible in training is exactly what is visible at inference, while all positions can still be computed in parallel."},
+  summary:{t:"Summary",c:C.ok,d:"Encoder: the whole sentence is known → bidirectional. Decoder: words are generated one by one and the future does not exist → causal, unidirectional. The only difference is the attention mask."}
+};
+
+/* comp(): a hoverable, highlightable block. `key` selects its tooltip. */
+function comp(parent,key,x,y,w,h,o){
+  o=o||{};
+  const col=(TIPS[key]&&TIPS[key].c)||C.soft;
+  const g=svgEl("g",{"class":"comp","data-tip":key},parent);
+  g.style.setProperty("--glow",o.glow||col);
+  const body=svgEl("rect",{"class":"body",x:x,y:y,width:w,height:h,rx:o.r==null?8:o.r,fill:o.fill||"#fff",stroke:o.stroke||col,"stroke-width":o.sw||1.6},g);
+  if(o.dash)body.setAttribute("stroke-dasharray",o.dash);
+  if(o.so!=null)body.setAttribute("stroke-opacity",o.so);
+  let label=null,sub=null;
+  if(o.label){
+    const ly=o.ly!=null?y+o.ly:(o.sub?y+h/2-7:y+h/2);
+    label=T(g,o.la==="start"?x+8:x+w/2,ly,o.label,{s:o.s||12,w:600,a:o.la||"middle",f:o.tf||C.ink});
+  }
+  if(o.sub)sub=T(g,x+w/2,y+h/2+(o.label?8:0),o.sub,{s:o.ss||10,f:C.soft});
+  return {g:g,body:body,label:label,sub:sub,x:x,y:y,w:w,h:h};
+}
+function compBox(parent,key,x,y,w,h){         // transparent hover-box that wraps other shapes
+  return comp(parent,key,x,y,w,h,{fill:"transparent",sw:1,r:6,dash:"3 3",so:.5});
+}
+
+/* vector = a row of DIM colour cells */
+function makeVec(parent,x,y,cw,ch,gap){
+  const cells=[];
+  for(let i=0;i<DIM;i++)cells.push(svgEl("rect",{x:x+i*(cw+gap),y:y,width:cw,height:ch,rx:2,fill:"#eee"},parent));
+  return {cells:cells,w:DIM*cw+(DIM-1)*gap,
+    set:function(vals,color,alpha){
+      for(let i=0;i<DIM;i++)setA(cells[i],{fill:mix("#FFFFFF",color,0.12+0.8*(vals[i]+1)/2),opacity:alpha==null?1:alpha});
+    }};
+}
+
+/* matrix = grid of rects + optional row/col labels */
+function makeMatrix(parent,x,y,R,Cn,cs,o){
+  o=o||{};
+  const g=svgEl("g",null,parent),cells=[],texts=[],rl=[],cl=[];
+  for(let r=0;r<R;r++){
+    cells.push([]);texts.push([]);
+    for(let c=0;c<Cn;c++){
+      cells[r].push(svgEl("rect",{x:x+c*cs,y:y+r*cs,width:cs-2,height:cs-2,rx:o.rx||4,fill:"#fff"},g));
+      texts[r].push(T(g,x+c*cs+(cs-2)/2,y+r*cs+(cs-2)/2,"",{s:o.fs||10.5,mono:true}));
+    }
+  }
+  if(o.rowLabels)for(let r=0;r<R;r++)rl.push(T(g,x-6,y+r*cs+(cs-2)/2,o.rowLabels[r],{a:"end",s:o.ls||11}));
+  if(o.colLabels)for(let c=0;c<Cn;c++){
+    const lx=x+c*cs+(cs-2)/2,ly=o.colY!=null?o.colY:y-9;
+    const t=T(g,lx,ly,o.colLabels[c],{s:o.ls||11,a:o.rot?"start":"middle"});
+    if(o.rot)t.setAttribute("transform","rotate(-45 "+lx+" "+ly+")");
+    cl.push(t);
+  }
+  return {g:g,cells:cells,texts:texts,rl:rl,cl:cl,x:x,y:y,cs:cs,R:R,C:Cn};
+}
+function setCell(m,r,c,fill,txt,tcol,op){
+  setA(m.cells[r][c],{fill:fill,opacity:op==null?1:op});
+  setT(m.texts[r][c],txt||"");
+  setA(m.texts[r][c],{fill:tcol||C.ink,opacity:op==null?1:op});
+}
+function heat(w,color){return mix("#FFFFFF",color,0.08+0.92*Math.min(1,w/0.62));}
+function heatText(w){return w>0.36?"#fff":C.ink;}
+
+/* =====================================================================
+   2. STATE
+   ===================================================================== */
+const state={
+  mode:"explore",guidedIndex:0,
+  s1:{stage:0,p:[1,0,0,0],q:1,flow:1},
+  s2:{stage:0,p:[1,0,0,0,0],t:3,tf:3,flow:1},
+  s3:{stage:0,p:[1,0,0,0],flow:0},
+  s4:{stage:0,p:[1,0,0,0],q:1,flow:0},
+  s5:{stage:0,p:[1,0,0,0],where:0,Rf:6,Cf:6,bc:1,tri:0,ap:0},
+  s6:{stage:0,p:[1,0,0,0],encB:1,decB:0,encT:1,decT:0,dq:2}
+};
+const upd={};                                  // per-section redraw functions
+
+/* =====================================================================
+   3. ANIMATION LOOP  (one Map-based tween registry drives everything)
+   ===================================================================== */
+const tweens=new Map();
+let loopRunning=false;
+function addTween(key,fn){tweens.set(key,fn);ensureLoop();}
+function removeTween(key){tweens.delete(key);}
+function ensureLoop(){
+  if(loopRunning)return;
+  loopRunning=true;
+  function frame(now){
+    tweens.forEach(function(fn,key){if(!fn(16,now))tweens.delete(key);});
+    renderDynamic();
+    if(tweens.size>0){requestAnimationFrame(frame);}else{loopRunning=false;}
+  }
+  requestAnimationFrame(frame);
+}
+function tweenScalar(key,getCurrent,setValue,target,duration){
+  const start=getCurrent(),startTime=performance.now();duration=duration||600;
+  addTween(key,function(dt,now){
+    const t=Math.min(1,(now-startTime)/duration),e=easeOutCubic(t);
+    setValue(start+(target-start)*e);
+    if(t>=1){setValue(target);return false;}
+    return true;
+  });
+}
+function renderDynamic(){for(const k in upd){upd[k]();}}
+
+/* =====================================================================
+   4. TOOLTIP + PIN SYSTEM
+      Hover any [data-tip] element -> tooltip at the pointer.
+      A stage can also "pin" components: they glow and the tooltip shows
+      next to the first one for a few seconds.
+   ===================================================================== */
+const tipEl=$("tip");
+let pinnedEls=[],pinnedKey=null,pinnedAnchor=null,pinTimer=null,hoverEl=null;
+
+function tipHTML(key){
+  const t=TIPS[key];
+  return '<div class="tip-h"><i style="background:'+t.c+'"></i>'+t.t+'</div><div>'+t.d+'</div>'+(t.m?'<div class="tip-m">'+t.m+'</div>':'');
+}
+function placeTip(x,y,clampY){                 // x,y = preferred top-left in PAGE coordinates
+  const w=tipEl.offsetWidth,h=tipEl.offsetHeight;
+  const sx=window.pageXOffset,sy=window.pageYOffset,vw=document.documentElement.clientWidth,vh=window.innerHeight;
+  x=clamp(x,sx+8,sx+vw-w-8);
+  if(clampY)y=clamp(y,sy+8,sy+vh-h-8);
+  tipEl.style.left=x+"px";tipEl.style.top=y+"px";
+}
+function showHoverTip(key,cx,cy){
+  if(!TIPS[key])return;
+  tipEl.innerHTML=tipHTML(key);tipEl.classList.remove("pinned");tipEl.classList.add("show");
+  const w=tipEl.offsetWidth,vw=document.documentElement.clientWidth;
+  let x=cx+16;if(cx+16+w>vw-8)x=cx-w-16;
+  placeTip(x+window.pageXOffset,cy+16+window.pageYOffset,true);
+}
+function showPinnedTip(){
+  if(!pinnedAnchor||!pinnedKey){hideTip();return;}
+  tipEl.innerHTML=tipHTML(pinnedKey);tipEl.classList.add("show","pinned");
+  const r=pinnedAnchor.getBoundingClientRect(),sx=window.pageXOffset,sy=window.pageYOffset;
+  const w=tipEl.offsetWidth,vw=document.documentElement.clientWidth;
+  let x=r.right+sx+12,y=r.top+sy;
+  if(r.right+12+w>vw-8){x=r.left+sx-w-12;}
+  if(x<sx+8){x=r.left+sx+8;y=r.bottom+sy+8;}
+  placeTip(x,y,false);
+}
+function hideTip(){tipEl.classList.remove("show","pinned");}
+function pin(keys,root){
+  pinnedEls.forEach(function(e){e.classList.remove("on");});
+  pinnedEls=[];pinnedKey=null;pinnedAnchor=null;clearTimeout(pinTimer);
+  if(!keys){if(!hoverEl)hideTip();return;}
+  if(typeof keys==="string")keys=[keys];
+  keys.forEach(function(k){
+    root.querySelectorAll('[data-tip="'+k+'"]').forEach(function(e){e.classList.add("on");pinnedEls.push(e);});
+  });
+  pinnedKey=keys[0];pinnedAnchor=root.querySelector('[data-tip="'+keys[0]+'"]');
+  if(!hoverEl&&state.mode!=="guided")showPinnedTip();
+  pinTimer=setTimeout(function(){if(!hoverEl)hideTip();},5200);   // tooltip fades; glow stays
+}
+function unpin(){pin(null,document);hideTip();}
+document.addEventListener("mouseover",function(e){
+  const t=e.target.closest?e.target.closest("[data-tip]"):null;
+  if(t){hoverEl=t;showHoverTip(t.getAttribute("data-tip"),e.clientX,e.clientY);}
+});
+document.addEventListener("mousemove",function(e){
+  if(hoverEl)showHoverTip(hoverEl.getAttribute("data-tip"),e.clientX,e.clientY);
+});
+document.addEventListener("mouseout",function(e){
+  const t=e.target.closest?e.target.closest("[data-tip]"):null;
+  if(t&&!t.contains(e.relatedTarget)){hoverEl=null;hideTip();}
+});
+document.addEventListener("keydown",function(e){
+  if(e.key==="Escape"){unpin();if(state.mode==="guided")exitGuided();}
+  if(state.mode==="guided"){
+    if(e.key==="ArrowRight"||e.key==="PageDown"||e.key===" "){e.preventDefault();guidedStep(1);}
+    if(e.key==="ArrowLeft"||e.key==="PageUp"){e.preventDefault();guidedStep(-1);}
+    if(e.key.toLowerCase()==="f"&&!$("guidedFormula").disabled){document.body.classList.toggle("show-formula");}
+  }
+});
+
+/* =====================================================================
+   5. STAGER — chips + prev/next/play + Chinese caption for one section
+   ===================================================================== */
+const SECS={};
+function makeStager(id,cfg){
+  const st=state[id],root=$("sec-"+id),chipsEl=$(id+"Chips"),
+        prev=$(id+"Prev"),next=$(id+"Next"),play=$(id+"Play"),capT=$(id+"CapT"),capB=$(id+"CapB");
+  const chipEls=[];
+  cfg.chips.forEach(function(label,i){
+    const b=document.createElement("button");b.className="chip";b.type="button";
+    b.innerHTML='<span class="n">'+(i+1)+'</span>'+label;
+    b.addEventListener("click",function(){stopPlay();api.setStage(i);});
+    chipsEl.appendChild(b);chipEls.push(b);
+  });
+  function stopPlay(){removeTween(id+"play");play.textContent="▶ Play";}
+  const api={
+    id:id,root:root,cfg:cfg,
+    setStage:function(i,opt){
+      opt=opt||{};
+      i=clamp(i,0,cfg.n-1);st.stage=i;
+      chipEls.forEach(function(b,k){b.setAttribute("aria-pressed",k===i?"true":"false");});
+      capT.textContent=cfg.caps[i].t;capB.innerHTML=cfg.caps[i].b;
+      prev.disabled=(i===0);next.disabled=(i===cfg.n-1);
+      if(opt.init)return;                       // initial paint: no tweens, no pin
+      for(let k=0;k<cfg.n;k++){
+        (function(k){tweenScalar(id+"p"+k,function(){return st.p[k];},function(v){st.p[k]=v;},k<=i?1:0,500);})(k);
+      }
+      if(cfg.onStage)cfg.onStage(i);
+      pin(cfg.pins?cfg.pins[i]:null,root);
+      renderDynamic();
+    }
+  };
+  function startPlay(){
+    const start=performance.now();let last=-1;
+    play.textContent="■ Stop";
+    addTween(id+"play",function(dt,now){
+      const k=Math.floor((now-start)/(cfg.interval||3200));
+      if(k!==last){last=k;if(k>=cfg.n){play.textContent="▶ Play";return false;}api.setStage(k);}
+      return true;
+    });
+  }
+  prev.addEventListener("click",function(){stopPlay();api.setStage(st.stage-1);});
+  next.addEventListener("click",function(){stopPlay();api.setStage(st.stage+1);});
+  play.addEventListener("click",function(){if(tweens.has(id+"play")){stopPlay();}else{startPlay();}});
+  SECS[id]=api;
+  api.setStage(0,{init:true});
+  return api;
+}
+
+/* =====================================================================
+   6. FORMULAS (KaTeX with plain-text fallback, throttled + content-diffed)
+   ===================================================================== */
+function renderFormula(el,tex,plainHtml){
+  if(typeof window.katex!=="undefined"&&!window.__katexFail){
+    try{window.katex.render(tex,el,{throwOnError:false,displayMode:true});return;}catch(e){}
+  }
+  el.innerHTML='<div class="plain-formula">'+plainHtml+'</div>';
+}
+const lastContent={},lastRenderTime={};
+function renderFormulaThrottled(key,el,tex,plainHtml,minInterval){
+  if(lastContent[key]===tex)return;
+  const now=performance.now();
+  if(lastRenderTime[key]!=null&&now-lastRenderTime[key]<(minInterval||90))return;
+  lastRenderTime[key]=now;lastContent[key]=tex;
+  renderFormula(el,tex,plainHtml);
+}
+/* the throttle can drop the *last* update of an animation; this flush guarantees the final value lands */
+let flushTimer=null;
+function scheduleFlush(){clearTimeout(flushTimer);flushTimer=setTimeout(function(){for(const k in lastRenderTime)lastRenderTime[k]=null;renderDynamic();},160);}
+function tc(color,s){return "\\textcolor{"+color+"}{"+s+"}";}   // coloured TeX fragment
+
+/* =====================================================================
+   SHARED TOY DATA + SMALL HELPERS  (used by sections 2-6)
+   All numbers are hand-authored / seeded illustrations, not model output.
+   ===================================================================== */
+/* source sentence = S1TOK ("I love deep learning"); target = its Chinese translation: 我 (I) 爱 (love) 深度学习 (deep learning) */
+const SRC=["I","love","deep","learning"];            // source sentence (same as S1TOK)
+const TGT_IN =["<bos>","我","爱","深度学习"];      // decoder INPUT  (target shifted right)
+const TGT_OUT=["我","爱","深度学习","<eos>"];      // decoder LABELS (what each position must predict)
+
+/* causal self-attention weights of the decoder (row = query; upper triangle is masked => exactly 0) */
+const D_SA=[[1,0,0,0],[.35,.65,0,0],[.20,.30,.50,0],[.15,.20,.25,.40]];
+/* cross-attention weights (row = decoder position, col = source token I/love/deep/learning) */
+const XA=[[.72,.14,.07,.07],[.15,.66,.10,.09],[.05,.15,.42,.38],[.10,.12,.28,.50]];
+/* top-4 next-token distribution for every decoder position (illustrative) */
+const PROBS=[
+  [["我",.78],["我们",.10],["你",.07],["他",.05]],
+  [["爱",.74],["喜欢",.16],["想",.06],["恨",.04]],
+  [["深度学习",.69],["机器学习",.17],["学习",.08],["深度",.06]],
+  [["<eos>",.81],["。",.12],["很",.04],["的",.03]]
+];
+
+/* two extra tooltip entries that only sections 2+ need */
+TIPS.shift={t:"Shifted-right decoder input",c:C.dec,d:"The Decoder input is the target sequence shifted right by one: it starts with &lt;bos&gt;, and position t sees the previous t−1 words (already generated at inference, the gold prefix in training).",m:"input: &lt;bos&gt; y₁ y₂ …   label: y₁ y₂ … &lt;eos&gt;"};
+TIPS.probs={t:"Next-token distribution",c:C.dec,d:"Output of Linear + Softmax: the probability of each vocabulary word being the next token. Only the top 4 are drawn; the most likely one (or a sample) becomes the new word.",m:"Σ over vocabulary = 1"};
+
+/* pill(): a rounded label chip (rect + centred text) */
+function pill(parent,x,y,w,h,str,o){
+  o=o||{};
+  const g=svgEl("g",null,parent);
+  const rect=svgEl("rect",{x:x,y:y,width:w,height:h,rx:o.r==null?8:o.r,fill:o.fill||"#fff",stroke:o.stroke||C.soft,"stroke-width":o.sw||1.5},g);
+  if(o.dash)rect.setAttribute("stroke-dasharray",o.dash);
+  const txt=T(g,x+w/2,y+h/2,str,{s:o.s||12,w:o.w||600,f:o.f||C.ink});
+  return {g:g,rect:rect,txt:txt,x:x,y:y,w:w,h:h};
+}
+/* arc(): quadratic arc between two x positions on a common baseline; height grows with distance */
+function arcD(x1,x2,y,rise){return "M"+x1+" "+y+" Q"+((x1+x2)/2)+" "+(y-2*rise)+" "+x2+" "+y;}
+
+/* =====================================================================
+   SECTION 1 · ENCODER  (Self-Attention + FFN, bidirectional, output H)
+   ===================================================================== */
+const S1TOK=["I","love","deep","learning"];
+/* illustrative attention weights; every cell is visible (no mask) => bidirectional */
+const S1A=[[.40,.30,.12,.18],[.28,.30,.14,.28],[.08,.14,.38,.40],[.07,.15,.43,.35]];
+const S1X=S1TOK.map(function(t){return seedVec("x:"+t);});
+const S1K=S1TOK.map(function(t){return seedVec("k:"+t);});
+const S1V=S1TOK.map(function(t){return seedVec("v:"+t);});
+const S1Q=S1TOK.map(function(t){return seedVec("q:"+t);});
+/* output h_i = tanh(x_i + Σ_j a_ij v_j)  — a real weighted mix, so the bars we draw are consistent */
+const S1H=S1TOK.map(function(_,i){const o=weightedSum(S1A[i],S1V);return o.map(function(v,d){return Math.tanh(S1X[i][d]+v);});});
+const S1COL=[28,125,222,319];
+const S1FLOW=[[402,352],[352,268],[268,152],[152,64]];   // dot path per stage (y from → to)
+const g1={};
+
+function mixVec(a,b,t){return a.map(function(v,i){return lerp(v,b[i],t);});}
+/* residual-connection loop drawn with a fat invisible hit-path so it is hoverable */
+function resid(parent,d,color){
+  const g=svgEl("g",{"class":"comp","data-tip":"residual"},parent);
+  g.style.setProperty("--glow",color);
+  svgEl("path",{d:d,fill:"none",stroke:"transparent","stroke-width":14},g);
+  svgEl("path",{"class":"body",d:d,fill:"none",stroke:color,"stroke-width":1.8,"stroke-dasharray":"4 3","marker-end":"url(#mk-ink)"},g);
+  return g;
+}
+
+function buildS1(){
+  const svg=mkSvg("s1Host",1080,452);g1.svg=svg;
+  svgEl("rect",{x:14,y:32,width:416,height:402,rx:14,fill:"#FBFBF8",stroke:"#C9CFDD","stroke-dasharray":"5 5"},svg);
+  T(svg,222,17,"ONE ENCODER LAYER  ×N",{s:11.5,w:700,f:C.enc,mono:true});
+  T(svg,440,64,"H",{a:"start",s:14,w:700,f:C.enc,mono:true});
+  T(svg,440,351,"x",{a:"start",s:14,w:700,f:C.soft,mono:true});
+  T(svg,440,400,"tokens",{a:"start",s:11,f:C.soft});
+
+  g1.res1=resid(svg,"M400 321 H414 V197 H402",C.pad);    // skip around Self-Attention
+  g1.res2=resid(svg,"M400 181 H414 V105 H402",C.pad);    // skip around FFN
+
+  /* --- stack, drawn top to bottom --- */
+  g1.out=comp(svg,"encout",28,44,372,40,{fill:C.encS,stroke:C.enc});
+  g1.outVec=S1COL.map(function(x){return makeVec(g1.out.g,x+6,52,12,24,2);});
+  g1.an2=comp(svg,"addnorm",28,96,372,18,{fill:C.grayS,stroke:C.pad,label:"Add & Norm",s:10.5,sw:1.2,r:5});
+  g1.ffn=comp(svg,"ffn",28,126,372,50,{fill:C.encS,stroke:C.enc,label:"Feed-Forward Network  (position-wise)",ly:12,s:11});
+  S1COL.forEach(function(x){
+    svgEl("rect",{x:x,y:146,width:80,height:22,rx:5,fill:"#fff",stroke:C.enc,"stroke-opacity":.5},g1.ffn.g);
+    T(g1.ffn.g,x+40,157,"FFN",{s:10,f:C.enc});
+  });
+  g1.an1=comp(svg,"addnorm",28,188,372,18,{fill:C.grayS,stroke:C.pad,label:"Add & Norm",s:10.5,sw:1.2,r:5});
+  g1.sa=comp(svg,"selfattn",28,218,372,98,{fill:C.encS,stroke:C.enc,label:"Multi-Head Self-Attention",ly:13,s:11.5});
+  [["q","Q",36],["k","K",66],["v","V",96]].forEach(function(b){
+    comp(g1.sa.g,b[0],b[2],238,24,17,{fill:"#fff",stroke:C[b[0]],label:b[1],s:10.5,r:5,sw:1.4,tf:C[b[0]]});
+  });
+  g1.nodes=S1COL.map(function(x,i){
+    const cx=x+40;
+    const circ=svgEl("circle",{cx:cx,cy:292,r:12,fill:"#fff",stroke:C.enc,"stroke-width":1.6},g1.sa.g);
+    const txt=T(g1.sa.g,cx,292,String(i+1),{s:11,w:700,f:C.enc,mono:true});
+    return {cx:cx,circ:circ,txt:txt};
+  });
+  g1.arcs=S1TOK.map(function(){return svgEl("path",{d:"M0 0",fill:"none",stroke:C.enc,"stroke-linecap":"round"},g1.sa.g);});
+  g1.emb=comp(svg,"emb",28,326,372,50,{fill:C.grayS,stroke:C.soft,label:"Token Embedding + Positional Encoding",ly:11,s:10.5});
+  g1.xVec=S1COL.map(function(x,i){const v=makeVec(g1.emb.g,x+6,344,12,24,2);v.set(S1X[i],C.soft);return v;});
+  g1.chips=S1TOK.map(function(tok,i){
+    const g=svgEl("g",{"class":"clickable"},svg);
+    const r=svgEl("rect",{x:S1COL[i],y:386,width:80,height:28,rx:8,fill:"#fff",stroke:C.enc,"stroke-width":1.5},g);
+    T(g,S1COL[i]+40,400,tok,{s:12.5,w:600});
+    g.addEventListener("click",function(){setS1Query(i);});
+    return r;
+  });
+  g1.dots=S1COL.map(function(x){return svgEl("circle",{cx:x+40,cy:400,r:4.5,fill:C.enc,opacity:0},svg);});
+
+  /* --- right zone: zoom into Self-Attention --- */
+  const R=g1.right=svgEl("g",null,svg);
+  T(R,793,17,"ZOOM · WHAT SELF-ATTENTION COMPUTES",{s:11.5,w:700,f:C.enc,mono:true});
+  const mx=580,my=92,cs=46;
+  T(R,mx+92,44,"A = softmax(Q·Kᵀ / √d)",{s:11.5,w:600,f:C.enc,mono:true});
+  T(R,mx-6,72,"query ↓",{a:"end",s:10.5,f:C.q,w:600});
+  T(R,mx+4,72,"key →",{a:"start",s:10.5,f:C.k,w:600});
+  g1.mxBox=comp(R,"attnw",mx-8,my-8,4*cs+8,4*cs+8,{fill:"transparent",sw:1,r:8,dash:"3 3",so:.5});
+  g1.mat=makeMatrix(g1.mxBox.g,mx,my,4,4,cs,{rowLabels:S1TOK,colLabels:S1TOK,fs:11.5});
+  g1.selRow=svgEl("rect",{x:mx-4,y:my,width:4*cs+2,height:cs,rx:7,fill:"none",stroke:C.q,"stroke-width":2.6},g1.mxBox.g);
+  for(let r=0;r<4;r++){
+    (function(r){
+      g1.mat.rl[r].style.pointerEvents="auto";g1.mat.rl[r].style.cursor="pointer";
+      g1.mat.rl[r].addEventListener("click",function(){setS1Query(r);});
+      for(let c=0;c<4;c++){g1.mat.cells[r][c].style.cursor="pointer";g1.mat.cells[r][c].addEventListener("click",function(){setS1Query(r);});}
+    })(r);
+  }
+  g1.note=T(R,mx+92,my+4*cs+22,"16 / 16 cells visible → no mask → bidirectional",{s:10.5,f:C.ok,w:600,mono:true});
+
+  /* Q / K / weights / V table for the selected query */
+  const tx=792;
+  g1.qLabel=T(R,tx,92,"",{a:"start",s:11,w:700,f:C.q});
+  g1.qBox=compBox(R,"q",840,80,76,24);
+  g1.qVec=makeVec(g1.qBox.g,846,84,11,16,2);
+  T(R,877,112,"k_j",{s:11,w:700,f:C.k,mono:true});
+  T(R,951,112,"a_ij",{s:11,w:700,f:C.enc,mono:true});
+  T(R,1023,112,"v_j",{s:11,w:700,f:C.v,mono:true});
+  g1.kBox=compBox(R,"k",840,122,76,160);
+  g1.wBox=compBox(R,"softmax",918,122,72,160);
+  g1.vBox=compBox(R,"v",986,122,76,160);
+  g1.rowTok=[];g1.kVec=[];g1.vVec=[];g1.barFill=[];g1.barTxt=[];
+  for(let j=0;j<4;j++){
+    const y=132+j*38;
+    g1.rowTok.push(T(R,tx,y+8,S1TOK[j],{a:"start",s:11}));
+    const kv=makeVec(g1.kBox.g,846,y,11,16,2);kv.set(S1K[j],C.k);g1.kVec.push(kv);
+    svgEl("rect",{x:922,y:y+2,width:62,height:12,rx:3,fill:C.grayS},g1.wBox.g);
+    g1.barFill.push(svgEl("rect",{x:922,y:y+2,width:0,height:12,rx:3,fill:C.enc,"fill-opacity":.45},g1.wBox.g));
+    g1.barTxt.push(T(g1.wBox.g,925,y+8,"",{a:"start",s:9.5,mono:true}));
+    const vv=makeVec(g1.vBox.g,992,y,11,16,2);vv.set(S1V[j],C.v);g1.vVec.push(vv);
+  }
+  svgEl("line",{x1:tx,y1:292,x2:1062,y2:292,stroke:"#C9CFDD"},R);
+  g1.resLabel=T(R,tx,312,"",{a:"start",s:11,w:700,f:C.enc,mono:true});
+  g1.resVec=makeVec(R,992,304,11,16,2);
+  T(R,mx+92,342,"Output for the query = a weighted mix of every token's V.",{s:11.5,f:C.soft});
+  T(R,mx+92,362,"Right-hand tokens contribute too — that is what “bidirectional” means.",{s:11.5,f:C.soft});
+}
+
+function setS1Query(i){state.s1.q=i;renderDynamic();scheduleFlush();}
+
+upd.s1=function(){
+  const s=state.s1,p=s.p,q=s.q,mx=580,my=92,cs=46;
+  /* stage-by-stage reveal */
+  setA(g1.an1.g,{opacity:(.3+.7*p[1]).toFixed(3)});setA(g1.sa.g,{opacity:(.3+.7*p[1]).toFixed(3)});setA(g1.res1,{opacity:(.3+.7*p[1]).toFixed(3)});
+  setA(g1.ffn.g,{opacity:(.3+.7*p[2]).toFixed(3)});setA(g1.an2.g,{opacity:(.3+.7*p[2]).toFixed(3)});setA(g1.res2,{opacity:(.3+.7*p[2]).toFixed(3)});
+  setA(g1.out.g,{opacity:(.3+.7*p[3]).toFixed(3)});
+  setA(g1.right,{opacity:(.22+.78*p[1]).toFixed(3)});
+  /* H band: interpolate x -> h as stage 4 arrives */
+  for(let i=0;i<4;i++)g1.outVec[i].set(mixVec(S1X[i],S1H[i],p[3]),C.enc);
+  /* self-attention arcs for the selected query (all directions!) */
+  for(let j=0;j<4;j++){
+    const w=S1A[q][j],path=g1.arcs[j],node=g1.nodes[j];
+    if(j===q){setA(path,{d:"M0 0",opacity:0});}
+    else{
+      const x1=g1.nodes[q].cx,x2=node.cx,dj=Math.abs(j-q),rise=10+7*dj;
+      setA(path,{d:"M"+x1+" 280 Q"+((x1+x2)/2)+" "+(280-2*rise)+" "+x2+" 280","stroke-width":(1.2+11*w).toFixed(2),opacity:(.3+.7*Math.min(1,w/.4)).toFixed(2)});
+    }
+    setA(node.circ,{fill:j===q?C.q:"#fff",stroke:j===q?C.q:C.enc});
+    setA(node.txt,{fill:j===q?"#fff":C.enc});
+    setA(g1.chips[j],{stroke:j===q?C.q:C.enc,"stroke-width":j===q?3:1.5,fill:j===q?"#FFF6DA":"#fff"});
+  }
+  /* matrix */
+  for(let r=0;r<4;r++)for(let c=0;c<4;c++){const w=S1A[r][c];setCell(g1.mat,r,c,heat(w,C.enc),f2(w),heatText(w),r===q?1:.6);}
+  setA(g1.selRow,{y:my+q*cs});
+  /* q / k / a / v table */
+  setT(g1.qLabel,"q · "+S1TOK[q]);g1.qVec.set(S1Q[q],C.q);
+  for(let j=0;j<4;j++){
+    const w=S1A[q][j];
+    setA(g1.barFill[j],{width:(62*Math.min(1,w/.5)).toFixed(1)});setT(g1.barTxt[j],f2(w));
+    setA(g1.rowTok[j],{"font-weight":j===q?700:400});
+  }
+  setT(g1.resLabel,"h = Σ a·v");g1.resVec.set(weightedSum(S1A[q],S1V),C.enc);
+  /* data-flow dot for the current stage */
+  const f=clamp(s.flow,0,1),seg=S1FLOW[s.stage],y=lerp(seg[0],seg[1],easeInOut(f)),a=f>=1?0:Math.sin(Math.PI*f);
+  g1.dots.forEach(function(d){setA(d,{cy:y.toFixed(1),opacity:a.toFixed(2)});});
+  /* live formula: weights of the selected query row */
+  const row=S1A[q];
+  const terms=row.map(function(w,j){return tc(C.enc,f2(w))+"\\,"+tc(C.v,"\\mathbf{v}_{"+(j+1)+"}");}).join("+");
+  const tex="\\text{query}=\\text{"+S1TOK[q]+"}\\;(i="+(q+1)+")\\;\\Rightarrow\\;\\mathbf{o}_{"+(q+1)+"}="+terms;
+  const plain="query = "+S1TOK[q]+" (i="+(q+1)+")  =>  o_"+(q+1)+" = "+row.map(function(w,j){return f2(w)+"·v_"+(j+1);}).join(" + ");
+  renderFormulaThrottled("s1Live",$("s1FormulaLive"),tex,plain,90);
+};
+
+function initS1(){
+  buildS1();
+  makeStager("s1",{
+    n:4,interval:3600,
+    chips:["Embed + position","Self-Attention","Add & Norm → FFN","Output H"],
+    pins:["emb",["selfattn","q","k","v"],"ffn","encout"],
+    caps:[
+      {t:"① Input: embeddings + positions",b:"The source sentence “I love deep learning” is split into tokens, looked up as word vectors, and given a <b>positional encoding</b>. Self-attention has no built-in sense of order, so word order can only enter here."},
+      {t:"② Self-Attention: bidirectional, fully connected",b:"Each token uses its <span class=\"tq\">Q</span> to match the <span class=\"tk\">K</span> of <b>every</b> token, producing one row of attention weights, then takes a weighted sum of the <span class=\"tv\">V</span> vectors. The 4×4 matrix on the right is <b>fully visible</b>: words on the left and on the right can both be attended to. That is <span class=\"te\">bidirectional attention</span>. Click any token to change the query."},
+      {t:"③ Add & Norm → FFN",b:"After attention comes a <b>residual connection + LayerNorm</b>. Then every position passes <b>independently</b> through the same feed-forward network (FFN) for extra non-linearity, followed by a second Add & Norm."},
+      {t:"④ Output: contextual representation H",b:"One layer's output vectors h already mix in the whole sentence (compare them with the raw x at the bottom). After N stacked layers you get the final <span class=\"te\">H (S × d_model)</span>: one vector per source token, handed to the Decoder as its memory."}
+    ],
+    onStage:function(){
+      state.s1.flow=0;
+      tweenScalar("s1flow",function(){return state.s1.flow;},function(v){state.s1.flow=v;},1,1000);
+    }
+  });
+  renderFormula($("s1Formula"),
+    "\\mathrm{Attention}(Q,K,V)=\\mathrm{softmax}\\!\\left(\\dfrac{QK^{\\top}}{\\sqrt{d_k}}\\right)V",
+    "Attention(Q,K,V) = softmax( Q·Kᵀ / √d_k ) · V");
+}
+
+/* =====================================================================
+   SECTION 2 · DECODER
+   Masked Self-Attention + Cross-Attention + FFN, then Linear + Softmax.
+   The step slider t (1..4) replays autoregressive generation.
+   ===================================================================== */
+const g2={};
+const S2FLOW=[[408,372],[372,312],[276,228],[200,150],[130,50]];   // rising dot per stage (y from -> to)
+
+function buildS2(){
+  const svg=mkSvg("s2Host",1080,452);g2.svg=svg;
+  svgEl("rect",{x:14,y:30,width:416,height:412,rx:14,fill:"#FDFAF9",stroke:"#D9C7C2","stroke-dasharray":"5 5"},svg);
+  T(svg,222,15,"ONE DECODER LAYER  ×N",{s:11.5,w:700,f:C.dec,mono:true});
+
+  /* residual loops around the three sub-layers */
+  g2.res1=resid(svg,"M400 354 H414 V268 H402",C.pad);
+  g2.res2=resid(svg,"M400 256 H414 V186 H402",C.pad);
+  g2.res3=resid(svg,"M400 174 H414 V116 H402",C.pad);
+
+  /* --- top: predicted-token slots + Linear/Softmax --- */
+  g2.outG=svgEl("g",null,svg);
+  g2.outC=S1COL.map(function(x){return pill(g2.outG,x,38,80,24,"?",{s:12,stroke:C.dec,r:7});});
+  T(svg,440,50,"predicted",{a:"start",s:11,f:C.soft});
+  g2.ls=comp(svg,"linsoft",28,70,372,30,{fill:C.decS,stroke:C.dec,label:"Linear + Softmax",s:11.5});
+  g2.an3=comp(svg,"addnorm",28,108,372,16,{fill:C.grayS,stroke:C.pad,label:"Add & Norm",s:10,sw:1.2,r:5});
+  g2.ffn=comp(svg,"ffn",28,132,372,38,{fill:C.decS,stroke:C.dec,label:"Feed-Forward Network  (position-wise)",s:11});
+  g2.an2=comp(svg,"addnorm",28,178,372,16,{fill:C.grayS,stroke:C.pad,label:"Add & Norm",s:10,sw:1.2,r:5});
+
+  /* --- Cross-Attention (violet): Q from the decoder, K & V from memory H --- */
+  g2.cr=comp(svg,"crossattn",28,202,372,50,{fill:C.crossS,stroke:C.cross,label:"Cross-Attention",ly:12,s:11.5});
+  [["q","Q",36],["k","K",66],["v","V",96]].forEach(function(b){
+    comp(g2.cr.g,b[0],b[2],222,24,17,{fill:"#fff",stroke:C[b[0]],label:b[1],s:10.5,r:5,sw:1.4,tf:C[b[0]]});
+  });
+  T(g2.cr.g,132,231,"Q ← decoder state   ·   K, V ← Encoder output H",{a:"start",s:10,f:C.cross});
+  g2.an1=comp(svg,"addnorm",28,260,372,16,{fill:C.grayS,stroke:C.pad,label:"Add & Norm",s:10,sw:1.2,r:5});
+
+  /* --- Masked Self-Attention (coral) with look-ahead mask badge + 4 token nodes --- */
+  g2.ma=comp(svg,"maskedattn",28,280,372,70,{fill:C.decS,stroke:C.dec,label:"Masked Self-Attention",la:"start",ly:13,s:11});
+  [["q","Q",172],["k","K",198],["v","V",224]].forEach(function(b){   // Q/K/V + mask badge share the label row
+    comp(g2.ma.g,b[0],b[2],285,22,17,{fill:"#fff",stroke:C[b[0]],label:b[1],s:10.5,r:5,sw:1.4,tf:C[b[0]]});
+  });
+  comp(g2.ma.g,"lookahead",258,285,124,17,{fill:"#fff",stroke:C.ink,label:"+ look-ahead mask",s:10,r:5,sw:1.4});
+  g2.nodes=S1COL.map(function(x,i){
+    const cx=x+40;
+    const circ=svgEl("circle",{cx:cx,cy:338,r:9,fill:"#fff",stroke:C.dec,"stroke-width":1.6},g2.ma.g);
+    const txt=T(g2.ma.g,cx,338,String(i+1),{s:10,w:700,f:C.dec,mono:true});
+    return {cx:cx,circ:circ,txt:txt};
+  });
+  g2.arcs=S1TOK.map(function(){return svgEl("path",{d:"M0 0",fill:"none",stroke:C.dec,"stroke-linecap":"round"},g2.ma.g);});
+  g2.emb=comp(svg,"emb",28,358,372,30,{fill:C.grayS,stroke:C.soft,label:"Embedding + Positional Encoding",s:10.5});
+
+  /* --- bottom: shifted-right decoder input --- */
+  g2.inBox=compBox(svg,"shift",22,392,384,32);
+  g2.inC=S1COL.map(function(x){return pill(g2.inBox.g,x,396,80,24,"",{s:12,stroke:C.dec,r:7});});
+  T(svg,222,436,"decoder input — target shifted right",{s:10.5,f:C.soft});
+
+  /* memory H feeding the cross-attention sub-layer */
+  g2.mem=comp(svg,"memory",446,196,96,62,{fill:C.crossS,stroke:C.cross,label:"Memory H",sub:"from Encoder",s:11.5,ss:9.5});
+  g2.memArrow=svgEl("path",{d:"M446 227 H403",fill:"none",stroke:C.cross,"stroke-width":2.4,"stroke-dasharray":"5 4","marker-end":"url(#mk-cross)"},svg);
+  T(svg,424,215,"K,V",{s:10,w:700,f:C.cross,mono:true});
+
+  /* data-flow dots (one per token column) */
+  g2.dots=S1COL.map(function(x){return svgEl("circle",{cx:x+40,cy:408,r:4.5,fill:C.dec,opacity:0},svg);});
+
+  /* ---------- right zone: masked attention matrix ---------- */
+  const mx=636,my=94,cs=50;
+  g2.gM=svgEl("g",null,svg);
+  T(g2.gM,mx+100,38,"A = softmax(Q·Kᵀ/√d + M)",{s:11.5,w:600,f:C.dec,mono:true});
+  T(g2.gM,mx+100,60,"rows = queries · cols = keys · upper triangle = look-ahead mask",{s:10.5,f:C.soft});
+  g2.mBox=comp(g2.gM,"lookahead",mx-8,my-8,4*cs+8,4*cs+8,{fill:"transparent",sw:1,r:8,dash:"3 3",so:.5});
+  g2.mat=makeMatrix(g2.mBox.g,mx,my,4,4,cs,{rowLabels:TGT_IN,colLabels:TGT_IN,fs:11.5});
+  g2.selRow=svgEl("rect",{x:mx-4,y:my,width:4*cs+2,height:cs,rx:7,fill:"none",stroke:C.q,"stroke-width":2.6},g2.mBox.g);
+  g2.mNote=T(g2.gM,mx+100,my+4*cs+18,"",{s:10.5,f:C.dec,w:600,mono:true});
+
+  /* ---------- right zone: next-token probabilities ---------- */
+  g2.gP=svgEl("g",null,svg);
+  T(g2.gP,962,38,"P( next token )",{s:11.5,w:600,f:C.dec,mono:true});
+  g2.pBox=compBox(g2.gP,"probs",858,52,200,202);
+  g2.pTok=[];g2.pBar=[];g2.pTxt=[];
+  for(let k=0;k<4;k++){
+    const y=66+k*42;
+    g2.pTok.push(T(g2.pBox.g,868,y+8,"",{a:"start",s:12,w:600}));
+    svgEl("rect",{x:938,y:y,width:104,height:16,rx:4,fill:C.grayS},g2.pBox.g);
+    g2.pBar.push(svgEl("rect",{x:938,y:y,width:0,height:16,rx:4,fill:C.dec,"fill-opacity":.7},g2.pBox.g));
+    g2.pTxt.push(T(g2.pBox.g,942,y+8,"",{a:"start",s:10.5,mono:true}));
+  }
+  g2.pArg=T(g2.pBox.g,958,234,"",{s:11.5,w:700,f:C.dec});
+
+  /* ---------- right zone: autoregressive loop strip ---------- */
+  g2.gG=svgEl("g",null,svg);
+  T(g2.gG,600,338,"prefix fed to the decoder at this step",{a:"start",s:10.5,f:C.soft});
+  T(g2.gG,975,338,"next token",{s:10.5,f:C.soft});
+  g2.gC=[0,1,2,3].map(function(k){return pill(g2.gG,600+k*78,348,70,26,"",{s:12,stroke:C.dec,r:7});});
+  T(g2.gG,924,361,"→",{s:18,f:C.soft});
+  g2.gN=pill(g2.gG,935,348,80,26,"",{s:12,stroke:C.dec,r:7});
+  T(g2.gG,1035,361,"↺",{s:18,f:C.soft});
+
+  /* ---------- right zone: cross-attention row over the source ---------- */
+  g2.gX=svgEl("g",null,svg);
+  g2.xBox=compBox(g2.gX,"crossattn",596,392,464,50);
+  T(g2.xBox.g,604,402,"Cross-Attention row of this position, over the source",{a:"start",s:10.5,f:C.cross,w:600});
+  g2.xBar=[];g2.xTxt=[];
+  for(let j=0;j<4;j++){
+    const x=606+j*114;
+    T(g2.xBox.g,x,425,S1TOK[j],{a:"start",s:11});
+    svgEl("rect",{x:x+44,y:419,width:52,height:12,rx:3,fill:C.grayS},g2.xBox.g);
+    g2.xBar.push(svgEl("rect",{x:x+44,y:419,width:0,height:12,rx:3,fill:C.cross,"fill-opacity":.7},g2.xBox.g));
+    g2.xTxt.push(T(g2.xBox.g,x+47,425,"",{a:"start",s:9.5,mono:true}));
+  }
+}
+
+function setS2T(t){
+  t=clamp(Math.round(t),1,4);
+  state.s2.t=t;$("s2T").value=t;$("s2TVal").textContent=t;
+  state.s2.tf=0;tweenScalar("s2pop",function(){return state.s2.tf;},function(v){state.s2.tf=v;},1,700);
+  scheduleFlush();renderDynamic();
+}
+
+upd.s2=function(){
+  const s=state.s2,p=s.p,t=s.t,q=t-1,pop=clamp(s.tf,0,1),mx=636,my=94,cs=50;
+  const op=function(v){return (.28+.72*v).toFixed(3);};
+  /* stage-by-stage reveal */
+  setA(g2.ma.g,{opacity:op(p[1])});setA(g2.an1.g,{opacity:op(p[1])});setA(g2.res1,{opacity:op(p[1])});
+  setA(g2.cr.g,{opacity:op(p[2])});setA(g2.mem.g,{opacity:op(p[2])});setA(g2.memArrow,{opacity:op(p[2]),"stroke-dashoffset":(-(performance.now()/40)%9).toFixed(1)});
+  setA(g2.an2.g,{opacity:op(p[2])});setA(g2.res2,{opacity:op(p[2])});
+  setA(g2.ffn.g,{opacity:op(p[3])});setA(g2.an3.g,{opacity:op(p[3])});setA(g2.res3,{opacity:op(p[3])});
+  setA(g2.ls.g,{opacity:op(p[4])});setA(g2.outG,{opacity:op(p[4])});
+  setA(g2.gM,{opacity:op(p[1])});setA(g2.gX,{opacity:op(p[2])});setA(g2.gP,{opacity:op(p[4])});
+
+  /* input chips: only the first t tokens exist at step t */
+  for(let i=0;i<4;i++){
+    const on=i<t;
+    setA(g2.inC[i].rect,{stroke:on?C.dec:C.pad,"stroke-dasharray":on?"none":"3 3",fill:on?"#fff":C.grayS});
+    setT(g2.inC[i].txt,on?TGT_IN[i]:"?");setA(g2.inC[i].txt,{fill:on?C.ink:C.pad});
+    /* predicted slots: solid for done, amber + pop for the newest */
+    const done=i<t,cur=i===q;
+    setA(g2.outC[i].rect,{stroke:cur?C.q:(done?C.dec:C.pad),"stroke-dasharray":done?"none":"3 3",fill:cur?"#FFF6DA":(done?C.decS:C.grayS),"stroke-width":cur?(2+1.5*(1-pop)).toFixed(2):1.5});
+    setT(g2.outC[i].txt,done?TGT_OUT[i]:"?");setA(g2.outC[i].txt,{fill:done?C.ink:C.pad});
+  }
+
+  /* masked self-attention nodes + arcs for the newest position (only leftwards!) */
+  for(let j=0;j<4;j++){
+    const node=g2.nodes[j],vis=j<t,w=D_SA[q][j],path=g2.arcs[j];
+    setA(node.circ,{fill:j===q?C.q:"#fff",stroke:j===q?C.q:(vis?C.dec:C.pad),opacity:vis?1:.35});
+    setA(node.txt,{fill:j===q?"#fff":(vis?C.dec:C.pad),opacity:vis?1:.35});
+    if(j>=q||w<=0){setA(path,{d:"M0 0",opacity:0});}
+    else{setA(path,{d:arcD(g2.nodes[q].cx,node.cx,328,6+5*(q-j)),"stroke-width":(1.2+10*w).toFixed(2),opacity:(.35+.65*Math.min(1,w/.4)).toFixed(2)});}
+  }
+
+  /* matrix: rows >= t do not exist yet; upper triangle is masked */
+  let vis=0;
+  for(let r=0;r<4;r++)for(let c=0;c<4;c++){
+    if(r>=t){setCell(g2.mat,r,c,"#F6F7FA","",C.pad,.55);continue;}
+    if(c>r){setCell(g2.mat,r,c,C.grayS,"−∞",C.pad,1);continue;}
+    const w=D_SA[r][c];vis++;setCell(g2.mat,r,c,heat(w,C.dec),f2(w),heatText(w),r===q?1:.6);
+  }
+  setA(g2.selRow,{y:my+q*cs});
+  setT(g2.mNote,"step t = "+t+" · "+vis+" cells visible · the rest are −∞");
+
+  /* probabilities of the newest position */
+  const pr=PROBS[q];
+  for(let k=0;k<4;k++){
+    setT(g2.pTok[k],pr[k][0]);setA(g2.pBar[k],{width:(104*pr[k][1]*pop).toFixed(1),"fill-opacity":k===0?.85:.4});
+    setT(g2.pTxt[k],f2(pr[k][1]));
+    setA(g2.pTok[k],{"font-weight":k===0?800:500});
+  }
+  setT(g2.pArg,"argmax → "+pr[0][0]);
+
+  /* autoregressive strip */
+  for(let k=0;k<4;k++){
+    const on=k<t;
+    setA(g2.gC[k].rect,{stroke:on?C.dec:C.pad,"stroke-dasharray":on?"none":"3 3",fill:on?C.decS:"#fff"});
+    setT(g2.gC[k].txt,on?TGT_IN[k]:"");
+  }
+  setA(g2.gN.rect,{stroke:C.q,fill:"#FFF6DA","stroke-width":(2+1.5*(1-pop)).toFixed(2)});
+  setT(g2.gN.txt,TGT_OUT[q]);setA(g2.gN.txt,{opacity:pop.toFixed(2)});
+
+  /* cross-attention bars for the newest position */
+  for(let j=0;j<4;j++){setA(g2.xBar[j],{width:(52*Math.min(1,XA[q][j]/.6)*pop).toFixed(1)});setT(g2.xTxt[j],f2(XA[q][j]));}
+
+  /* data-flow dot for the current stage */
+  const f=clamp(s.flow,0,1),seg=S2FLOW[s.stage],y=lerp(seg[0],seg[1],easeInOut(f)),a=f>=1?0:Math.sin(Math.PI*f);
+  g2.dots.forEach(function(d){setA(d,{cy:y.toFixed(1),opacity:a.toFixed(2)});});
+
+  /* live formula */
+  const tex="t="+t+":\\quad P\\big(y_{"+t+"}\\mid y_{<"+t+"},\\,x\\big)="+tc(C.dec,f2(pr[0][1]))+"\\quad\\text{(top-1 of the softmax)}";
+  const plain="t = "+t+":  P(y_"+t+" | y_<"+t+", x) = "+f2(pr[0][1])+"   →  "+pr[0][0];
+  renderFormulaThrottled("s2Live",$("s2FormulaLive"),tex,plain,90);
+};
+
+function initS2(){
+  buildS2();
+  const stager=makeStager("s2",{
+    n:5,interval:3600,
+    chips:["Shifted input","Masked Self-Attn","Cross-Attn","Add & Norm → FFN","Linear + Softmax"],
+    pins:["shift",["maskedattn","lookahead"],["crossattn","memory"],"ffn",["linsoft","probs"]],
+    caps:[
+      {t:"① Input: the target sequence, shifted right",b:"The Decoder input is the <b>target sequence shifted one step to the right</b>: it starts with <b>&lt;bos&gt;</b> and, at step t, contains only the t−1 words generated so far. Positional encodings are added here too. Our target is the Chinese translation 我 (I) 爱 (love) 深度学习 (deep learning). Drag the <b>step t</b> slider to watch the input grow as generation proceeds."},
+      {t:"② Masked Self-Attention: look only at the past",b:"Each position may attend to <b>itself and everything to its left</b>. The right side is set to −∞ by the <span class=\"td\">look-ahead mask</span> (the upper triangle of the matrix), so <b>future words are completely invisible</b> to the current position. This is what makes autoregressive generation possible."},
+      {t:"③ Cross-Attention: consulting the source",b:"The Decoder state provides <span class=\"tq\">Q</span>, which is matched against the <span class=\"tk\">K</span> of the Encoder output H (the memory), and the resulting weights are applied to <span class=\"tv\">V</span>. This is how the Decoder “looks back” at the source sentence to decide which source word to align with next (violet weight bars, bottom right)."},
+      {t:"④ Add & Norm → FFN",b:"As in the Encoder, every sub-layer is followed by a <b>residual connection + LayerNorm</b>, and the last sub-layer is a position-wise feed-forward network. One Decoder layer is therefore Masked Self-Attn → Cross-Attn → FFN."},
+      {t:"⑤ Linear + Softmax → autoregression",b:"The top vector goes through <b>Linear + Softmax</b> to give a probability distribution over the vocabulary. The most likely word becomes the <b>new token</b>, is appended to the input, and the next step begins. This is <span class=\"td\">autoregressive generation</span>. Click <b>▶ Run decoding</b> to watch the four steps play out one by one."}
+    ],
+    onStage:function(){
+      state.s2.flow=0;
+      tweenScalar("s2flow",function(){return state.s2.flow;},function(v){state.s2.flow=v;},1,1000);
+    }
+  });
+  /* controls: step slider + run button */
+  $("s2T").addEventListener("input",function(){removeTween("s2run");$("s2Run").textContent="▶ Run decoding";setS2T(+this.value);});
+  $("s2Run").addEventListener("click",function(){
+    const btn=$("s2Run");
+    if(tweens.has("s2run")){removeTween("s2run");btn.textContent="▶ Run decoding";return;}
+    stager.setStage(4);                               // make sure the whole layer is revealed
+    const start=performance.now();let last=-1;btn.textContent="■ Stop";
+    addTween("s2run",function(dt,now){
+      const k=Math.floor((now-start)/1500);
+      if(k!==last){last=k;if(k>=4){btn.textContent="▶ Run decoding";return false;}setS2T(k+1);}
+      return true;
+    });
+  });
+  renderFormula($("s2Formula"),
+    "\\mathrm{MaskedAttn}(Q,K,V)=\\mathrm{softmax}\\!\\left(\\dfrac{QK^{\\top}}{\\sqrt{d_k}}+M\\right)V,\\qquad M_{ij}=\\begin{cases}0 & j\\le i\\\\ -\\infty & j>i\\end{cases}",
+    "MaskedAttn(Q,K,V) = softmax( Q·Kᵀ/√d_k + M ) · V ,   M_ij = 0 if j ≤ i, else −∞");
+}
+
+/* =====================================================================
+   SECTION 3 · ENCODER + DECODER = TRANSFORMER
+   Two stacks; the only connection is memory H -> every Decoder Cross-Attn.
+   ===================================================================== */
+const g3={};
+const S3_LAYER_Y=[82,182,282];                 // top of each of the 3 drawn layers (h = 96)
+const S3_TAP_Y=S3_LAYER_Y.map(function(y){return y+55;});   // y where the bridge enters each Cross-Attn box
+
+function buildS3(){
+  const svg=mkSvg("s3Host",1080,470);g3.svg=svg;
+
+  /* ---------------- ENCODER ---------------- */
+  g3.encG=svgEl("g",null,svg);
+  g3.enc=comp(g3.encG,"encoderBox",40,62,310,326,{fill:"#F6F9FE",stroke:C.enc,sw:1.8,r:12});
+  T(g3.enc.g,52,73,"ENCODER  ×N  (N = 6 in the original paper)",{a:"start",s:10.5,w:700,f:C.enc,mono:true});
+  const encNames=["Encoder layer N","Encoder layer …","Encoder layer 1"];
+  S3_LAYER_Y.forEach(function(y,k){
+    svgEl("rect",{x:52,y:y,width:286,height:96,rx:9,fill:"#fff",stroke:C.enc,"stroke-opacity":.45},g3.enc.g);
+    T(g3.enc.g,62,y+11,encNames[k],{a:"start",s:10,f:C.soft});
+    comp(g3.enc.g,"ffn",64,y+20,262,28,{fill:C.encS,stroke:C.enc,label:"Feed-Forward Network",s:11,r:6,sw:1.3});
+    comp(g3.enc.g,"selfattn",64,y+56,262,28,{fill:C.encS,stroke:C.enc,label:"Self-Attention  (bidirectional)",s:11,r:6,sw:1.3});
+  });
+  /* output H */
+  g3.H=comp(g3.encG,"memory",95,30,200,26,{fill:C.crossS,stroke:C.cross,label:"H   (S × d_model)",s:11.5});
+  svgEl("path",{d:"M195 62 V58",stroke:C.enc,"stroke-width":2,"marker-end":"url(#mk-enc)"},g3.encG);
+  /* source tokens */
+  g3.srcBox=compBox(g3.encG,"emb",44,396,302,32);
+  S1TOK.forEach(function(tok,i){pill(g3.srcBox.g,52+i*74,400,68,24,tok,{s:12,stroke:C.enc,r:7});});
+  T(g3.encG,195,440,"source tokens — embedded + positions",{s:10.5,f:C.soft});
+  svgEl("path",{d:"M195 394 V390",stroke:C.enc,"stroke-width":2,"marker-end":"url(#mk-enc)"},g3.encG);
+
+  /* ---------------- DECODER ---------------- */
+  g3.decG=svgEl("g",null,svg);
+  g3.dec=comp(g3.decG,"decoderBox",690,62,340,326,{fill:"#FEF8F6",stroke:C.dec,sw:1.8,r:12});
+  T(g3.dec.g,702,73,"DECODER  ×N",{a:"start",s:10.5,w:700,f:C.dec,mono:true});
+  const decNames=["Decoder layer N","Decoder layer …","Decoder layer 1"];
+  g3.cross=[];
+  S3_LAYER_Y.forEach(function(y,k){
+    svgEl("rect",{x:702,y:y,width:316,height:96,rx:9,fill:"#fff",stroke:C.dec,"stroke-opacity":.45},g3.dec.g);
+    T(g3.dec.g,712,y+9,decNames[k],{a:"start",s:10,f:C.soft});
+    comp(g3.dec.g,"ffn",714,y+18,292,22,{fill:C.decS,stroke:C.dec,label:"Feed-Forward Network",s:10.5,r:5,sw:1.3});
+    g3.cross.push(comp(g3.dec.g,"crossattn",714,y+44,292,22,{fill:C.crossS,stroke:C.cross,label:"Cross-Attention   (K, V from H)",s:10.5,r:5,sw:1.5}));
+    comp(g3.dec.g,"maskedattn",714,y+70,292,22,{fill:C.decS,stroke:C.dec,label:"Masked Self-Attention  (causal)",s:10.5,r:5,sw:1.3});
+  });
+  /* output: Linear+Softmax and predicted tokens */
+  g3.outG=svgEl("g",null,svg);
+  g3.outBox=compBox(g3.outG,"outtok",702,2,316,26);
+  TGT_OUT.forEach(function(tok,i){pill(g3.outBox.g,704+i*79,4,74,22,tok,{s:11.5,stroke:C.dec,r:6});});
+  g3.ls=comp(g3.outG,"linsoft",702,32,316,26,{fill:C.decS,stroke:C.dec,label:"Linear + Softmax",s:11.5});
+  svgEl("path",{d:"M860 62 V60",stroke:C.dec,"stroke-width":2,"marker-end":"url(#mk-dec)"},g3.outG);
+  /* target tokens (shifted right) */
+  g3.tgtG=svgEl("g",null,svg);
+  g3.tgtBox=compBox(g3.tgtG,"shift",696,396,328,32);
+  TGT_IN.forEach(function(tok,i){pill(g3.tgtBox.g,702+i*80,400,74,24,tok,{s:11.5,stroke:C.dec,r:7});});
+  T(g3.tgtG,860,440,"target tokens — shifted right",{s:10.5,f:C.soft});
+  svgEl("path",{d:"M860 394 V390",stroke:C.dec,"stroke-width":2,"marker-end":"url(#mk-dec)"},g3.tgtG);
+
+  /* ---------------- THE BRIDGE (violet) ---------------- */
+  g3.bridge=svgEl("g",{"class":"comp","data-tip":"memory"},svg);
+  g3.bridge.style.setProperty("--glow",C.cross);
+  const bd=["M295 43 H520 V"+S3_TAP_Y[2]];
+  S3_TAP_Y.forEach(function(y){bd.push("M520 "+y+" H711");});
+  g3.bridgePaths=[];
+  bd.forEach(function(d,k){
+    svgEl("path",{d:d,fill:"none",stroke:"transparent","stroke-width":14},g3.bridge);
+    g3.bridgePaths.push(svgEl("path",{"class":"body",d:d,fill:"none",stroke:C.cross,"stroke-width":k===0?3:2.4,"stroke-dasharray":"7 5","marker-end":k===0?"none":"url(#mk-cross)"},g3.bridge));
+  });
+  g3.bridgeLbl=svgEl("g",null,g3.bridge);
+  svgEl("rect",{x:448,y:54,width:144,height:20,rx:10,fill:C.crossS,stroke:C.cross},g3.bridgeLbl);
+  T(g3.bridgeLbl,520,64,"K, V for every layer",{s:10.5,w:600,f:C.cross});
+
+  /* flow path: source -> Encoder -> H -> bridge -> Decoder -> output */
+  g3.flowD="M195 394 V44 H520 V"+S3_TAP_Y[2]+" H860 V13";
+  g3.flowPath=svgEl("path",{d:g3.flowD,fill:"none",stroke:"none"},svg);
+  g3.flowLen=g3.flowPath.getTotalLength();
+  g3.dots=[0,1,2].map(function(k){return svgEl("circle",{cx:0,cy:0,r:6-k*1.4,fill:C.enc,opacity:0},svg);});
+
+  g3.note=T(svg,540,458,"",{s:11.5,f:C.soft});
+}
+
+upd.s3=function(){
+  const s=state.s3,p=s.p,op=function(v){return (.2+.8*v).toFixed(3);};
+  setA(g3.encG,{opacity:op(p[0])});
+  setA(g3.decG,{opacity:op(p[1])});setA(g3.tgtG,{opacity:op(p[1])});
+  setA(g3.bridge,{opacity:(.1+.9*p[2]).toFixed(3)});
+  setA(g3.outG,{opacity:op(p[3])});
+  /* marching dashes on the bridge */
+  const off=(-(performance.now()/45)%12).toFixed(1);
+  g3.bridgePaths.forEach(function(e){setA(e,{"stroke-dashoffset":off});});
+  /* flow dot: colour follows where it is (blue = encoder, violet = bridge, coral = decoder) */
+  const f=clamp(s.flow,0,1),on=s.stage===3&&f>0&&f<1;
+  g3.dots.forEach(function(d,k){
+    const ff=clamp(f-k*.018,0,1),pt=g3.flowPath.getPointAtLength(ff*g3.flowLen);
+    const col=ff<.215?C.enc:(ff<.62?C.cross:C.dec);
+    setA(d,{cx:pt.x.toFixed(1),cy:pt.y.toFixed(1),fill:col,opacity:on?(1-k*.3).toFixed(2):0});
+  });
+  const msg=s.stage<3?"":(f<.215?"① Encoder reads the whole source in parallel":(f<.62?"② H crosses the bridge into every Decoder layer":"③ Decoder combines H with its own prefix → next-token probabilities"));
+  setT(g3.note,msg);
+};
+
+function initS3(){
+  buildS3();
+  makeStager("s3",{
+    n:4,interval:3800,
+    chips:["Encoder stack","Decoder stack","The bridge: H","Full forward pass"],
+    pins:["encoderBox","decoderBox",["memory","crossattn"],["outtok","linsoft"]],
+    caps:[
+      {t:"① The Encoder stack",b:"On the left is the <span class=\"te\">Encoder</span>: N identical layers stacked up (N = 6 in the original paper), each = <b>Self-Attention + FFN</b>. It reads the whole source sentence in parallel and finally outputs <b>H</b>."},
+      {t:"② The Decoder stack",b:"On the right is the <span class=\"td\">Decoder</span>: also N layers, but each one has an extra sub-layer: <b>Masked Self-Attn → Cross-Attn → FFN</b>. Its input is the target sequence shifted right, and a <b>Linear + Softmax</b> on top produces word probabilities."},
+      {t:"③ The only bridge: memory H",b:"The two stacks are joined by <span class=\"tc\">a single violet bridge</span>: the Encoder's final output H is fed into the Cross-Attention of <b>every</b> Decoder layer, where it serves as <span class=\"tk\">K</span> and <span class=\"tv\">V</span>. Apart from that, the two halves are independent."},
+      {t:"④ Full forward pass: source → H → target word",b:"Follow the dot: the source goes through the Encoder to become H (blue), H crosses the bridge into the Decoder (violet), and the Decoder combines it with the prefix it has already produced (coral) to predict the next word. In <b>training</b> the whole target sequence is fed in parallel (masks prevent peeking); at <b>inference</b> one word is generated at a time."}
+    ],
+    onStage:function(i){
+      state.s3.flow=0;
+      if(i===3)tweenScalar("s3flow",function(){return state.s3.flow;},function(v){state.s3.flow=v;},1,4200);
+    }
+  });
+}
+
+/* =====================================================================
+   SECTION 4 · CROSS-ATTENTION INFORMATION FLOW
+   Q comes from the Decoder, K and V come from the Encoder output H.
+   ===================================================================== */
+const g4={};
+const S4Y=[64,132,200,268];                                        // row tops (4 rows, pitch 68)
+const S4K=SRC.map(function(t){return seedVec("kx:"+t);});          // K = H·W_K   (illustrative)
+const S4V=SRC.map(function(t){return seedVec("vx:"+t);});          // V = H·W_V
+const S4S=TGT_IN.map(function(t){return seedVec("s:"+t);});        // decoder state after masked self-attn
+const S4Q=TGT_IN.map(function(t){return seedVec("qd:"+t);});       // Q = s·W_Q
+const S4C=XA.map(function(row){return weightedSum(row,S4V);});     // context c_i = Σ a_ij v_j
+const S4O=S4S.map(function(s,i){return s.map(function(v,d){return Math.tanh(v+S4C[i][d]);});});   // Norm(s + c)
+const S4BUS_X=356,S4BUS_Y=369;
+
+function buildS4(){
+  const svg=mkSvg("s4Host",1080,462);g4.svg=svg;
+  T(svg,150,17,"ENCODER OUTPUT  →  K , V",{s:11.5,w:700,f:C.enc,mono:true});
+  T(svg,512,17,"ALIGNMENT  A  (T × S)",{s:11.5,w:700,f:C.cross,mono:true});
+  T(svg,828,17,"DECODER STATE  →  Q",{s:11.5,w:700,f:C.dec,mono:true});
+
+  /* ---------- DECODER column (right) ---------- */
+  g4.decG=svgEl("g",null,svg);
+  g4.selBg=svgEl("rect",{x:692,y:0,width:246,height:38,rx:9,fill:"#FFF6DA",stroke:C.q,"stroke-width":2.4},g4.decG);
+  T(g4.decG,745,44,"token",{s:10.5,f:C.soft});T(g4.decG,830,44,"s",{s:11,w:700,f:C.dec,mono:true});
+  g4.qHead=T(g4.decG,898,44,"Q = s·W_Q",{s:11,w:700,f:C.q,mono:true});
+  g4.dChip=[];g4.sVec=[];g4.qVec=[];
+  g4.qBox=compBox(g4.decG,"q",862,56,66,272);
+  g4.sBox=compBox(g4.decG,"proj",796,56,66,272);
+  TGT_IN.forEach(function(tok,i){
+    const y=S4Y[i];
+    const g=svgEl("g",{"class":"clickable"},g4.decG);
+    const r=svgEl("rect",{x:700,y:y,width:90,height:28,rx:8,fill:"#fff",stroke:C.dec,"stroke-width":1.5},g);
+    T(g,745,y+14,tok,{s:12.5,w:600});
+    g.addEventListener("click",function(){setS4Query(i);});
+    g4.dChip.push(r);
+    const sv=makeVec(g4.sBox.g,802,y+5,9,18,2);sv.set(S4S[i],C.dec);g4.sVec.push(sv);
+    const qv=makeVec(g4.qBox.g,868,y+5,9,18,2);qv.set(S4Q[i],C.q);g4.qVec.push(qv);
+    g4.qVec[i].cells.forEach(function(c){c.style.cursor="pointer";c.addEventListener("click",function(){setS4Query(i);});});
+  });
+
+  /* ---------- ENCODER column (left): source token, H, K, V ---------- */
+  g4.encG=svgEl("g",null,svg);
+  T(g4.encG,56,44,"source",{s:10.5,f:C.soft});T(g4.encG,126,44,"H",{s:11,w:700,f:C.enc,mono:true});
+  T(g4.encG,186,44,"K",{s:11,w:700,f:C.k,mono:true});T(g4.encG,246,44,"V",{s:11,w:700,f:C.v,mono:true});
+  g4.hBox=compBox(g4.encG,"memory",96,56,64,272);
+  g4.kBox=compBox(g4.encG,"k",156,56,64,272);
+  g4.vBox=compBox(g4.encG,"v",216,56,64,272);
+  g4.sChip=[];
+  SRC.forEach(function(tok,j){
+    const y=S4Y[j];
+    g4.sChip.push(pill(g4.encG,20,y,72,28,tok,{s:12,stroke:C.enc,r:8}));
+    makeVec(g4.hBox.g,102,y+5,9,18,2).set(S1H[j],C.enc);
+    makeVec(g4.kBox.g,162,y+5,9,18,2).set(S4K[j],C.k);
+    makeVec(g4.vBox.g,222,y+5,9,18,2).set(S4V[j],C.v);
+  });
+  g4.wBox=comp(g4.encG,"proj",20,310,262,26,{fill:"#fff",stroke:C.soft,label:"K = H·W_K ,  V = H·W_V",s:11,r:7,sw:1.3});
+
+  /* ---------- MATRIX (middle) ---------- */
+  const mx=440,my=106,cs=46;
+  g4.matG=svgEl("g",null,svg);
+  T(g4.matG,mx+92,40,"a = softmax( q·Kᵀ / √d )",{s:11.5,w:600,f:C.cross,mono:true});
+  T(g4.matG,mx+92,58,"rows: decoder token (Q)  ·  cols: source token (K)",{s:10.5,f:C.soft});
+  g4.mBox=comp(g4.matG,"crossw",mx-8,my-8,4*cs+8,4*cs+8,{fill:"transparent",sw:1,r:8,dash:"3 3",so:.5});
+  g4.mat=makeMatrix(g4.mBox.g,mx,my,4,4,cs,{rowLabels:TGT_IN,colLabels:SRC,rot:true,colY:my-8,fs:11.5});
+  g4.selRow=svgEl("rect",{x:mx-4,y:my,width:4*cs+2,height:cs,rx:7,fill:"none",stroke:C.q,"stroke-width":2.6},g4.mBox.g);
+  for(let r=0;r<4;r++){(function(r){
+    g4.mat.rl[r].style.pointerEvents="auto";g4.mat.rl[r].style.cursor="pointer";g4.mat.rl[r].addEventListener("click",function(){setS4Query(r);});
+    for(let c=0;c<4;c++){g4.mat.cells[r][c].style.cursor="pointer";g4.mat.cells[r][c].addEventListener("click",function(){setS4Query(r);});}
+  })(r);}
+  T(g4.matG,mx+92,my+4*cs+20,"each row sums to 1 · shape (T × S)",{s:10.5,f:C.cross,w:600,mono:true});
+
+  /* ---------- a_j bars next to V (part of the weights stage) ---------- */
+  g4.barG=svgEl("g",null,svg);
+  T(g4.barG,308,44,"a_ij",{s:11,w:700,f:C.cross,mono:true});
+  g4.wBoxBars=compBox(g4.barG,"scores",282,56,60,272);
+  g4.barFill=[];g4.barTxt=[];
+  for(let j=0;j<4;j++){
+    const y=S4Y[j]+8;
+    svgEl("rect",{x:286,y:y,width:52,height:12,rx:3,fill:C.grayS},g4.wBoxBars.g);
+    g4.barFill.push(svgEl("rect",{x:286,y:y,width:0,height:12,rx:3,fill:C.cross,"fill-opacity":.6},g4.wBoxBars.g));
+    g4.barTxt.push(T(g4.wBoxBars.g,289,y+6,"",{a:"start",s:9.5,mono:true}));
+  }
+
+  /* ---------- context + injection band (bottom) ---------- */
+  g4.injG=svgEl("g",null,svg);
+  svgEl("line",{x1:20,y1:346,x2:1060,y2:346,stroke:"#E6E4DA","stroke-dasharray":"4 4"},g4.injG);
+  g4.busPaths=[];
+  for(let j=0;j<4;j++){
+    const d="M340 "+(S4Y[j]+14)+" H"+S4BUS_X+" V"+S4BUS_Y+" H376";
+    g4.busPaths.push(svgEl("path",{d:d,fill:"none",stroke:C.cross,"stroke-linecap":"round","marker-end":"url(#mk-cross)"},g4.injG));
+  }
+  T(g4.injG,380,349,"c = Σ a_j · v_j",{a:"start",s:11,w:700,f:C.cross,mono:true});
+  g4.cBox=compBox(g4.injG,"context",378,358,66,26);
+  g4.cVec=makeVec(g4.cBox.g,384,363,9,16,2);
+  svgEl("path",{d:"M446 371 H648",fill:"none",stroke:C.cross,"stroke-width":2.4,"stroke-dasharray":"6 4","marker-end":"url(#mk-cross)"},g4.injG);
+  g4.inj=comp(g4.injG,"inject",650,350,240,42,{fill:C.crossS,stroke:C.cross,label:"Add & Norm   (s + c)",s:11.5,sw:1.8});
+  g4.sPath=svgEl("path",{d:"M0 0",fill:"none",stroke:C.dec,"stroke-width":2.2,"stroke-dasharray":"6 4","marker-end":"url(#mk-dec)"},g4.injG);
+  T(g4.injG,650,414,"s′ = Norm(s + c)",{a:"start",s:11,w:700,f:C.ink,mono:true});
+  g4.oVec=makeVec(g4.injG,770,406,9,16,2);
+  T(g4.injG,650,438,"→ the source information now lives inside the decoder state; the FFN comes next.",{a:"start",s:11,f:C.soft});
+  g4.dots=[0,1,2,3].map(function(){return svgEl("circle",{cx:0,cy:0,r:4,fill:C.cross,opacity:0},g4.injG);});
+  g4.dotC=svgEl("circle",{cx:0,cy:0,r:6,fill:C.cross,opacity:0},g4.injG);
+  g4.dotS=svgEl("circle",{cx:0,cy:0,r:5,fill:C.dec,opacity:0},g4.injG);
+}
+
+function setS4Query(i){state.s4.q=i;renderDynamic();scheduleFlush();}
+
+/* position of a dot at fraction t (0..1) along an SVG path element */
+function dotOn(path,t){return path.getPointAtLength(clamp(t,0,1)*path.getTotalLength());}
+
+upd.s4=function(){
+  const s=state.s4,p=s.p,q=s.q,mx=440,my=106,cs=46,row=XA[q];
+  const op=function(v){return (.22+.78*v).toFixed(3);};
+  setA(g4.encG,{opacity:op(p[1])});
+  setA(g4.matG,{opacity:op(p[2])});setA(g4.barG,{opacity:op(p[2])});
+  setA(g4.injG,{opacity:op(p[3])});
+  /* selected decoder row */
+  setA(g4.selBg,{y:S4Y[q]-5});
+  for(let i=0;i<4;i++){setA(g4.dChip[i],{stroke:i===q?C.q:C.dec,"stroke-width":i===q?3:1.5,fill:i===q?"#FFF6DA":"#fff"});}
+  /* source chips glow in proportion to the attention they receive */
+  for(let j=0;j<4;j++){
+    const w=row[j],e=p[2];
+    setA(g4.sChip[j].rect,{fill:mix("#FFFFFF",C.cross,.94*w*e),stroke:e>.5?mix(C.enc,C.cross,Math.min(1,w/.5)):C.enc,"stroke-width":(1.5+4*w*e).toFixed(2)});
+    setA(g4.barFill[j],{width:(52*Math.min(1,w/.75)).toFixed(1)});setT(g4.barTxt[j],f2(w));
+    setA(g4.busPaths[j],{"stroke-width":(1+9*w).toFixed(2),opacity:(.25+.75*Math.min(1,w/.4)).toFixed(2)});
+  }
+  /* matrix */
+  for(let r=0;r<4;r++)for(let c=0;c<4;c++){const w=XA[r][c];setCell(g4.mat,r,c,heat(w,C.cross),f2(w),heatText(w),r===q?1:.6);}
+  setA(g4.selRow,{y:my+q*cs});
+  /* context, output, residual path */
+  g4.cVec.set(S4C[q],C.cross);g4.oVec.set(S4O[q],C.dec);
+  const y0=S4Y[q];
+  setA(g4.sPath,{d:"M829 "+(y0+26)+" V"+(y0+46)+" H1010 V"+S4BUS_Y+" H892"});
+  /* flow dots (stage 3): V-rows -> bus -> context, then context/state -> Add & Norm */
+  const f=clamp(s.flow,0,1),on=s.stage===3&&f>0&&f<1,t1=clamp(f/.6,0,1),t2=clamp((f-.6)/.4,0,1);
+  for(let j=0;j<4;j++){
+    const pt=dotOn(g4.busPaths[j],t1);
+    setA(g4.dots[j],{cx:pt.x.toFixed(1),cy:pt.y.toFixed(1),r:(2+9*Math.sqrt(row[j])*.6).toFixed(1),opacity:(on&&t1<1)?1:0});
+  }
+  setA(g4.dotC,{cx:(446+202*t2).toFixed(1),cy:371,opacity:(on&&t2>0)?1:0});
+  const ps=dotOn(g4.sPath,t2);
+  setA(g4.dotS,{cx:ps.x.toFixed(1),cy:ps.y.toFixed(1),opacity:(on&&t2>0)?1:0});
+  /* live formula */
+  const terms=row.map(function(w,j){return tc(C.cross,f2(w))+"\\,"+tc(C.v,"\\mathbf{v}_{"+(j+1)+"}");}).join("+");
+  const tex="\\text{decoder position }i="+(q+1)+"\\;\\Rightarrow\\;\\mathbf{c}_{"+(q+1)+"}="+terms;
+  const plain="decoder position i = "+(q+1)+"  =>  c_"+(q+1)+" = "+row.map(function(w,j){return f2(w)+"·v_"+(j+1);}).join(" + ");
+  renderFormulaThrottled("s4Live",$("s4FormulaLive"),tex,plain,90);
+};
+
+function initS4(){
+  buildS4();
+  makeStager("s4",{
+    n:4,interval:3600,
+    chips:["Q from the Decoder","K, V from the Encoder","Scores → weights","Context → inject"],
+    pins:[["q","proj"],["k","v","memory"],["crossw","scores"],["context","inject"]],
+    caps:[
+      {t:"① Q comes from the Decoder",b:"In Cross-Attention, <span class=\"tq\">Q</span> is projected from the <b>current Decoder state s</b> (Q = s·W_Q). It stands for “what information do I need from the source right now?” Click any Decoder token on the right to change who is asking."},
+      {t:"② K and V come from the Encoder",b:"Both <span class=\"tk\">K</span> and <span class=\"tv\">V</span> are projected from the <b>Encoder output H</b> (K = H·W_K, V = H·W_V). The source is processed only once, and the result is reused by every Decoder layer at every step."},
+      {t:"③ Scores → alignment weights",b:"<span class=\"tq\">Q</span> is dotted with the <span class=\"tk\">K</span> of each source word, scaled, and passed through softmax, giving one row of <b>alignment weights</b> (summing to 1). Each row is labelled by the Decoder's input token and looks at the source words relevant to the word it must predict next: the &lt;bos&gt; row looks at <b>I</b>, the 我 row at <b>love</b>, and the 爱 row at both <b>deep</b> and <b>learning</b>. This is the word alignment you expect in translation."},
+      {t:"④ Aggregate and inject into the Decoder",b:"The weights combine the <span class=\"tv\">V</span> vectors into one <b>context vector c</b>, which is added to the Decoder's original state s (<b>residual + LayerNorm</b>). This is how source information gets <span class=\"tc\">injected</span> into the Decoder representation. Watch the violet dots flow along the merge lines into Add & Norm."}
+    ],
+    onStage:function(){
+      state.s4.flow=0;
+      tweenScalar("s4flow",function(){return state.s4.flow;},function(v){state.s4.flow=v;},1,2400);
+    }
+  });
+  renderFormula($("s4Formula"),
+    "\\mathbf{c}_i=\\sum_{j}a_{ij}\\mathbf{v}_j,\\quad \\mathbf{a}_i=\\mathrm{softmax}\\!\\left(\\dfrac{\\mathbf{q}_i K^{\\top}}{\\sqrt{d_k}}\\right),\\quad \\mathbf{q}_i=\\mathbf{s}_iW_Q,\\; K=HW_K,\\; V=HW_V",
+    "c_i = Σ_j a_ij · v_j ,  a_i = softmax( q_i·Kᵀ/√d_k ),  q_i = s_i·W_Q,  K = H·W_K,  V = H·W_V");
+}
+
+/* =====================================================================
+   SECTION 5 · ATTENTION MASKS
+   Padding mask (1×S, broadcast) vs look-ahead mask (T×T, lower-triangular).
+   Main matrix walks through 4 stages: raw -> mask preview -> −∞ -> softmax.
+   ===================================================================== */
+const g5={};
+const S5_ENC=["I","love","deep","learning","<pad>","<pad>"];       // source batch row, padded to S = 6
+const S5_DEC=["<bos>","我","爱","深度学习","<pad>","<pad>"];       // target batch row, padded to T = 6
+const S5_PAD=[0,0,0,0,1,1];                                        // 1 = <pad> key
+const S5_NAMES=["Encoder self-attention","Decoder masked self-attention","Cross-attention"];
+const S5_MASKTXT=["M = M_pad","M = M_pad + M_causal","M = M_pad(src)"];
+function s5Rows(w){return w===0?S5_ENC:S5_DEC;}                   // query tokens
+function s5Cols(w){return w===1?S5_DEC:S5_ENC;}                   // key tokens
+function s5Vis(w,i,j){return !S5_PAD[j]&&!(w===1&&j>i);}          // is cell (i,j) allowed to attend?
+/* deterministic raw scores per location, plus their masked softmax */
+const S5_RAW=[0,1,2].map(function(w){
+  const r=mulberry32(hashStr("raw"+w)),m=[];
+  for(let i=0;i<6;i++){m.push([]);for(let j=0;j<6;j++)m[i].push(+(r()*3.4-1.0).toFixed(1));}
+  return m;
+});
+const S5_W=[0,1,2].map(function(w){
+  return S5_RAW[w].map(function(row,i){
+    const ex=row.map(function(v,j){return s5Vis(w,i,j)?Math.exp(v):0;}),sum=ex.reduce(function(a,b){return a+b;},0);
+    return ex.map(function(e){return e/sum;});
+  });
+});
+function s5Count(w){let n=0;for(let i=0;i<6;i++)for(let j=0;j<6;j++)if(s5Vis(w,i,j))n++;return n;}
+
+function mini(parent,key,x,y,R,cs){                               // tiny 0/1 matrix helper
+  return makeMatrix(parent,x,y,R,6,cs,{fs:10,rx:3});
+}
+
+function buildS5(){
+  const svg=mkSvg("s5Host",1080,470);g5.svg=svg;
+  const mx=104,my=118,cs=46;
+  /* ---------- main matrix (left) ---------- */
+  T(svg,mx+144,17,"ATTENTION SCORES",{s:11.5,w:700,f:C.ink,mono:true});
+  g5.mTitle=T(svg,mx+144,40,"",{s:12.5,w:700,f:C.ink});
+  g5.mShape=T(svg,mx+144,58,"",{s:10.5,f:C.soft,mono:true});
+  g5.mBox=comp(svg,"scoresM",mx-8,my-8,6*cs+8+50,6*cs+8,{fill:"transparent",sw:1,r:8,dash:"3 3",so:.5});
+  g5.mat=makeMatrix(g5.mBox.g,mx,my,6,6,cs,{rowLabels:S5_ENC,colLabels:S5_ENC,rot:true,colY:my-8,fs:11});
+  g5.sum=[];
+  for(let r=0;r<6;r++)g5.sum.push(T(g5.mBox.g,mx+6*cs+6,my+r*cs+(cs-2)/2,"",{a:"start",s:9.5,f:C.ok,mono:true}));
+  T(svg,mx-6,my-30,"Q ↓",{a:"end",s:11,w:700,f:C.q});
+  T(svg,mx+2,my-40,"K →",{a:"start",s:11,w:700,f:C.k});
+
+  /* ---------- mask building blocks (right) ---------- */
+  T(svg,750,17,"MASK BUILDING BLOCKS",{s:11.5,w:700,f:C.ink,mono:true});
+  const px=[450,660,870],py=150,mcs=28;
+  const titles=["① Padding mask","② Look-ahead mask","③ Final mask"];
+  const subs=["hide <pad> keys","position i sees j ≤ i","① ∧ ②"];
+  const keys=["padmask","lookahead","combined"];
+  g5.panels=keys.map(function(k,n){
+    const b=comp(svg,k,px[n]-6,72,180,276,{fill:"transparent",sw:1,r:10,dash:"3 3",so:.45});
+    T(b.g,px[n]+84,86,titles[n],{s:12.5,w:700,f:k==="padmask"?C.soft:(TIPS[k].c===C.ink?C.ink:TIPS[k].c)});   // pad-grey is too pale for a title
+    T(b.g,px[n]+84,104,subs[n],{s:10.5,f:C.soft});
+    return b;
+  });
+  /* A: 1×S vector + broadcast T×S */
+  g5.padVec=mini(g5.panels[0].g,"",px[0],114,1,mcs);
+  T(g5.panels[0].g,px[0]+84,146,"↓ broadcast over rows",{s:10,f:C.pad,w:600});
+  g5.padMat=mini(g5.panels[0].g,"",px[0],py,6,mcs);
+  /* B: look-ahead */
+  g5.laMat=mini(g5.panels[1].g,"",px[1],py,6,mcs);
+  g5.laOff=T(g5.panels[1].g,px[1]+84,118,"",{s:10.5,w:600,f:C.bad});
+  /* C: final */
+  g5.fnMat=mini(g5.panels[2].g,"",px[2],py,6,mcs);
+  g5.shapeTxt=[0,1,2].map(function(n){return T(g5.panels[n].g,px[n]+84,py+6*mcs+18,"",{s:10,f:C.soft,mono:true});});
+  T(svg,639,py+3*mcs,"∧",{s:22,w:700,f:C.soft});
+  T(svg,849,py+3*mcs,"=",{s:22,w:700,f:C.soft});
+
+  /* ---------- where it plugs in (bottom right) ---------- */
+  T(svg,440,364,"WHERE THE MASK PLUGS IN",{a:"start",s:11,w:700,f:C.ink,mono:true});
+  const bx=[440,660,880],bk=["selfattn","maskedattn","crossattn"],bc=[C.enc,C.dec,C.cross],bf=[C.encS,C.decS,C.crossS];
+  const bl=["Encoder Self-Attn","Decoder Masked Self-Attn","Cross-Attn"],b1=["padding only","padding ∧ look-ahead","padding of the source"],b2=["(S × S)","(T × T)","(T × S)"];
+  g5.where=bk.map(function(k,n){
+    const b=comp(svg,k,bx[n],374,190,66,{fill:bf[n],stroke:bc[n],sw:1.6,r:9});
+    T(b.g,bx[n]+95,392,bl[n],{s:11.5,w:700,f:bc[n]});
+    T(b.g,bx[n]+95,411,"mask: "+b1[n],{s:10.5,f:C.ink});
+    T(b.g,bx[n]+95,427,"shape "+b2[n],{s:10.5,f:C.soft,mono:true});
+    return b;
+  });
+  /* dashed "you are here" ring around the selected location */
+  g5.ring=svgEl("rect",{x:436,y:370,width:198,height:74,rx:11,fill:"none",stroke:C.ink,"stroke-width":2.2,"stroke-dasharray":"5 4"},svg);
+}
+
+function setS5Where(w){
+  state.s5.where=w;
+  for(let k=0;k<3;k++)$("s5W"+k).setAttribute("aria-pressed",k===w?"true":"false");
+  tweenScalar("s5tri",function(){return state.s5.tri;},function(v){state.s5.tri=v;},w===1?1:0,500);
+  renderDynamic();scheduleFlush();
+}
+
+upd.s5=function(){
+  const s=state.s5,p=s.p,w=s.where,mx=104,my=118,cs=46,rows=s5Rows(w),cols=s5Cols(w),raw=S5_RAW[w],W=S5_W[w];
+  /* labels follow the selected location */
+  for(let i=0;i<6;i++){setT(g5.mat.rl[i],rows[i]);setT(g5.mat.cl[i],cols[i]);
+    setA(g5.mat.rl[i],{fill:rows[i]==="<pad>"?C.pad:C.ink});setA(g5.mat.cl[i],{fill:cols[i]==="<pad>"?C.pad:C.ink});}
+  /* title + shape line per stage */
+  const st=["① raw scores  Q·Kᵀ / √d","② mask preview (red = will be hidden)","③ add M → masked cells become −∞","④ softmax → hidden cells = 0, rows sum to 1"];
+  setT(g5.mTitle,st[s.stage]);
+  setT(g5.mShape,S5_NAMES[w]+" · shape "+(w===2?"T × S":(w===1?"T × T":"S × S"))+" = 6 × 6");
+  /* tooltip on the main matrix follows the stage */
+  setA(g5.mBox.g,{"data-tip":s.stage>=3?"softmaxM":"scoresM"});
+  g5.mBox.g.style.setProperty("--glow",s.stage>=3?C.ok:C.soft);
+  /* cells: crossfade raw -> preview -> −∞ -> softmax */
+  for(let i=0;i<6;i++){
+    let rowSum=0;
+    for(let j=0;j<6;j++){
+      const vis=s5Vis(w,i,j),r=raw[i][j],wt=W[i][j];rowSum+=wt;
+      const norm=clamp((r+1)/3.4,0,1),base=mix("#FFFFFF",C.soft,.1+.16*norm);
+      let fill,txt,tcol;
+      if(vis){
+        fill=p[3]>.5?heat(wt,C.ok):base;txt=p[3]>.5?f2(wt):r.toFixed(1);tcol=p[3]>.5?heatText(wt):C.ink;
+        if(p[3]>.5)fill=mix(base,heat(wt,C.ok),p[3]);
+      }else if(p[2]>.5){
+        fill=C.grayS;txt=p[3]>.5?"0.00":"−∞";tcol=C.pad;
+      }else if(p[1]>.5){
+        fill=mix(base,"#F3C9C9",.9*p[1]);txt=r.toFixed(1);tcol="#B98A8A";
+      }else{fill=base;txt=r.toFixed(1);tcol=C.ink;}
+      setCell(g5.mat,i,j,fill,txt,tcol,1);
+    }
+    setT(g5.sum[i],"Σ = "+rowSum.toFixed(2));setA(g5.sum[i],{opacity:p[3].toFixed(2)});
+  }
+  /* mini panels: 0/1 matrices */
+  const okc=C.okS,offc=C.grayS;
+  for(let j=0;j<6;j++){
+    const on=!S5_PAD[j];
+    setCell(g5.padVec,0,j,on?okc:offc,on?"1":"0",on?C.ok:C.pad,1);
+    for(let i=0;i<6;i++){
+      const ra=clamp(p[1]*6*s.bc-i,0,1);       // rows of the broadcast matrix appear one by one
+      setCell(g5.padMat,i,j,on?okc:offc,on?"1":"0",on?C.ok:C.pad,i===0?1:(.25+.75*ra));
+      const lo=j<=i;
+      setCell(g5.laMat,i,j,lo?okc:offc,lo?"1":"0",lo?C.ok:C.pad,.3+.7*s.tri);
+      const fv=s5Vis(w,i,j);
+      setCell(g5.fnMat,i,j,fv?okc:offc,fv?"1":"0",fv?C.ok:C.pad,1);
+    }
+  }
+  setA(g5.panels[0].g,{opacity:(.35+.65*Math.max(p[1],.4)).toFixed(3)});
+  setA(g5.panels[1].g,{opacity:((.35+.65*Math.max(p[1],.4))*(.42+.58*s.tri)).toFixed(3)});
+  setA(g5.panels[2].g,{opacity:(.35+.65*Math.max(p[1],.4)).toFixed(3)});
+  setT(g5.laOff,s.tri<.5?"not used at this location":"");
+  setT(g5.shapeTxt[0],"1×S → broadcast to "+(w===2?"T×S":(w===1?"T×T":"S×S")));
+  setT(g5.shapeTxt[1],"T×T lower-triangular");
+  setT(g5.shapeTxt[2],w===1?"T×T = ① ∧ ②":(w===2?"T×S = ① only":"S×S = ① only"));
+  /* location ring + boxes */
+  for(let k=0;k<3;k++)setA(g5.where[k].g,{opacity:k===w?1:.4});
+  setA(g5.ring,{x:[436,656,876][w]});
+  /* live formula */
+  const tex=S5_MASKTXT[w].replace(/M_pad\(src\)/,"M_{\\mathrm{pad}}^{\\mathrm{src}}").replace(/M_pad/g,"M_{\\mathrm{pad}}").replace(/M_causal/,"M_{\\mathrm{causal}}")+"\\;\\Rightarrow\\;"+tc(C.ok,s5Count(w)+"/36")+"\\text{ cells visible}";
+  const plain=S5_MASKTXT[w]+"  =>  "+s5Count(w)+" / 36 cells visible";
+  renderFormulaThrottled("s5Live",$("s5FormulaLive"),tex,plain,90);
+};
+
+function initS5(){
+  buildS5();
+  makeStager("s5",{
+    n:4,interval:3800,
+    chips:["Raw scores","Build the masks","Apply: add −∞","Softmax"],
+    pins:["scoresM",["padmask","lookahead"],"combined","softmaxM"],
+    caps:[
+      {t:"① Raw scores: no restrictions yet",b:"Every query has a score for every key, <b>including &lt;pad&gt; keys</b>. In a batch, short sentences are padded with &lt;pad&gt; to equal length (here the source and the target each have 2 pads). Use the buttons above to change where the mask is applied."},
+      {t:"② Building the masks: different shapes",b:"<span class=\"tbad\">Padding mask</span>: just a <b>1×S vector</b> (real word = 1, pad = 0), <b>broadcast</b> across the rows, so it hides whole <b>columns</b>. <b>Look-ahead mask</b>: a <b>T×T lower-triangular matrix</b> that hides the upper-right corner (the future). Decoder self-attention combines the two with a logical <b>AND</b>."},
+      {t:"③ Applying the mask: add −∞ before softmax",b:"Masked cells get <b>−∞</b> added (they turn gray). The mask acts <b>before softmax</b>: it wipes out the scores directly instead of zeroing weights afterwards, so the remaining positions still normalize correctly."},
+      {t:"④ Softmax: masked weights are exactly 0",b:"e<sup>−∞</sup> = 0, so masked positions get weight <b>0</b> and the rest renormalize (each row sums to 1). Compare the three locations: the <b>Encoder</b> uses padding only (missing columns); the <b>Decoder</b> uses padding + lower triangle; <b>Cross-Attn</b> hides only the source padding, has shape <b>T×S</b>, and needs <b>no</b> look-ahead mask."}
+    ],
+    onStage:function(i){
+      if(i===1){                                       // replay the broadcast animation only when the masks are built
+        state.s5.bc=0;
+        tweenScalar("s5bc",function(){return state.s5.bc;},function(v){state.s5.bc=v;},1,900);
+      }
+    }
+  });
+  $("s5W0").addEventListener("click",function(){setS5Where(0);});
+  $("s5W1").addEventListener("click",function(){setS5Where(1);});
+  $("s5W2").addEventListener("click",function(){setS5Where(2);});
+  renderFormula($("s5Formula"),
+    "\\mathrm{softmax}\\!\\left(\\dfrac{QK^{\\top}}{\\sqrt{d_k}}+M\\right),\\qquad M_{ij}=\\begin{cases}0 & \\text{visible}\\\\ -\\infty & \\text{masked}\\end{cases}",
+    "softmax( Q·Kᵀ/√d_k + M ) ,   M_ij = 0 if visible, −∞ if masked");
+}
+
+/* =====================================================================
+   SECTION 6 · WHY THESE ATTENTION DIRECTIONS?
+   Encoder = bidirectional (whole sentence is known).
+   Decoder = causal (the future does not exist at inference; peeking = cheating in training).
+   Two independent toggles let the learner "break" each side.
+   ===================================================================== */
+const g6={};
+const S6E=["The","bank","was","muddy"];
+/* full (unmasked) weights. Encoder: "bank" leans on "muddy". Decoder: each row leans on the NEXT token = the answer */
+const S6EA=[[.34,.30,.18,.18],[.14,.26,.16,.44],[.12,.28,.30,.30],[.10,.36,.18,.36]];
+const S6DA=[[.15,.55,.15,.15],[.10,.15,.60,.15],[.10,.12,.18,.60],[.20,.20,.20,.40]];
+/* effective weight of cell (i,j) when "future" cells (j>i) are scaled by T (T=1 bidirectional, T=0 masked) */
+function s6Eff(full,i,j,T){
+  let den=0;for(let k=0;k<full.length;k++)den+=full[i][k]*(k<=i?1:T);
+  return full[i][j]*(j<=i?1:T)/den;
+}
+const S6_CS=46,S6_MY=124;
+
+function buildS6(){
+  const svg=mkSvg("s6Host",1080,470);g6.svg=svg;
+  const EG=svgEl("g",null,svg),DG=svgEl("g",null,svg);g6.eG=EG;g6.dG=DG;   // one group per panel -> easy dimming
+  /* ================= ENCODER PANEL (left) ================= */
+  const ex=110;
+  T(EG,270,17,"ENCODER SELF-ATTENTION",{s:11.5,w:700,f:C.enc,mono:true});
+  svgEl("rect",{x:14,y:30,width:512,height:300,rx:12,fill:"#FBFCFE",stroke:"#C9D6F5"},EG);
+  g6.eArc=S6E.map(function(){return svgEl("path",{d:"M0 0",fill:"none",stroke:C.enc,"stroke-linecap":"round"},EG);});
+  g6.eChip=S6E.map(function(t,c){return pill(EG,ex+c*S6_CS,84,S6_CS-2,24,t,{s:10.5,stroke:C.enc,r:6});});
+  g6.eBox=comp(EG,"bidir",ex-8,S6_MY-8,4*S6_CS+8,4*S6_CS+8,{fill:"transparent",sw:1,r:8,dash:"3 3",so:.5});
+  g6.eMat=makeMatrix(g6.eBox.g,ex,S6_MY,4,4,S6_CS,{rowLabels:S6E,fs:11});
+  g6.eSel=svgEl("rect",{x:ex-4,y:S6_MY+S6_CS,width:4*S6_CS+2,height:S6_CS,rx:7,fill:"none",stroke:C.q,"stroke-width":2.6},g6.eBox.g);
+  g6.eMode=T(EG,270,322,"",{s:10.5,w:700,f:C.enc,mono:true});
+  /* meaning meter */
+  g6.eMeter=svgEl("g",null,EG);
+  T(g6.eMeter,418,136,"What does “bank” mean here?",{s:11.5,w:700});
+  T(g6.eMeter,326,162,"river bank",{a:"start",s:11,f:C.ok,w:600});
+  T(g6.eMeter,326,210,"money bank",{a:"start",s:11,f:C.soft,w:600});
+  svgEl("rect",{x:326,y:170,width:170,height:16,rx:4,fill:C.grayS},g6.eMeter);svgEl("rect",{x:326,y:218,width:170,height:16,rx:4,fill:C.grayS},g6.eMeter);
+  g6.eBar1=svgEl("rect",{x:326,y:170,width:0,height:16,rx:4,fill:C.ok,"fill-opacity":.75},g6.eMeter);
+  g6.eBar2=svgEl("rect",{x:326,y:218,width:0,height:16,rx:4,fill:C.pad,"fill-opacity":.75},g6.eMeter);
+  g6.eP1=T(g6.eMeter,331,178,"",{a:"start",s:10.5,mono:true,w:700});g6.eP2=T(g6.eMeter,331,226,"",{a:"start",s:10.5,mono:true,w:700});
+  g6.eCtx1=T(g6.eMeter,418,262,"",{s:10.5,f:C.soft,mono:true});g6.eCtx2=T(g6.eMeter,418,280,"",{s:10.5,f:C.soft});
+
+  /* ================= DECODER PANEL (right) ================= */
+  const dx=650;
+  T(DG,810,17,"DECODER SELF-ATTENTION",{s:11.5,w:700,f:C.dec,mono:true});
+  svgEl("rect",{x:554,y:30,width:512,height:300,rx:12,fill:"#FEFAF8",stroke:"#F0D0C7"},DG);
+  g6.dArc=TGT_IN.map(function(){return svgEl("path",{d:"M0 0",fill:"none",stroke:C.dec,"stroke-linecap":"round"},DG);});
+  g6.dChip=TGT_IN.map(function(t,c){
+    const p=pill(DG,dx+c*S6_CS,84,S6_CS-2,24,t,{s:10.5,stroke:C.dec,r:6});
+    p.g.classList.add("clickable");p.g.addEventListener("click",function(){setS6Row(c);});return p;
+  });
+  g6.dBox=comp(DG,"causal",dx-8,S6_MY-8,4*S6_CS+8,4*S6_CS+8,{fill:"transparent",sw:1,r:8,dash:"3 3",so:.5});
+  g6.dMat=makeMatrix(g6.dBox.g,dx,S6_MY,4,4,S6_CS,{rowLabels:TGT_IN,fs:11});
+  g6.dSel=svgEl("rect",{x:dx-4,y:S6_MY+2*S6_CS,width:4*S6_CS+2,height:S6_CS,rx:7,fill:"none",stroke:C.q,"stroke-width":2.6},g6.dBox.g);
+  for(let r=0;r<4;r++){(function(r){
+    g6.dMat.rl[r].style.pointerEvents="auto";g6.dMat.rl[r].style.cursor="pointer";g6.dMat.rl[r].addEventListener("click",function(){setS6Row(r);});
+    for(let c=0;c<4;c++){g6.dMat.cells[r][c].style.cursor="pointer";g6.dMat.cells[r][c].addEventListener("click",function(){setS6Row(r);});}
+  })(r);}
+  /* red/green outline on the "answer" cells (i, i+1) */
+  g6.leak=[0,1,2].map(function(i){return svgEl("rect",{x:dx+(i+1)*S6_CS-1,y:S6_MY+i*S6_CS-1,width:S6_CS,height:S6_CS,rx:5,fill:"none","stroke-width":3,stroke:C.bad},g6.dBox.g);});
+  g6.dMode=T(DG,810,322,"",{s:10.5,w:700,f:C.dec,mono:true});
+  /* label column = what each position must predict */
+  g6.lab=compBox(DG,"leak",840,S6_MY-8,76,4*S6_CS+8);
+  T(g6.lab.g,878,S6_MY-16,"label",{s:10.5,f:C.soft});
+  g6.labTxt=TGT_OUT.map(function(t,i){return T(g6.lab.g,846,S6_MY+i*S6_CS+(S6_CS-2)/2,"→ "+t,{a:"start",s:11,w:600});});
+  /* accuracy readout */
+  T(DG,990,136,"Accuracy (toy numbers)",{s:11.5,w:700});
+  T(DG,924,162,"training (teacher-forced)",{a:"start",s:10,f:C.soft});
+  T(DG,924,210,"inference (no answer given)",{a:"start",s:10,f:C.soft});
+  svgEl("rect",{x:924,y:168,width:128,height:16,rx:4,fill:C.grayS},DG);svgEl("rect",{x:924,y:216,width:128,height:16,rx:4,fill:C.grayS},DG);
+  g6.dBar1=svgEl("rect",{x:924,y:168,width:0,height:16,rx:4,fill:C.dec,"fill-opacity":.75},DG);
+  g6.dBar2=svgEl("rect",{x:924,y:216,width:0,height:16,rx:4,fill:C.dec,"fill-opacity":.75},DG);
+  g6.dP1=T(DG,929,176,"",{a:"start",s:10.5,mono:true,w:700});g6.dP2=T(DG,929,224,"",{a:"start",s:10.5,mono:true,w:700});
+  g6.dN1=T(DG,988,262,"",{s:10.5,w:700,mono:true});g6.dN2=T(DG,988,280,"",{s:10.5,f:C.soft});
+
+  /* ================= SUMMARY (stage 4) ================= */
+  g6.sum=svgEl("g",null,svg);
+  const sb=[[14,C.enc,C.encS,"Encoder  →  look both ways","The input is fully known, so every token may use left AND right context."],
+            [554,C.dec,C.decS,"Decoder  →  look back only","The output is still being written: position i may use tokens ≤ i — in training and at inference."]];
+  sb.forEach(function(b){
+    const bx=comp(g6.sum,"summary",b[0],346,512,80,{fill:b[2],stroke:b[1],sw:1.6,r:12});
+    T(bx.g,b[0]+256,370,b[3],{s:14,w:700,f:b[1]});
+    T(bx.g,b[0]+256,398,b[4],{s:11,f:C.ink});
+  });
+  T(g6.sum,540,447,"Same attention formula — the only difference is the mask.",{s:12.5,w:700,f:C.ok});
+}
+
+function setS6Row(r){state.s6.dq=r;renderDynamic();}
+function setS6Enc(b){
+  state.s6.encB=b;$("s6E1").setAttribute("aria-pressed",b?"true":"false");$("s6E0").setAttribute("aria-pressed",b?"false":"true");
+  tweenScalar("s6enc",function(){return state.s6.encT;},function(v){state.s6.encT=v;},b?1:0,600);
+}
+function setS6Dec(b){
+  state.s6.decB=b;$("s6D1").setAttribute("aria-pressed",b?"true":"false");$("s6D0").setAttribute("aria-pressed",b?"false":"true");
+  tweenScalar("s6dec",function(){return state.s6.decT;},function(v){state.s6.decT=v;},b?1:0,600);
+}
+
+upd.s6=function(){
+  const s=state.s6,p=s.p,eT=s.encT,dT=s.decT,dq=s.dq,ex=110,dx=650,cs=S6_CS,my=S6_MY;
+  /* emphasis per stage: encoder is bright at stage 1 and 4, decoder at stages 2-4 */
+  const encE=1-.65*p[1]*(1-p[3]),decE=.35+.65*p[1];
+  setA(g6.eG,{opacity:encE.toFixed(3)});setA(g6.dG,{opacity:decE.toFixed(3)});
+  setA(g6.sum,{opacity:(.12+.88*p[3]).toFixed(3)});
+
+  /* ---- encoder ---- */
+  for(let i=0;i<4;i++)for(let j=0;j<4;j++){
+    const w=s6Eff(S6EA,i,j,eT),masked=(j>i&&eT<.03);
+    if(masked)setCell(g6.eMat,i,j,C.grayS,"−∞",C.pad,i===1?1:.6);
+    else setCell(g6.eMat,i,j,heat(w,C.enc),f2(w),heatText(w),i===1?1:.6);
+  }
+  for(let j=0;j<4;j++){                                // arcs from "bank" (row 1) to every visible token
+    const w=s6Eff(S6EA,1,j,eT),path=g6.eArc[j];
+    if(j===1||w<.005){setA(path,{d:"M0 0",opacity:0});}
+    else{const x1=ex+1*cs+(cs-2)/2,x2=ex+j*cs+(cs-2)/2;setA(path,{d:arcD(x1,x2,80,10+9*Math.abs(j-1)),"stroke-width":(1.2+11*w).toFixed(2),opacity:(.3+.7*Math.min(1,w/.4)).toFixed(2)});}
+    setA(g6.eChip[j].rect,{stroke:j===1?C.q:C.enc,"stroke-width":j===1?3:1.5,fill:j===1?"#FFF6DA":"#fff"});
+  }
+  const mud=s6Eff(S6EA,1,3,eT),pr=clamp(.5+.43*(mud/.44),0,1);
+  setA(g6.eBar1,{width:(170*pr).toFixed(1)});setA(g6.eBar2,{width:(170*(1-pr)).toFixed(1)});
+  setT(g6.eP1,Math.round(pr*100)+"%");setT(g6.eP2,Math.round((1-pr)*100)+"%");
+  setA(g6.eP1,{fill:pr>.12?"#fff":C.ink});setA(g6.eP2,{fill:(1-pr)>.12?"#fff":C.ink});
+  setT(g6.eMode,s.encB?"MODE: bidirectional · “bank” sees 4 / 4 tokens":"MODE: left-to-right only · “bank” sees 2 / 4 tokens");
+  setT(g6.eCtx1,s.encB?"sees: The · bank · was · muddy":"sees: The · bank");
+  setT(g6.eCtx2,s.encB?"“muddy” disambiguates → river bank":"no right context → stays ambiguous");
+  setA(g6.eCtx2,{fill:s.encB?C.ok:C.bad});
+
+  /* ---- decoder ---- */
+  const inf=p[1]*(1-p[2]);                             // only while stage 2 is showing = "inference view": future tokens are unknown
+  for(let i=0;i<4;i++)for(let j=0;j<4;j++){
+    const w=s6Eff(S6DA,i,j,dT),masked=(j>i&&dT<.03);
+    if(masked)setCell(g6.dMat,i,j,C.grayS,"−∞",C.pad,i===dq?1:.6);
+    else setCell(g6.dMat,i,j,heat(w,C.dec),f2(w),heatText(w),i===dq?1:.6);
+  }
+  setA(g6.dSel,{y:my+dq*cs});
+  for(let j=0;j<4;j++){
+    const w=s6Eff(S6DA,dq,j,dT),path=g6.dArc[j],future=j>dq;
+    if(j===dq||w<.005){setA(path,{d:"M0 0",opacity:0});}
+    else{const x1=dx+dq*cs+(cs-2)/2,x2=dx+j*cs+(cs-2)/2;setA(path,{d:arcD(x1,x2,80,10+9*Math.abs(j-dq)),"stroke-width":(1.2+11*w).toFixed(2),stroke:future?C.bad:C.dec,opacity:(.3+.7*Math.min(1,w/.4)).toFixed(2)});}
+    const unk=inf>.5&&future;
+    setA(g6.dChip[j].rect,{stroke:j===dq?C.q:C.dec,"stroke-width":j===dq?3:1.5,fill:j===dq?"#FFF6DA":(unk?C.grayS:"#fff"),"stroke-dasharray":unk?"3 3":"none"});
+    setT(g6.dChip[j].txt,unk?"?":TGT_IN[j]);
+  }
+  for(let i=0;i<3;i++){setA(g6.leak[i],{stroke:dT>.5?C.bad:C.ok,opacity:(p[2]*(dT>.5?1:.85)).toFixed(2),"stroke-dasharray":dT>.5?"none":"4 3"});}
+  setA(g6.lab.g,{opacity:(.25+.75*p[2]).toFixed(3)});
+  const tr=lerp(.71,.99,dT),fe=lerp(.71,.12,dT);
+  setA(g6.dBar1,{width:(128*tr).toFixed(1)});setA(g6.dBar2,{width:(128*fe).toFixed(1)});
+  setT(g6.dP1,Math.round(tr*100)+"%");setT(g6.dP2,Math.round(fe*100)+"%");
+  setA(g6.dBar2,{fill:dT>.5?C.bad:C.dec});
+  setT(g6.dMode,s.decB?"MODE: bidirectional · sees the future":"MODE: causal mask · sees tokens ≤ i only");
+  setT(g6.dN1,s.decB?"copies token i+1":"nothing to copy");
+  setT(g6.dN2,s.decB?"train ≫ inference ✗":"train = inference ✓");
+  setA(g6.dN1,{fill:s.decB?C.bad:C.ok});
+}
+
+function initS6(){
+  buildS6();
+  makeStager("s6",{
+    n:4,interval:4000,
+    chips:["Encoder: whole sentence","Decoder at inference","Decoder in training","Same attention, different mask"],
+    pins:["bidir","causal","leak","summary"],
+    caps:[
+      {t:"① Encoder: the whole sentence is known → bidirectional",b:"The source sentence is <b>given in full</b> as input. Understanding a word needs <b>both of its neighbors</b>: in “The bank was muddy” you must see the “muddy” on the right to know that bank means a <b>river bank</b>, not a financial one. Switch the Encoder above to <b>Left-to-right only</b> and watch the meaning meter fall back to 50/50."},
+      {t:"② Decoder at inference: the future does not exist yet",b:"While generating, word t has <b>not been written yet</b>, so everything to the right of position i is empty (dashed “?” in the figure). Decoder self-attention can therefore only look at positions <b>≤ i</b>. Being unidirectional is not a restriction, it is a <span class=\"td\">fact of life</span>. Click any Decoder token to change the query position."},
+      {t:"③ Decoder in training: without a mask it would peek at the answer",b:"Training uses teacher forcing: the whole gold sequence is fed in <b>at once, in parallel</b>. If the Decoder used bidirectional attention, position i could see word i+1, which is exactly the <span class=\"tbad\">answer</span> it must predict (red boxes). The model learns to copy, training accuracy approaches 100%, and at inference, with no answer to copy, it <b>collapses</b>. Switch the Decoder to <b>Causal mask</b> and the red boxes are blocked by −∞."},
+      {t:"④ Summary: same attention, different mask",b:"<span class=\"te\">Encoder</span>: input known → <b>bidirectional</b>, using the full context. <span class=\"td\">Decoder</span>: output unknown → <b>causal, unidirectional</b>. The look-ahead mask makes what is visible in training <b>identical to inference</b> while still computing all positions <b>in parallel</b>. The difference lies only in the mask, not in the formula."}
+    ]
+  });
+  $("s6E1").addEventListener("click",function(){setS6Enc(1);});
+  $("s6E0").addEventListener("click",function(){setS6Enc(0);});
+  $("s6D1").addEventListener("click",function(){setS6Dec(1);});
+  $("s6D0").addEventListener("click",function(){setS6Dec(0);});
+}
+
+
+/* =====================================================================
+   V4.2 STORY MODE — WHY TWO SIDES, HOW THEY COMMUNICATE
+   Eight scenes in three acts. The unifying object is one block attention
+   map over Source × Target; Encoder, Decoder and Cross-Attention emerge
+   as three different information-access regions.
+
+   What changed vs V4.1 (all in this block):
+   - pills are real rounded rectangles that size themselves to their text
+     (they used to be ellipses with fixed widths, so long labels overflowed);
+   - accent colours on story text now actually apply (CSS used to override them);
+   - highlight colours that are set after a cell has been animated now win
+     (animations use fill:"forwards" and used to mask later setAttribute calls);
+   - every scene is laid out around the stage centre with even spacing,
+     and callout leaders point at the block they name.
+   ===================================================================== */
+const STORY_COL={ink:C.ink,soft:C.soft,line:C.line,paper:"#F7F6F1",panel:"#FFFFFF",
+  enc:C.enc,encS:C.encS,dec:C.dec,decS:C.decS,cross:C.cross,crossS:C.crossS,
+  q:C.q,k:C.k,v:C.v,bad:C.bad,ok:C.ok,gray:"#9AA1B2",grayS:"#EEF0F4"};
+/* Accent colours are fine for strokes but too pale for 17px text (amber, teal, green, grey, coral).
+   Any text whose fill is set to one of them is routed to a darker, AA-legible shade of the same hue. */
+const STORY_INK={"#D99A00":"#8F6300","#12A59A":"#0B7A72","#6BA82E":"#4A7A1B","#9AA1B2":"#5B6478","#1F9D72":"#147A58","#E2725B":"#C2503A","#D64545":"#C23838"};
+const STORY_TXT={"sv-label":"#5B6478","sv-small":"#6B7385","sv-title":"#1C2333","sv-big":"#1C2333","sv-mono":"#5F6779"};
+const STORY_MARK={};STORY_MARK[C.enc]="mk-story-enc";STORY_MARK[C.dec]="mk-story-dec";STORY_MARK[C.cross]="mk-story-cross";
+const STORY_REDUCED=!!(window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+
+let storyIndex=0,storyTimers=[],storyAnims=[];
+function storyClearTimers(){storyTimers.forEach(clearTimeout);storyTimers=[];storyAnims.forEach(function(a){try{a.cancel()}catch(e){}});storyAnims=[];}
+function storyLater(ms,fn){const t=setTimeout(fn,ms);storyTimers.push(t);return t;}
+function storyAnim(el,keyframes,opts){
+  if(!el||!el.animate)return null;
+  opts=Object.assign({fill:"forwards",easing:"cubic-bezier(.2,.8,.2,1)"},opts||{});
+  if(STORY_REDUCED)opts.duration=1;                       // respect prefers-reduced-motion
+  const a=el.animate(keyframes,opts);storyAnims.push(a);return a;
+}
+
+/* ---------- SVG primitives ---------- */
+function SS(tag,a,p){const e=document.createElementNS(NS,tag);if(a)for(const k in a)e.setAttribute(k,a[k]);if(p)p.appendChild(e);return e;}
+function ST(p,x,y,str,cls,anchor){
+  cls=cls||"sv-label";
+  const t=SS("text",{x:x,y:y,"text-anchor":anchor||"middle","dominant-baseline":"central",class:cls,fill:STORY_TXT[cls]||STORY_TXT["sv-label"]},p);
+  t.textContent=str;
+  const native=t.setAttribute;                             // route accent fills through the readable-ink map
+  t.setAttribute=function(k,v){if(k==="fill"&&STORY_INK[v])v=STORY_INK[v];native.call(this,k,v);};
+  return t;
+}
+function SR(p,x,y,w,h,fill,stroke,rx){return SS("rect",{x:x,y:y,width:w,height:h,rx:rx==null?12:rx,fill:fill||"transparent",stroke:stroke||"none","stroke-width":1.6},p);}
+function SG(w,h){const host=$("storyStage");host.innerHTML="";return SS("svg",{viewBox:"0 0 "+w+" "+h,preserveAspectRatio:"xMidYMid meet",role:"img"},host);}
+
+/* ---------- measuring, so shapes fit their text ---------- */
+function textW(str,cls,weight){
+  const svg=$("storyStage").querySelector("svg");
+  const t=SS("text",{class:cls||"sv-label","font-weight":weight||400,visibility:"hidden"},svg);
+  t.textContent=str;let w=str.length*9;try{w=t.getComputedTextLength();}catch(e){}
+  svg.removeChild(t);return w;
+}
+function pillFit(label,h){return textW(label,"sv-label",700)+h*.85;}          // width the text itself needs
+function pillW(label,h,minW){return Math.max(minW||h*2,pillFit(label,h));}         // ...never below the requested minimum
+
+/* ---------- shapes ---------- */
+function storyToken(p,x,y,w,label,color,sub){
+  const g=SS("g",{class:"story-token"},p);
+  SR(g,x,y,w,58,"#FFFFFF",color,13);
+  const t=ST(g,x+w/2,sub?y+23:y+29,label,"sv-title");t.setAttribute("fill",color);   // centred when there is no caption line
+  if(sub)ST(g,x+w/2,y+46,sub,"sv-small");
+  return g;
+}
+/* a pill is a true stadium (rx = h/2). If the label is wider than `w` it grows around its centre. */
+function storyPill(p,x,y,w,h,label,color,fill){
+  const g=SS("g",null,p),fit=pillFit(label,h);
+  /* grow only when the TEXT needs more room. (V4.2 first pass re-applied the default minimum here,
+     which silently widened rows that had asked for narrower chips and ate their gaps.) */
+  if(!w)w=pillW(label,h);else if(fit>w){x-=(fit-w)/2;w=fit;}
+  SR(g,x,y,w,h,fill||"#fff",color,h/2);
+  const t=ST(g,x+w/2,y+h/2,label,"sv-label");t.setAttribute("fill",color);t.setAttribute("font-weight","700");
+  return g;
+}
+/* a horizontal run of pills with even gaps. cx = centre (or left edge when o.left). */
+function storyRow(p,cx,y,items,o){
+  o=o||{};const h=o.h||40,gap=o.gap==null?16:o.gap;
+  const its=items.map(function(it){return typeof it==="string"?{t:it}:it;});
+  const ws=its.map(function(it){return pillW(it.t,h,o.minW);});
+  const total=ws.reduce(function(a,b){return a+b;},0)+gap*(its.length-1);
+  let x=o.left?cx:cx-total/2;const out=[];
+  its.forEach(function(it,i){out.push({g:storyPill(p,x,y,ws[i],h,it.t,it.c||o.color,it.f||o.fill),x:x,w:ws[i],cx:x+ws[i]/2});x+=ws[i]+gap;});
+  return out;
+}
+/* a run of serif token cards. o.groupAfter/o.groupGap add extra space after one index (source | target). */
+function storyTokenRow(p,cx,y,items,o){
+  o=o||{};const gap=o.gap==null?14:o.gap,pad=o.pad||46,minW=o.minW||92,gg=(o.groupAfter!=null?o.groupGap||0:0);
+  const ws=items.map(function(it){return Math.max(minW,textW(it.t,"sv-title",700)+pad,it.sub?textW(it.sub,"sv-small",400)+28:0);});
+  const total=ws.reduce(function(a,b){return a+b;},0)+gap*(items.length-1)+gg;
+  let x=o.left?cx:cx-total/2;const out=[];
+  items.forEach(function(it,i){out.push({g:storyToken(p,x,y,ws[i],it.t,it.c,it.sub),x:x,w:ws[i],cx:x+ws[i]/2});x+=ws[i]+gap+(i===o.groupAfter?gg:0);});
+  return out;
+}
+
+/* ---------- motion ---------- */
+function fadeIn(el,dy,dur,delay){el.style.opacity=0;storyLater(delay||0,function(){storyAnim(el,[{opacity:0,transform:"translateY("+(dy||8)+"px)"},{opacity:1,transform:"translateY(0)"}],{duration:dur||450});});return el;}
+function drawLine(el,duration,delay){let len=0;try{len=el.getTotalLength()}catch(e){len=400}el.setAttribute("stroke-dasharray",len);el.setAttribute("stroke-dashoffset",len);storyLater(delay||0,function(){storyAnim(el,[{strokeDashoffset:len},{strokeDashoffset:0}],{duration:duration||600});});return el;}
+/* a connector that draws itself, then grows an arrowhead (a marker would otherwise show before the line does) */
+function storyArrow(p,d,color,sw,delay,dur){
+  const path=SS("path",{d:d,fill:"none",stroke:color,"stroke-width":sw||4,"stroke-linecap":"round","stroke-linejoin":"round"},p);
+  dur=dur||420;drawLine(path,dur,delay||0);
+  const mk=STORY_MARK[color];if(mk)storyLater((delay||0)+dur-30,function(){path.setAttribute("marker-end","url(#"+mk+")");});
+  return path;
+}
+/* recolour a cell AFTER it has been animated: a later animation outranks an earlier fill:"forwards" one */
+function paintCell(el,fill,stroke,opacity,sw,dur){if(sw)el.setAttribute("stroke-width",sw);storyAnim(el,[{fill:fill,stroke:stroke,opacity:opacity==null?1:opacity}],{duration:dur||260});}
+function popIn(el,delay){el.style.transformBox="fill-box";el.style.transformOrigin="center";el.style.opacity=0;storyLater(delay||0,function(){storyAnim(el,[{opacity:0,transform:"scale(.94)"},{opacity:1,transform:"scale(1)"}],{duration:360});});return el;}
+function setStoryInsight(html,delay){$("storyInsight").innerHTML="";$("storyInsight").style.opacity=0;storyLater(delay||0,function(){$("storyInsight").innerHTML=html;storyAnim($("storyInsight"),[{opacity:0,transform:"translateY(5px)"},{opacity:1,transform:"translateY(0)"}],{duration:380});});}
+
+/* ---------- building blocks shared by several scenes ---------- */
+function simpleGrid(p,x,y,R,Cn,cs){const cells=[];for(let r=0;r<R;r++){cells[r]=[];for(let c=0;c<Cn;c++)cells[r][c]=SR(p,x+c*cs,y+r*cs,cs-4,cs-4,"#FAFAF7",STORY_COL.line,5);}return cells;}
+function barVector(p,x,y,vals,color){const g=SS("g",null,p),bw=16,gap=6;vals.forEach(function(v,i){const h=18+42*Math.abs(v);SR(g,x+i*(bw+gap),y+58-h,bw,h,mix("#FFFFFF",color,.22+.65*Math.abs(v)),"none",3);});return g;}
+function storySectionCard(p,x,y,w,h,title,subtitle,stroke,fill){
+  const g=SS("g",null,p);
+  SR(g,x,y,w,h,fill||"#FBFBF8",stroke||STORY_COL.line,18);
+  if(title){const t=ST(g,x+w/2,y+34,title,"sv-title");if(stroke)t.setAttribute("fill",stroke);}
+  if(subtitle)ST(g,x+w/2,y+64,subtitle,"sv-label");
+  return g;
+}
+/* a card whose title sits top-left behind a numbered badge and whose caption sits at the bottom,
+   leaving the middle free for connectors that must cross it */
+function storyStepCard(p,x,y,w,h,badge,title,caption,color,fill){
+  const g=SS("g",null,p);
+  SR(g,x,y,w,h,fill||"#FBFBF8",color,18);
+  SS("circle",{cx:x+34,cy:y+34,r:15,fill:STORY_INK[color]||color},g);
+  const n=ST(g,x+34,y+34,badge,"sv-label");n.setAttribute("fill","#FFFFFF");n.setAttribute("font-weight","700");
+  const t=ST(g,x+60,y+34,title,"sv-title","start");t.setAttribute("fill",color);
+  if(caption)ST(g,x+w/2,y+h-30,caption,"sv-label");
+  return g;
+}
+/* left x of an 8×8 block map so that the whole thing (row labels + grid) is visually centred on cx */
+function blockX(cx,cs){return cx-4*cs+42;}
+function blockMap(p,x,y,cs,opt){
+  opt=opt||{};const n=8,cells=simpleGrid(p,x,y,n,n,cs),split=4;
+  SS("line",{x1:x+split*cs-2,y1:y-8,x2:x+split*cs-2,y2:y+n*cs,stroke:STORY_COL.ink,"stroke-width":2.2,opacity:.5},p);
+  SS("line",{x1:x-8,y1:y+split*cs-2,x2:x+n*cs,y2:y+split*cs-2,stroke:STORY_COL.ink,"stroke-width":2.2,opacity:.5},p);
+  ST(p,x+2*cs-2,y-30,"SOURCE KEYS","sv-mono").setAttribute("fill",STORY_COL.enc);
+  ST(p,x+6*cs-2,y-30,"TARGET KEYS","sv-mono").setAttribute("fill",STORY_COL.dec);
+  ST(p,x-34,y+2*cs,"SOURCE","sv-mono","end").setAttribute("fill",STORY_COL.enc);
+  ST(p,x-34,y+6*cs,"TARGET","sv-mono","end").setAttribute("fill",STORY_COL.dec);
+  return {cells:cells,x:x,y:y,cs:cs};
+}
+function fillBlock(cells,r0,r1,c0,c1,fill,stroke,opacity){for(let r=r0;r<r1;r++)for(let c=c0;c<c1;c++){cells[r][c].setAttribute("fill",fill);cells[r][c].setAttribute("stroke",stroke);cells[r][c].setAttribute("opacity",opacity==null?1:opacity);}}
+/* the 8×8 map is coloured by region: source rows = Encoder, target rows × source keys = Cross, target × target = Decoder */
+function regionStyle(r,c){const S=STORY_COL;return r<4?{fill:S.encS,stroke:S.enc}:(c<4?{fill:S.crossS,stroke:S.cross}:{fill:S.decS,stroke:S.dec});}
+
+/* ---------- scene data (act / title / question / insight are unchanged from V4.1; `delay` = when the caption appears) ---------- */
+const STORY=[
+ {act:"ACT I · WHY TWO ROLES?",title:"One sequence is read; one is written",question:"Why not put source and target into one ordinary attention rule?",insight:"One shared visibility rule creates a conflict: <strong>full attention leaks the target future</strong>, while one global causal mask throws away source context that already exists.",delay:3700,draw:function(){drawV41Story1();}},
+ {act:"ACT I · WHY TWO ROLES?",title:"The source is already complete",question:"Why is Encoder self-attention bidirectional?",insight:"The whole source exists before generation begins, so every source token can use <strong>both left and right context</strong>.",delay:2900,draw:function(){drawV41Story2();}},
+ {act:"ACT I · WHY TWO ROLES?",title:"The target is still being created",question:"Why is Decoder self-attention causal?",insight:"At decoding step t, only the prefix exists. The causal triangle is simply the <strong>geometry of information available over time</strong>.",delay:2800,draw:function(){drawV41Story3();}},
+ {act:"ACT II · THE BRIDGE",title:"A missing block",question:"If the Decoder cannot see its future, how can it still know what the source says?",insight:"Causality restricts <strong>Decoder → Decoder</strong> attention, not access to the source. The Decoder may query the <strong>entire encoded source</strong>.",delay:2900,draw:function(){drawV41Story4();}},
+ {act:"ACT II · THE BRIDGE",title:"Why split into Encoder–Decoder?",question:"What architecture falls out of these information-access rules?",insight:"A single masked attention system could emulate these rules, but Encoder–Decoder makes the asymmetry explicit: <strong>read a complete source, write a causal target, connect them with Cross-Attention</strong>.",delay:2700,draw:function(){drawV41Story5();}},
+ {act:"ACT II · THE BRIDGE",title:"Encoder builds H once",question:"What exactly crosses from the bidirectional side to the causal side?",insight:"The Encoder reads the source once and produces <strong>H</strong>: contextual source vectors that remain available while the Decoder grows its prefix.",delay:3500,draw:function(){drawV41Story6();}},
+ {act:"ACT II · THE BRIDGE",title:"How the Decoder reads H",question:"How does one causal Decoder state retrieve the right information from bidirectional H?",insight:"The Decoder state supplies <strong>Q</strong>; Encoder memory supplies <strong>K and V</strong>. Q/K choose where to look, then the same weights retrieve V.",delay:3000,draw:function(){drawV41Story7();}},
+ {act:"ACT III · PUT IT TOGETHER",title:"Encode once, decode repeatedly",question:"What does the complete Encoder–Decoder loop look like over time?",insight:"Encoder understands what is already known. Decoder generates what does not exist yet. <strong>Cross-Attention lets every new target token consult that understanding.</strong>",delay:3700,draw:function(){drawV41Story8();}}
+];
+function storyScene(i){storyClearTimers();storyIndex=clamp(i,0,STORY.length-1);const sc=STORY[storyIndex];
+  $("storyCount").textContent=String(storyIndex+1).padStart(2,"0")+" / "+String(STORY.length).padStart(2,"0");
+  $("storyAct").textContent=sc.act;$("storySceneTitle").textContent=sc.title;$("storyQuestion").textContent=sc.question;$("storyInsight").innerHTML="";
+  $("storyProgress").style.width=((storyIndex+1)/STORY.length*100)+"%";
+  $("storyPrev").disabled=storyIndex===0;$("storyNext").textContent=storyIndex===STORY.length-1?"Finish ✓":"Next →";
+  sc.draw();
+  const svg=$("storyStage").querySelector("svg");if(svg)svg.setAttribute("aria-label",sc.title+". "+sc.insight.replace(/<[^>]+>/g,""));
+  setStoryInsight(sc.insight,sc.delay||3000);
+}
+function storyStep(d){if(storyIndex+d>=STORY.length){exitStory();return;}if(storyIndex+d<0)return;storyScene(storyIndex+d);}
+function setModeButtons(mode){
+  $("modeExplore").setAttribute("aria-pressed",mode==="explore"?"true":"false");
+  $("modeGuided").setAttribute("aria-pressed",mode==="guided"?"true":"false");
+  $("modeStory").setAttribute("aria-pressed",mode==="story"?"true":"false");
+}
+function enterStory(){storyClearTimers();state.mode="story";document.body.classList.remove("classroom","show-formula");document.body.classList.add("story");$("guidedBar").classList.add("hidden");clearSpotlight();unpin();setModeButtons("story");storyScene(storyIndex||0);}
+function exitStory(){storyClearTimers();state.mode="explore";document.body.classList.remove("story","classroom","show-formula");$("guidedBar").classList.add("hidden");clearSpotlight();unpin();setModeButtons("explore");window.scrollTo({top:0,behavior:"smooth"});}
+
+/* 1 · Why one ordinary visibility rule fails */
+function drawV41Story1(){const svg=SG(1400,690),g=SS("g",null,svg),S=STORY_COL;
+  const src=["I","love","deep","learning"],tgt=["<bos>","我","爱","深度学习"];
+  const items=src.map(function(t){return {t:t,c:S.enc,sub:"source"};}).concat(tgt.map(function(t){return {t:t,c:S.dec,sub:"target"};}));
+  storyTokenRow(g,700,36,items,{gap:8,minW:112,groupAfter:3,groupGap:40}).forEach(function(tk,i){fadeIn(tk.g,6,260,i*40);});
+  const PY=136,PH=450,cs=34,my=PY+106;
+  const gA=SS("g",null,g),gB=SS("g",null,g);
+  SR(gA,75,PY,610,PH,"#FBFBF8",S.line,18);SR(gB,715,PY,610,PH,"#FBFBF8",S.line,18);
+  ST(gA,380,PY+34,"One shared rule: full attention","sv-title");ST(gB,1020,PY+34,"One shared rule: causal mask","sv-title");
+  const A=blockMap(gA,blockX(380,cs),my,cs),B=blockMap(gB,blockX(1020,cs),my,cs);
+  fadeIn(gA,6,340,380);fadeIn(gB,6,340,470);
+  A.cells.flat().forEach(function(c){c.setAttribute("opacity",".18");});B.cells.flat().forEach(function(c){c.setAttribute("opacity",".18");});
+  storyLater(850,function(){for(let r=0;r<8;r++)for(let c=0;c<8;c++)storyLater((r*8+c)*8,function(){const st=regionStyle(r,c);storyAnim(A.cells[r][c],[{opacity:.18},{opacity:.92,fill:st.fill,stroke:st.stroke}],{duration:220});});});
+  storyLater(1550,function(){for(let r=0;r<8;r++)for(let c=0;c<8;c++){const on=c<=r,st=regionStyle(r,c);storyAnim(B.cells[r][c],[{opacity:.18},{opacity:on?.92:.28,fill:on?st.fill:S.grayS,stroke:on?st.stroke:S.line}],{duration:300});}});
+  /* left: the target rows can see target keys to their right = the answer */
+  storyLater(2350,function(){for(let r=4;r<8;r++)for(let c=Math.max(4,r+1);c<8;c++)paintCell(A.cells[r][c],"#FBE0E0",S.bad,1,3,260);
+    const t=ST(gA,380,my+8*cs+34,"target can peek at future answers","sv-label");t.setAttribute("fill",S.bad);t.setAttribute("font-weight","700");fadeIn(t,5,300,0);});
+  /* right: the source rows lose the keys to their right */
+  storyLater(2750,function(){for(let r=0;r<4;r++)for(let c=r+1;c<4;c++)paintCell(B.cells[r][c],"#E4E7ED",S.gray,1,2.5,260);
+    const t=ST(gB,1020,my+8*cs+34,"source loses right-hand context","sv-label");t.setAttribute("fill",S.gray);t.setAttribute("font-weight","700");fadeIn(t,5,300,0);});
+  storyLater(3200,function(){fadeIn(ST(g,700,634,"Bidirectional reading and causal writing need different visibility rules","sv-title"),8,420,0);});
+}
+
+/* 2 · Encoder source-source block fills completely */
+function drawV41Story2(){const svg=SG(1400,690),g=SS("g",null,svg),S=STORY_COL,words=["The","bank","was","muddy"];
+  const row=storyTokenRow(g,700,50,words.map(function(t){return {t:t,c:S.enc};}),{gap:30,minW:190});
+  row.forEach(function(tk,i){fadeIn(tk.g,7,320,i*70);});
+  const bank=row[1].cx,mud=row[3].cx,ay=50+58+8,mid=(bank+mud)/2;
+  storyLater(850,function(){
+    storyArrow(g,"M"+mud+" "+ay+" Q"+mid+" "+(ay+96)+" "+bank+" "+(ay+3),S.enc,6,0,720);
+    fadeIn(storyPill(g,mid-190,ay+62,380,38,"right context is already available",S.enc,S.encS),5,260,0);
+  });
+  storySectionCard(g,105,250,530,330,"Meaning of “bank”","Right context changes the representation.",S.enc,"#FBFBF8");
+  storySectionCard(g,765,250,530,330,"Source × Source","Every source position may read every source position.",S.enc,"#FBFBF8");
+  const pr=storyRow(g,370,368,[{t:"financial bank · 50%",c:S.gray,f:"#F5F5F2"},{t:"river bank · 50%",c:S.gray,f:"#F5F5F2"}],{h:42,gap:28});
+  pr.forEach(function(p){fadeIn(p.g,5,300,650);});
+  storyLater(1680,function(){
+    pr[0].g.setAttribute("opacity",".3");
+    const b=pr[1].g;b.querySelector("text").textContent="river bank · 92%";b.querySelector("rect").setAttribute("stroke",S.enc);b.querySelector("text").setAttribute("fill",S.enc);
+    fadeIn(storyRow(g,370,462,[{t:"“muddy” resolves the ambiguity → river bank",c:S.enc,f:S.encS}],{h:42})[0].g,5,260,0);
+  });
+  /* right card: the full 4×4 block, labelled with the words it connects */
+  const cs=46,gx=966,gy=362,cells=simpleGrid(g,gx,gy,4,4,cs);cells.flat().forEach(function(c){c.setAttribute("opacity",".18");});
+  words.forEach(function(w,i){ST(g,gx+i*cs+(cs-4)/2,gy-16,w,"sv-small");ST(g,gx-10,gy+i*cs+(cs-4)/2,w,"sv-small","end");});
+  storyLater(1850,function(){cells.flat().forEach(function(c,i){storyLater(i*32,function(){storyAnim(c,[{opacity:.18},{opacity:1,fill:S.encS,stroke:S.enc}],{duration:220});});});});
+  storyLater(2650,function(){const hi=SR(g,gx-4,gy+cs-4,4*cs-4+8,cs-4+8,"none",S.q,10);hi.setAttribute("stroke-width","3");fadeIn(hi,0,300,0);});   // the “bank” row reads all four words
+}
+
+/* 3 · Decoder target-target triangle grows */
+function drawV41Story3(){const svg=SG(1400,690),g=SS("g",null,svg),S=STORY_COL,labs=["<bos>","我","爱","深度学习"];
+  storySectionCard(g,105,100,565,480,"Target grows over time","At step t, only the prefix exists.",S.dec,"#FBFBF8");
+  storySectionCard(g,760,100,535,480,"Target × Target","Visibility grows one row at a time.",S.dec,"#FBFBF8");
+  const rows=[["<bos>"],["<bos>","我"],["<bos>","我","爱"],["<bos>","我","爱","深度学习"]];
+  rows.forEach(function(row,r){
+    const yy=204+r*82,grp=SS("g",null,g);
+    ST(grp,186,yy+20,"t = "+(r+1),"sv-mono","end");
+    storyRow(grp,204,yy,row.map(function(t){return {t:t};}),{left:true,h:40,gap:14,color:S.dec,fill:"#fff"});
+    grp.setAttribute("opacity",r===0?"1":".15");
+    if(r>0)storyLater(550+r*430,function(){storyAnim(grp,[{opacity:.15},{opacity:1}],{duration:300});});
+  });
+  const gx=944,gy=232,cs=60;
+  labs.forEach(function(t,i){ST(g,gx-14,gy+i*cs+(cs-4)/2,t,"sv-small","end");ST(g,gx+i*cs+(cs-4)/2,gy-16,t,"sv-small");});
+  const cells=simpleGrid(g,gx,gy,4,4,cs);cells.flat().forEach(function(c){c.setAttribute("opacity",".2");});
+  for(let r=0;r<4;r++)storyLater(520+r*430,function(){for(let c=0;c<=r;c++)storyAnim(cells[r][c],[{opacity:.2,fill:"#FAFAF7"},{opacity:1,fill:S.decS,stroke:S.dec}],{duration:300});});
+  storyLater(2260,function(){for(let r=0;r<4;r++)for(let c=r+1;c<4;c++)paintCell(cells[r][c],S.grayS,S.line,.55,1.6,260);
+    fadeIn(storyRow(g,1027,508,[{t:"future target words do not exist yet",c:S.bad,f:"#FFF0EC"}],{h:40})[0].g,5,250,0);});
+}
+
+/* 4 · Fill the target-query/source-key cross block */
+function drawV41Story4(){const svg=SG(1400,690),g=SS("g",null,svg),S=STORY_COL,cs=48,mx=blockX(700,cs),my=76,M=blockMap(g,mx,my,cs);
+  M.cells.flat().forEach(function(c){c.setAttribute("opacity",".18");});
+  fillBlock(M.cells,0,4,0,4,S.encS,S.enc,.95);
+  for(let r=4;r<8;r++)for(let c=4;c<8;c++){const on=(c-4)<=r-4;M.cells[r][c].setAttribute("fill",on?S.decS:S.grayS);M.cells[r][c].setAttribute("stroke",on?S.dec:S.line);M.cells[r][c].setAttribute("opacity",on?.95:.34);}
+  fillBlock(M.cells,0,4,4,8,"#FAFAF7",S.line,.22);
+  const left=mx,right=mx+8*cs-4,ly=my+7*cs+(cs-4)/2;          // leaders aim at the last target row: clear of the row labels
+  storyLater(850,function(){fillBlock(M.cells,4,8,0,4,S.crossS,S.cross,.25);
+    for(let r=4;r<8;r++)for(let c=0;c<4;c++)storyLater(((r-4)*4+c)*28,function(){storyAnim(M.cells[r][c],[{opacity:.25,fill:S.crossS},{opacity:1,fill:S.crossS,stroke:S.cross}],{duration:240});});
+    const hi=SR(g,mx-2,my+4*cs-2,4*cs,4*cs,"transparent",S.cross,9);hi.setAttribute("stroke-width","5");hi.setAttribute("class","story-glow-violet");});
+  /* callouts: each one sits beside — and points at — the block it names (V4.1 had the two leaders swapped) */
+  storyLater(1600,function(){
+    const cw=pillW("Cross-Attention",42),dw=pillW("Decoder self-attention",42),lx=400-cw,rx=1000;
+    fadeIn(storyPill(g,lx,ly-21,cw,42,"Cross-Attention",S.cross,S.crossS),5,240,0);ST(g,lx+cw/2,ly+46,"may read the whole source","sv-label");
+    fadeIn(storyPill(g,rx,ly-21,dw,42,"Decoder self-attention",S.dec,S.decS),5,240,0);ST(g,rx+dw/2,ly+46,"causal: only the target prefix","sv-label");
+    storyArrow(g,"M"+(lx+cw+6)+" "+ly+" H"+(left-8),S.cross,3.5,60,380);
+    storyArrow(g,"M"+(rx-6)+" "+ly+" H"+(right+10),S.dec,3.5,140,380);
+  });
+  storyLater(2150,function(){const src=["I","love","deep","learning"],cx=mx+2*cs-2;
+    fadeIn(storyPill(g,cx-125,506,250,32,"Encoder source / memory",S.enc,"#FFFFFF"),5,220,0);
+    storyRow(g,cx,552,src.map(function(t){return {t:t};}),{h:36,gap:14,color:S.enc,fill:S.encS}).forEach(function(p,i){fadeIn(p.g,5,220,i*55);});
+    const q=storyToken(g,1000+pillW("Decoder self-attention",42)/2-90,548,180,"爱",S.dec,"current Decoder state");fadeIn(q,7,280,180);});
+}
+
+/* 5 · Decompose block map into Encoder / Decoder / Cross */
+function drawV41Story5(){const svg=SG(1400,690),g=SS("g",null,svg),S=STORY_COL,cs=40,mx=blockX(700,cs),my=60,M=blockMap(g,mx,my,cs);
+  M.cells.flat().forEach(function(c){c.setAttribute("opacity",".18");});
+  fillBlock(M.cells,0,4,0,4,S.encS,S.enc,.95);fillBlock(M.cells,4,8,0,4,S.crossS,S.cross,.95);fillBlock(M.cells,0,4,4,8,"#FAFAF7",S.line,.2);
+  for(let r=4;r<8;r++)for(let c=4;c<8;c++){const on=(c-4)<=r-4;M.cells[r][c].setAttribute("fill",on?S.decS:S.grayS);M.cells[r][c].setAttribute("stroke",on?S.dec:S.line);M.cells[r][c].setAttribute("opacity",on?.95:.3);}
+  const ly1=my+3*cs+(cs-4)/2,ly2=my+7*cs+(cs-4)/2,left=mx,right=mx+8*cs-4;
+  /* three labelled leaders, one per region */
+  const ew=pillW("Encoder self-attn",40),cw=pillW("Cross-Attention",40);
+  storyPill(g,470-ew,ly1-20,ew,40,"Encoder self-attn",S.enc,S.encS);storyArrow(g,"M474 "+ly1+" H"+(left-8),S.enc,3.5,180,320);
+  storyPill(g,470-cw,ly2-20,cw,40,"Cross-Attention",S.cross,S.crossS);storyArrow(g,"M474 "+ly2+" H"+(left-8),S.cross,3.5,280,320);
+  storyPill(g,930,ly2-20,pillW("Decoder self-attn",40),40,"Decoder self-attn",S.dec,S.decS);storyArrow(g,"M926 "+ly2+" H"+(right+10),S.dec,3.5,230,320);
+  /* the two halves, and the single bridge between them */
+  const cy=452,ch=160,mid=cy+ch/2;
+  storyLater(980,function(){
+    fadeIn(storySectionCard(g,140,cy,330,ch,"Encoder","read the complete source",S.enc,S.encS),8,320,0);
+    fadeIn(storySectionCard(g,930,cy,330,ch,"Decoder","write a growing target",S.dec,S.decS),8,320,80);});
+  storyLater(1620,function(){
+    const bw=pillW("Cross-Attention",42),bx=700-bw/2;
+    storyArrow(g,"M474 "+mid+" H"+(bx-8),S.cross,5,0,340);storyArrow(g,"M"+(bx+bw+6)+" "+mid+" H926",S.cross,5,120,340);
+    fadeIn(storyPill(g,bx,mid-21,bw,42,"Cross-Attention",S.cross,"#FFFFFF"),5,260,160);
+    fadeIn(ST(g,700,mid+42,"H flows in as K and V","sv-small"),5,260,300);});
+}
+
+/* 6 · Encoder runs once; H stays while Decoder prefix grows */
+function drawV41Story6(){const svg=SG(1400,690),g=SS("g",null,svg),S=STORY_COL,src=["I","love","deep","learning"];
+  storySectionCard(g,85,90,570,320,"Encoder","reads the complete source once",S.enc,"#FBFBF8");
+  storySectionCard(g,745,90,570,320,"Encoder memory H","stays fixed while the Decoder grows",S.cross,"#FBFBF8");
+  const toks=storyTokenRow(g,370,180,src.map(function(t){return {t:t,c:S.enc};}),{gap:14,minW:84,pad:34});
+  toks.forEach(function(tk,i){fadeIn(tk.g,6,240,i*55);});
+  const bx=150,bw=440,by=290;
+  const box=SS("g",null,g);SR(box,bx,by,bw,86,S.encS,S.enc,16);ST(box,370,by+28,"bidirectional reading","sv-title").setAttribute("fill",S.enc);ST(box,370,by+61,"all source positions contextualize each other","sv-label");fadeIn(box,7,280,420);
+  toks.forEach(function(tk,i){const tx=bx+70+i*((bw-140)/3);drawLine(SS("path",{d:"M"+tk.cx+" "+(180+60)+" L"+tx+" "+(by-2),fill:"none",stroke:S.enc,"stroke-width":3,opacity:.7,"stroke-linecap":"round"},g),320,620+i*45);});
+  storyLater(1160,function(){const vals=[[.6,.2,.7,.4,.3],[.2,.8,.3,.6,.4],[.5,.3,.8,.2,.7],[.3,.7,.4,.8,.2]];
+    vals.forEach(function(v,i){const x=783+i*130;fadeIn(barVector(g,x,208,v,S.cross),6,260,i*70);fadeIn(ST(g,x+52,290,"h"+(i+1),"sv-small"),6,260,i*70);});});
+  /* Decoder prefix: one token per step; each new token draws its own arrow from the same, unchanged H */
+  ST(g,110,488,"Decoder prefix","sv-title","start").setAttribute("fill",S.dec);ST(g,110,524,"grows by one token per step","sv-label","start");
+  const pre=["<bos>","我","爱","深度学习"],tk2=storyTokenRow(g,1030,462,pre.map(function(t,i){return {t:t,c:S.dec,sub:"t = "+(i+1)};}),{gap:22,minW:96});
+  tk2.forEach(function(tk,i){
+    tk.g.setAttribute("opacity",i===0?"1":".14");
+    const when=i===0?1980:1780+i*380;
+    if(i>0)storyLater(when,function(){storyAnim(tk.g,[{opacity:.14},{opacity:1}],{duration:300});});
+    storyArrow(g,"M"+tk.cx+" 414 V"+(462-6),S.cross,4,when,300);
+  });
+  storyLater(3000,function(){fadeIn(storyRow(g,1030,574,[{t:"the same H is queried at every step",c:S.cross,f:"#FFFFFF"}],{h:40})[0].g,5,250,0);});
+}
+
+/* 7 · Q from Decoder; K/V from H; match then retrieve */
+function drawV41Story7(){const svg=SG(1400,690),g=SS("g",null,svg),S=STORY_COL,scores=[.08,.70,.13,.09];
+  storySectionCard(g,80,50,300,150,"Decoder state","current causal state",S.dec,"#FBFBF8");
+  const qp=storyRow(g,230,142,[{t:"Query  Q",c:S.q,f:"#FFF7DE"}],{h:40,minW:150})[0];fadeIn(qp.g,5,220,110);
+  storySectionCard(g,440,50,880,150,"Encoder memory H","K tells us where to look; V carries content back",S.cross,"#FBFBF8");
+  storyRow(g,880,142,["h1","h2","h3","h4"].map(function(t){return {t:t};}),{h:40,gap:24,minW:80,color:S.cross,fill:S.crossS}).forEach(function(p){fadeIn(p.g,4,220,60);});
+  storyStepCard(g,65,240,595,360,"1","Match","Q compares against Encoder Keys",S.q,"#FBFBF8");
+  storyStepCard(g,740,240,595,360,"2","Retrieve","the same weights mix Encoder Values",S.v,"#FBFBF8");
+  const K=storyRow(g,362,322,[1,2,3,4].map(function(i){return {t:"K"+i};}),{h:40,gap:30,minW:100,color:S.k,fill:"#E5F7F5"});
+  const V=storyRow(g,1037,322,[1,2,3,4].map(function(i){return {t:"V"+i};}),{h:40,gap:30,minW:100,color:S.v,fill:"#EFF8E8"});
+  storyLater(620,function(){K.forEach(function(k,i){const p=SS("path",{d:"M230 "+(142+40+4)+" C230 262 "+k.cx+" 250 "+k.cx+" 316",fill:"none",stroke:S.q,"stroke-width":2+10*scores[i],opacity:.22+.75*scores[i],"stroke-linecap":"round"},g);drawLine(p,430,i*65);});});
+  storyLater(1220,function(){
+    scores.forEach(function(s,i){fadeIn(storyPill(g,K[i].cx-40,402,80,32,Math.round(s*100)+"%",S.cross,S.crossS),5,200,i*50);});
+    fadeIn(ST(g,700,398,"weights","sv-small"),5,220,180).setAttribute("fill",S.cross);
+    storyArrow(g,"M664 424 H734",S.cross,5,230,300);});
+  storyLater(1940,function(){
+    const ctx=storyRow(g,1037,492,[{t:"context",c:S.cross,f:S.crossS}],{h:46,minW:180})[0];popIn(ctx.g,500);
+    V.forEach(function(v,i){drawLine(SS("path",{d:"M"+v.cx+" 366 C"+v.cx+" 440 1037 430 1037 486",fill:"none",stroke:S.v,"stroke-width":2+10*scores[i],opacity:.2+.78*scores[i],"stroke-linecap":"round"},g),430,i*55);});});
+}
+
+/* 8 · Complete loop: source -> H once; repeated target steps query H */
+function drawV41Story8(){const svg=SG(1400,690),g=SS("g",null,svg),S=STORY_COL;
+  const cy=70,ch=230,mid=cy+ch/2+18,src=["I","love","deep","learning"],pre=["<bos>","我","爱","深度学习"],nxt=["我","爱","深度学习","<eos>"];
+  fadeIn(storySectionCard(g,90,cy,330,ch,"Encoder","runs once on the full source",S.enc,S.encS),8,320,0);
+  fadeIn(storySectionCard(g,535,cy,330,ch,"H","stable source memory",S.cross,S.crossS),8,320,90);
+  fadeIn(storySectionCard(g,980,cy,330,ch,"Decoder","grows the target prefix",S.dec,S.decS),8,320,180);
+  /* Encoder: 2×2 source chips.  H: four memory chips.  Decoder: prefix chips appear one per step */
+  storyRow(g,255,cy+118,[{t:"I"},{t:"love"}],{h:36,gap:10,color:S.enc,fill:"#fff"}).forEach(function(p){fadeIn(p.g,5,220,320);});
+  storyRow(g,255,cy+168,[{t:"deep"},{t:"learning"}],{h:36,gap:10,color:S.enc,fill:"#fff"}).forEach(function(p){fadeIn(p.g,5,220,380);});
+  storyRow(g,700,cy+142,["h1","h2","h3","h4"].map(function(t){return {t:t};}),{h:36,gap:16,minW:58,color:S.cross,fill:"#fff"}).forEach(function(p,i){fadeIn(p.g,5,220,1000+i*50);});
+  const d1=storyRow(g,1145,cy+118,[{t:pre[0]},{t:pre[1]}],{h:36,gap:10,color:S.dec,fill:"#fff"}),d2=storyRow(g,1145,cy+168,[{t:pre[2]},{t:pre[3]}],{h:36,gap:10,color:S.dec,fill:"#fff"}),dp=d1.concat(d2);
+  dp.forEach(function(p,i){p.g.setAttribute("opacity",i===0?"1":".12");});
+  /* the two connectors */
+  storyArrow(g,"M424 "+mid+" H531",S.enc,5,560,380);fadeIn(ST(g,477,mid-24,"once","sv-small"),4,240,700).setAttribute("fill",S.enc);
+  storyArrow(g,"M869 "+mid+" H976",S.cross,5,930,380);fadeIn(ST(g,922,mid-24,"every step","sv-small"),4,240,1050).setAttribute("fill",S.cross);
+  /* timeline: one card per decoding step, each with a pulse travelling along the H → Decoder connector */
+  const ty=398,tw=290,tgap=20,tx0=90,T0=1250,TS=560;
+  for(let k=0;k<4;k++){
+    const x=tx0+k*(tw+tgap),grp=SS("g",null,g),when=T0+k*TS,prefix=pre.slice(0,k+1).join("  ");
+    SR(grp,x,ty,tw,196,"#FFFFFF",S.line,16);
+    ST(grp,x+22,ty+28,"STEP "+(k+1),"sv-mono","start");
+    storyRow(grp,x+tw/2,ty+50,[{t:prefix}],{h:38,color:S.dec,fill:"#fff"});
+    ST(grp,x+tw/2,ty+112,"↓  Cross-Attention reads H","sv-small").setAttribute("fill",S.cross);
+    storyRow(grp,x+tw/2,ty+134,[{t:"predicts  "+nxt[k],c:S.dec,f:S.decS}],{h:38});
+    fadeIn(grp,8,320,when);
+    storyLater(when,function(){
+      if(k>0)storyAnim(dp[k].g,[{opacity:.12},{opacity:1}],{duration:300});
+      const pulse=SS("circle",{cx:869,cy:mid,r:7,fill:S.cross,opacity:0},g);
+      storyAnim(pulse,[{opacity:1,transform:"translateX(0px)"},{opacity:0,transform:"translateX(107px)"}],{duration:520});
+    });
+  }
+  storyLater(T0+4*TS+150,function(){fadeIn(ST(g,700,646,"The Encoder ran once. The Decoder ran four times. H was reused at every step.","sv-title"),8,420,0);});
+}
+
+
+/* =====================================================================
+   GUIDED TOUR + MODE SWITCH
+   The tour is a flat list of scenes. Each scene = (section, stage) plus an
+   optional `run` that sets the section's own controls (query token, step t,
+   mask location, toggles) so the narration always matches what is on screen.
+   Titles come from each section's caption; `g` is the short tour narration.
+   ===================================================================== */
+const TOUR=[
+  {sec:"s3",stage:3,title:"Big picture",g:"Encoder reads the source → H carries the source context → Decoder predicts the next token."},
+  {sec:"s1",stage:1,title:"Encoder self-attention",g:"Every source token can use context from every other source token.",run:function(){setS1Query(1);}},
+  {sec:"s1",stage:3,title:"Encoder output H",g:"The Encoder turns each source token into a contextual vector; together these vectors form H."},
+  {sec:"s2",stage:0,title:"Decoder starts from a prefix",g:"The Decoder receives only the target tokens that already exist.",run:function(){setS2T(3);}},
+  {sec:"s2",stage:1,title:"Decoder self-attention is causal",g:"Future target tokens are hidden: each position can only use itself and the tokens to its left."},
+  {sec:"s2",stage:4,title:"Generate the next token",g:"Linear + Softmax turns the Decoder state into a probability distribution over the next token."},
+  {sec:"s3",stage:2,title:"Connect Encoder and Decoder",g:"H is the bridge: every Decoder layer can consult the encoded source."},
+  {sec:"s4",stage:0,title:"Cross-attention · Query",g:"Q comes from the Decoder: what source information do I need right now?",run:function(){setS4Query(1);}},
+  {sec:"s4",stage:1,title:"Cross-attention · Key + Value",g:"K and V come from H: what source information is available?"},
+  {sec:"s4",stage:2,title:"Match Q to K",g:"Q·K scores become attention weights over the source tokens.",run:function(){setS4Query(2);}},
+  {sec:"s4",stage:3,title:"Read from V",g:"The weights mix V into a context vector and inject source information into the Decoder."},
+  {sec:"s5",stage:1,title:"Two masks, two jobs",g:"Padding masks hide meaningless <pad> tokens; causal masks hide future target tokens.",run:function(){setS5Where(1);}},
+  {sec:"s5",stage:2,title:"Mask before softmax",g:"Masked scores become −∞ before softmax, so their final attention weight becomes exactly zero.",run:function(){setS5Where(1);}},
+  {sec:"s6",stage:2,title:"Why the causal mask is necessary",g:"During training, a bidirectional Decoder could see the answer; the causal mask prevents that information leak.",run:function(){setS6Enc(1);setS6Dec(1);}},
+  {sec:"s6",stage:3,title:"Final takeaway",g:"Encoder: bidirectional context. Decoder: causal generation. Cross-attention connects them through H.",run:function(){setS6Enc(1);setS6Dec(0);}}
+]
+const SEC_NUM={s1:1,s2:2,s3:3,s4:4,s5:5,s6:6};
+
+function spotlight(id){                    // dim every section except `id`
+  document.querySelectorAll(".spotlightable").forEach(function(e){e.classList.toggle("dim",e.id!=="sec-"+id);});
+}
+function clearSpotlight(){document.querySelectorAll(".spotlightable").forEach(function(e){e.classList.remove("dim");});}
+
+function buildDots(){
+  const box=$("guidedDots");box.innerHTML="";
+  TOUR.forEach(function(sc,i){
+    const d=document.createElement("span");d.className="guided-dot"+((i===0||TOUR[i-1].sec!==sc.sec)?" sec-start":"");
+    box.appendChild(d);
+  });
+}
+function runScene(i){
+  const sc=TOUR[i],api=SECS[sc.sec];
+  state.guidedIndex=i;
+  /* stop any running auto-play so it cannot fight the tour */
+  Object.keys(SECS).forEach(function(k){removeTween(k+"play");$(k+"Play").textContent="▶ Play";});
+  removeTween("s2run");$("s2Run").textContent="▶ Run decoding";
+  spotlight(sc.sec);
+  document.body.classList.remove("show-formula");
+  $("sec-"+sc.sec).scrollIntoView({behavior:"smooth",block:"center"});
+  if(sc.run)sc.run();
+  api.setStage(sc.stage);
+  /* bar content */
+  const progress=String(i+1).padStart(2,"0")+" / "+String(TOUR.length).padStart(2,"0");
+  $("guidedTitle").innerHTML="<small>"+progress+"</small>"+(sc.title||api.cfg.caps[sc.stage].t);
+  $("guidedText").textContent=sc.g;
+  const hasFormula=!!$("sec-"+sc.sec).querySelector(".formula-box");
+  $("guidedFormula").disabled=!hasFormula;
+  $("guidedFormula").style.opacity=hasFormula?"1":".35";
+  document.querySelectorAll(".guided-dot").forEach(function(d,k){d.classList.toggle("active",k===i);});
+  $("guidedPrev").disabled=(i===0);
+  $("guidedNext").textContent=(i===TOUR.length-1)?"Finish ✓":"Next →";
+}
+function guidedStep(dir){
+  const i=state.guidedIndex+dir;
+  if(i>=TOUR.length){exitGuided();return;}
+  if(i<0)return;
+  runScene(i);
+}
+function enterGuided(){
+  storyClearTimers();state.mode="guided";
+  document.body.classList.remove("story");document.body.classList.add("classroom");
+  document.body.classList.remove("show-formula");setModeButtons("guided");
+  $("guidedBar").classList.remove("hidden");
+  buildDots();runScene(0);
+}
+function exitGuided(){
+  state.mode="explore";
+  document.body.classList.remove("story","classroom","show-formula");
+  $("guidedBar").classList.add("hidden");clearSpotlight();unpin();setModeButtons("explore");
+}
+
+/* =====================================================================
+   BOOT
+   ===================================================================== */
+initS1();initS2();initS3();initS4();initS5();initS6();
+renderDynamic();
+
+$("modeExplore").addEventListener("click",function(){ if(state.mode==="story") exitStory(); else exitGuided(); });
+$("modeGuided").addEventListener("click",enterGuided);
+$("modeStory").addEventListener("click",enterStory);
+$("guidedPrev").addEventListener("click",function(){guidedStep(-1);});
+$("guidedNext").addEventListener("click",function(){guidedStep(1);});
+$("guidedExit").addEventListener("click",exitGuided);
+$("guidedFormula").addEventListener("click",function(){if(!this.disabled)document.body.classList.toggle("show-formula");});
+$("guidedFull").addEventListener("click",function(){
+  if(!document.fullscreenElement){document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen();}
+  else{document.exitFullscreen&&document.exitFullscreen();}
+});
+$("guidedStory").addEventListener("click",enterStory);
+
+/* V4 opens in Story mode; Explore and the V2 Classroom mode remain one click away. */
+$("storyPrev").addEventListener("click",function(){storyStep(-1);});
+$("storyNext").addEventListener("click",function(){storyStep(1);});
+$("storyReplay").addEventListener("click",function(){storyScene(storyIndex);});
+$("storyClassroom").addEventListener("click",enterGuided);
+$("storyExplore").addEventListener("click",exitStory);
+$("storyFull").addEventListener("click",function(){if(!document.fullscreenElement){document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen();}else{document.exitFullscreen&&document.exitFullscreen();}});
+document.addEventListener("keydown",function(e){
+  if(state.mode!=="story")return;
+  if(e.key==="ArrowRight"){e.preventDefault();storyStep(1);}
+  else if(e.key==="ArrowLeft"){e.preventDefault();storyStep(-1);}
+  else if(e.key===" "||e.code==="Space"){e.preventDefault();storyScene(storyIndex);}
+  else if(e.key==="Escape"){exitStory();}
+});
+enterStory();
+
+/* scroll-spy for the sticky nav */
+function spy(){
+  let cur=null;
+  document.querySelectorAll("section.block").forEach(function(s){if(s.getBoundingClientRect().top<170)cur=s.id.slice(4);});
+  document.querySelectorAll("#topnav a").forEach(function(a){a.classList.toggle("active",a.getAttribute("data-nav")===cur);});
+}
+window.addEventListener("scroll",spy,{passive:true});spy();
+/* the SVGs scale with their container (viewBox); only a pinned tooltip needs re-anchoring */
+window.addEventListener("resize",function(){if(tipEl.classList.contains("pinned"))showPinnedTip();});
+
+})();
+</script>
+</body>
+</html>

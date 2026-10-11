@@ -214,6 +214,64 @@ hide_title: true
       </div>
     </article>
 
+    <article class="demo-card">
+      <a class="demo-card__thumb" href="{{ '/assets/demos/lecture-5/demo-4/' | relative_url }}">
+        <img src="{{ '/images/teaching/lecture-5/demo-4.png' | relative_url }}" alt="Transformer encoder-decoder demo preview" loading="lazy">
+        <span class="demo-card__play">▶ Interactive</span>
+      </a>
+      <div class="demo-card__body">
+        <span class="demo-card__badge">Demo 4</span>
+        <h3 class="demo-card__title">Transformer Encoder–Decoder</h3>
+        <p class="demo-card__desc">Explore how the encoder, decoder, cross-attention, and masks work together.</p>
+        <a class="demo-card__cta" href="{{ '/assets/demos/lecture-5/demo-4/' | relative_url }}">Open Demo →</a>
+      </div>
+    </article>
+
+  </div>
+
+  <h2 id="lecture-6">Lecture 6 · Generation, Decoding &amp; Inference</h2>
+
+  <div class="demo-gallery">
+
+    <article class="demo-card">
+      <a class="demo-card__thumb" href="{{ '/assets/demos/lecture-6/demo-1/' | relative_url }}">
+        <img src="{{ '/images/teaching/lecture-6/demo-1.png' | relative_url }}" alt="Decoding Lab demo preview" loading="lazy">
+        <span class="demo-card__play">▶ Interactive</span>
+      </a>
+      <div class="demo-card__body">
+        <span class="demo-card__badge">Demo 1</span>
+        <h3 class="demo-card__title">Decoding Lab</h3>
+        <p class="demo-card__desc">Compare greedy decoding, beam search, temperature, top-k, and top-p to see how scores become generated text.</p>
+        <a class="demo-card__cta" href="{{ '/assets/demos/lecture-6/demo-1/' | relative_url }}">Open Demo →</a>
+      </div>
+    </article>
+
+    <article class="demo-card">
+      <a class="demo-card__thumb" href="{{ '/assets/demos/lecture-6/demo-2/' | relative_url }}">
+        <img src="{{ '/images/teaching/lecture-6/demo-2.png' | relative_url }}" alt="KV Cache Lab demo preview" loading="lazy">
+        <span class="demo-card__play">▶ Interactive</span>
+      </a>
+      <div class="demo-card__body">
+        <span class="demo-card__badge">Demo 2</span>
+        <h3 class="demo-card__title">KV Cache Lab</h3>
+        <p class="demo-card__desc">Step through generation with and without a KV cache, then explore prefill, decode, and the compute–memory trade-off.</p>
+        <a class="demo-card__cta" href="{{ '/assets/demos/lecture-6/demo-2/' | relative_url }}">Open Demo →</a>
+      </div>
+    </article>
+
+    <article class="demo-card">
+      <a class="demo-card__thumb" href="{{ '/assets/demos/lecture-6/demo-3/' | relative_url }}">
+        <img src="{{ '/images/teaching/lecture-6/demo-3.png' | relative_url }}" alt="Speculative Decoding Lab demo preview" loading="lazy">
+        <span class="demo-card__play">▶ Interactive</span>
+      </a>
+      <div class="demo-card__body">
+        <span class="demo-card__badge">Demo 3</span>
+        <h3 class="demo-card__title">Speculative Decoding Lab</h3>
+        <p class="demo-card__desc">Draft tokens with a small model and verify them with a larger model; explore acceptance, correction, and speed-up.</p>
+        <a class="demo-card__cta" href="{{ '/assets/demos/lecture-6/demo-3/' | relative_url }}">Open Demo →</a>
+      </div>
+    </article>
+
   </div>
 
 </div>
