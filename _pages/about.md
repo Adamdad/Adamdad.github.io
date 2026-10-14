@@ -51,7 +51,7 @@ Hi, my name is Xingyi Yang (Adam). I am a Tenure-Track Assistant Professor in th
 
 I received my Ph.D. from the National University of Singapore (NUS), advised by Prof. Xinchao Wang. I also had a wonderful time as a visiting Ph.D. student at the University of Oxford, working with Prof. Philip Torr. Prior to that, I completed my Master's at UC San Diego (UCSD) and my Bachelor's at Southeast University (SEU).
 
-My research spans **Machine Learning**, **Generative AI**, and **Computer Vision**, with a particular focus on building intelligent systems that can generate, reconstruct, reason about, and interact with dynamic physical worlds. Recent recognitions include the AAAI 2026 New Faculty Highlight, a NeurIPS 2022 Best Paper Honorable Mention, and Forbes 30 Under 30 Asia.
+My research spans **Machine Learning**, **Generative AI**, and **Computer Vision**, with a focus on developing intelligent systems that can generate, reconstruct, reason about, and interact with dynamic physical worlds. My research and achievements have been recognized through the AAAI 2026 New Faculty Highlight, a NeurIPS 2022 Best Paper Honorable Mention, and Forbes 30 Under 30 Asia. I was also named among the Stanford/Elsevier World's Top 2% Scientists (2026).
 
 <div class="callout">
   I am looking for self-motivated PhDs, postdocs, and RAs for 2027 Spring/Fall. Please see <a href="{{ '/opening' | relative_url }}">Opening</a>. Email: <a href="mailto:xingyi.yang@polyu.edu.hk"><strong>xingyi.yang@polyu.edu.hk</strong></a>.
